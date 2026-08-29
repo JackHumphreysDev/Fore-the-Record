@@ -21,4 +21,4 @@ Sensitive values such as database connection strings and API credentials are sto
 
 The project foundation is complete. It includes a React and TypeScript frontend, an Express and TypeScript backend, a tested API health endpoint, and a Prisma schema connected to a Supabase PostgreSQL database. The initial database migration has been created and deployed successfully.
 
-The application features are still under development. The core handicap calculation domain logic and backend profile creation endpoint are implemented; the frontend profile flow, course lookup through RapidAPI, scorecard entry and round persistence, round history, and Vercel deployment have not yet been implemented.
+The application features are still under development. The core handicap calculation domain logic, backend profile creation endpoint, and two-tier backend course ratings lookup endpoint are implemented; the frontend profile and course-search flows, course and tee persistence, scorecard entry and round persistence, round history, and Vercel deployment have not yet been implemented.
