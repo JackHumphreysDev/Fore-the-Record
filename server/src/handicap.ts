@@ -84,13 +84,15 @@ export function calculateHandicapIndex(
     return null
   }
 
-  const averageDifferential =
-    countingDifferentials.reduce(
-      (total, scoreDifferential) => total + scoreDifferential,
-      0,
-    ) / countingDifferentials.length
+  const totalDifferentialTenths = countingDifferentials.reduce(
+    (total, scoreDifferential) =>
+      total + Math.round(scoreDifferential * 10),
+    0,
+  )
+  const handicapIndex =
+    Math.trunc(totalDifferentialTenths / countingDifferentials.length) / 10
 
-  return roundToOneDecimal(averageDifferential)
+  return Object.is(handicapIndex, -0) ? 0 : handicapIndex
 }
 
 function getDatePlayedTimestamp(round: HandicapRoundInput): number {

@@ -59,6 +59,12 @@ describe('calculateHandicapIndex', () => {
     expect(result).toBe(4.5)
   })
 
+  it('truncates the handicap index to one decimal place', () => {
+    const result = calculateHandicapIndex([10, 10, 10.2])
+
+    expect(result).toBe(10)
+  })
+
   it('returns no index when there are no score differentials', () => {
     expect(calculateHandicapIndex([])).toBeNull()
   })
