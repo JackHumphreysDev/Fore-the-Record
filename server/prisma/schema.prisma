@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TeeSource {
+  API             @map("api")
+  FALLBACK_SCRAPE @map("fallback_scrape")
+  MANUAL          @map("manual")
+}
+
+enum WeatherCondition {
+  DRY
+  MOIST
+  WET
+  SUPER_WET
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  email         String   @unique
+  homeClubId    String?  @db.Uuid
+  handicapIndex Decimal? @db.Decimal(4, 1)
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  homeClub      Club?    @relation(fields: [homeClubId], references: [id], onDelete: SetNull)
+  rounds        Round[]
+}
+
+model Club {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  latitude  Float?
+  longitude Float?
+  members   User[]
+  courses   Course[]
+}
+
+model Course {
+  id     String @id @default(uuid()) @db.Uuid
+  clubId String @db.Uuid
+  name   String
+  club   Club   @relation(fields: [clubId], references: [id])
+  tees   Tee[]
+}
+
+model Tee {
+  id           String    @id @default(uuid()) @db.Uuid
+  courseId     String    @db.Uuid
+  teeName      String
+  courseRating Decimal   @db.Decimal(4, 1)
+  slopeRating  Int
+  par          Int?
+  source       TeeSource
+  course       Course    @relation(fields: [courseId], references: [id])
+  rounds       Round[]
+}
+
+model Round {
+  id                 String           @id @default(uuid()) @db.Uuid
+  userId             String           @db.Uuid
+  teeId              String           @db.Uuid
+  datePlayed         DateTime         @db.Date
+  grossScore         Int
+  adjustedGrossScore Int
+  isCapped           Boolean          @default(false)
+  weatherCondition   WeatherCondition
+  /// Manual override; automated club-wide PCC calculation is out of scope.
+  pccAdjustment      Decimal          @default(0) @db.Decimal(2, 1)
+  scoreDifferential  Decimal          @db.Decimal(4, 1)
+  user               User             @relation(fields: [userId], references: [id])
+  tee                Tee              @relation(fields: [teeId], references: [id])
+  /// Explicitly determined by the application's handicap rules configuration.
+  isAcceptable       Boolean
+  /// Uses the product's simplified best 8 of up to 20 recent acceptable rounds.
+  usedInHandicapCalc Boolean          @default(false)
+  createdAt          DateTime         @default(now()) @db.Timestamptz(3)
+  holeScores         HoleScore[]
+}
+
+model HoleScore {
+  id           String @id @default(uuid()) @db.Uuid
+  roundId      String @db.Uuid
+  holeNumber   Int
+  par          Int
+  strokeIndex  Int
+  strokesTaken Int
+  round        Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, holeNumber])
+}
