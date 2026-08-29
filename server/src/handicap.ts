@@ -1,6 +1,22 @@
 const MAX_RECENT_ROUNDS = 20
 const MAX_COUNTING_ROUNDS = 8
 
+export type AdjustedGrossScoreInput = {
+  grossScore: number
+  holeScores?: readonly AdjustedGrossScoreHoleInput[]
+}
+
+export type AdjustedGrossScoreHoleInput = {
+  par: number
+  strokesTaken: number
+  handicapStrokesReceived: number
+}
+
+export type AdjustedGrossScoreResult = {
+  adjustedGrossScore: number
+  isCapped: boolean
+}
+
 export type ScoreDifferentialInput = {
   adjustedGrossScore: number
   courseRating: number
@@ -19,6 +35,38 @@ export type HandicapCalculation = {
   handicapIndex: number | null
   consideredRoundIds: string[]
   usedRoundIds: string[]
+}
+
+export function calculateAdjustedGrossScore({
+  grossScore,
+  holeScores,
+}: AdjustedGrossScoreInput): AdjustedGrossScoreResult {
+  if (!holeScores?.length) {
+    return {
+      adjustedGrossScore: grossScore,
+      isCapped: false,
+    }
+  }
+
+  const adjustedHoles = holeScores.map(
+    ({ par, strokesTaken, handicapStrokesReceived }) => {
+      const maximumHoleScore = par + 2 + handicapStrokesReceived
+      const adjustedHoleScore = Math.min(strokesTaken, maximumHoleScore)
+
+      return {
+        adjustedHoleScore,
+        isCapped: adjustedHoleScore < strokesTaken,
+      }
+    },
+  )
+
+  return {
+    adjustedGrossScore: adjustedHoles.reduce(
+      (total, hole) => total + hole.adjustedHoleScore,
+      0,
+    ),
+    isCapped: adjustedHoles.some((hole) => hole.isCapped),
+  }
 }
 
 function roundToOneDecimal(value: number): number {

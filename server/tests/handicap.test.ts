@@ -1,10 +1,45 @@
 import { describe, expect, it } from 'vitest'
 import {
+  calculateAdjustedGrossScore,
   calculateHandicap,
   calculateHandicapIndex,
   calculateScoreDifferential,
   type HandicapRoundInput,
 } from '../src/handicap.js'
+
+describe('calculateAdjustedGrossScore', () => {
+  it('uses the gross score without capping when hole scores are unavailable', () => {
+    const result = calculateAdjustedGrossScore({ grossScore: 95 })
+
+    expect(result).toEqual({
+      adjustedGrossScore: 95,
+      isCapped: false,
+    })
+  })
+
+  it('caps each hole at net double bogey when hole scores are available', () => {
+    const result = calculateAdjustedGrossScore({
+      grossScore: 14,
+      holeScores: [
+        {
+          par: 4,
+          strokesTaken: 9,
+          handicapStrokesReceived: 1,
+        },
+        {
+          par: 3,
+          strokesTaken: 5,
+          handicapStrokesReceived: 0,
+        },
+      ],
+    })
+
+    expect(result).toEqual({
+      adjustedGrossScore: 12,
+      isCapped: true,
+    })
+  })
+})
 
 describe('calculateScoreDifferential', () => {
   it('calculates and rounds a score differential to one decimal place', () => {
