@@ -1,18 +1,23 @@
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { clubCreateMock, getCourseRatingsMock, userCreateMock } = vi.hoisted(
-  () => ({
+const {
+  clubCreateMock,
+  clubFindFirstMock,
+  getCourseRatingsMock,
+  userCreateMock,
+} = vi.hoisted(() => ({
     clubCreateMock: vi.fn(),
+    clubFindFirstMock: vi.fn(),
     getCourseRatingsMock: vi.fn(),
     userCreateMock: vi.fn(),
-  }),
-)
+  }))
 
 vi.mock('../src/database.js', () => ({
   prisma: {
     club: {
       create: clubCreateMock,
+      findFirst: clubFindFirstMock,
     },
     user: {
       create: userCreateMock,
@@ -28,6 +33,7 @@ import app from '../src/app.js'
 
 beforeEach(() => {
   clubCreateMock.mockReset()
+  clubFindFirstMock.mockReset()
   getCourseRatingsMock.mockReset()
   userCreateMock.mockReset()
 })
@@ -41,6 +47,107 @@ describe('GET /api/health', () => {
 })
 
 describe('GET /api/courses/search', () => {
+  it('should return saved local ratings without calling the external lookup', async () => {
+    clubFindFirstMock.mockResolvedValueOnce({
+      id: '55555555-5555-4555-8555-555555555555',
+      name: 'Example Golf Club',
+      latitude: null,
+      longitude: null,
+      courses: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          clubId: '55555555-5555-4555-8555-555555555555',
+          name: 'Old Course',
+          tees: [
+            {
+              id: '44444444-4444-4444-8444-444444444444',
+              courseId: '33333333-3333-4333-8333-333333333333',
+              teeName: 'Championship',
+              courseRating: 73.1,
+              slopeRating: 137,
+              par: 70,
+              source: 'API',
+            },
+          ],
+        },
+      ],
+    })
+
+    const response = await request(app).get(
+      '/api/courses/search?q=Example%20Golf%20Club',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      clubName: 'Example Golf Club',
+      source: 'api',
+      tees: [
+        {
+          courseName: 'Old Course',
+          teeName: 'Championship',
+          courseRating: 73.1,
+          slopeRating: 137,
+          par: 70,
+        },
+      ],
+    })
+    expect(clubFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        name: {
+          equals: 'Example Golf Club',
+          mode: 'insensitive',
+        },
+      },
+      include: {
+        courses: {
+          include: {
+            tees: true,
+          },
+        },
+      },
+    })
+    expect(getCourseRatingsMock).not.toHaveBeenCalled()
+  })
+
+  it('should use the external lookup when a saved club has no tees', async () => {
+    clubFindFirstMock.mockResolvedValueOnce({
+      id: '55555555-5555-4555-8555-555555555555',
+      name: 'Example Golf Club',
+      latitude: null,
+      longitude: null,
+      courses: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          clubId: '55555555-5555-4555-8555-555555555555',
+          name: 'Old Course',
+          tees: [],
+        },
+      ],
+    })
+    const externalCourseData = {
+      clubName: 'Example Golf Club',
+      source: 'api',
+      tees: [
+        {
+          courseName: 'Old Course',
+          teeName: 'Championship',
+          courseRating: 73.1,
+          slopeRating: 137,
+          par: 70,
+        },
+      ],
+    }
+    getCourseRatingsMock.mockResolvedValueOnce(externalCourseData)
+
+    const response = await request(app).get(
+      '/api/courses/search?q=Example%20Golf%20Club',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual(externalCourseData)
+    expect(getCourseRatingsMock).toHaveBeenCalledWith('Example Golf Club')
+  })
+
   it('should return normalized ratings for the requested club', async () => {
     const courseData = {
       clubName: 'Sickleholme Golf Club',

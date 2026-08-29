@@ -1,7 +1,19 @@
 import express from 'express'
-import { getCourseRatings } from './courseRatings.js'
+import { getCourseRatings, type CourseData } from './courseRatings.js'
 import { prisma } from './database.js'
-import { TeeSource } from './generated/prisma/enums.js'
+import {
+  TeeSource,
+  type TeeSource as TeeSourceValue,
+} from './generated/prisma/enums.js'
+
+const COURSE_DATA_SOURCE_BY_TEE_SOURCE: Record<
+  TeeSourceValue,
+  CourseData['source']
+> = {
+  [TeeSource.API]: 'api',
+  [TeeSource.FALLBACK_SCRAPE]: 'fallback_scrape',
+  [TeeSource.MANUAL]: 'manual',
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -40,7 +52,42 @@ app.get('/api/courses/search', async (request, response) => {
     return
   }
 
-  const courseData = await getCourseRatings(query.trim())
+  const clubName = query.trim()
+  const localClub = await prisma.club.findFirst({
+    where: {
+      name: {
+        equals: clubName,
+        mode: 'insensitive',
+      },
+    },
+    include: {
+      courses: {
+        include: {
+          tees: true,
+        },
+      },
+    },
+  })
+  const firstLocalTee = localClub?.courses[0]?.tees[0]
+
+  if (localClub && firstLocalTee) {
+    response.status(200).json({
+      clubName: localClub.name,
+      source: COURSE_DATA_SOURCE_BY_TEE_SOURCE[firstLocalTee.source],
+      tees: localClub.courses.flatMap((course) =>
+        course.tees.map((tee) => ({
+          courseName: course.name,
+          teeName: tee.teeName,
+          courseRating: Number(tee.courseRating),
+          slopeRating: tee.slopeRating,
+          ...(tee.par === null ? {} : { par: tee.par }),
+        })),
+      ),
+    } satisfies CourseData)
+    return
+  }
+
+  const courseData = await getCourseRatings(clubName)
 
   if (!courseData) {
     response.status(404).json({
