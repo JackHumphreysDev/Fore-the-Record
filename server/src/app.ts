@@ -1,6 +1,36 @@
 import express from 'express'
-import { getCourseRatings } from './courseRatings.js'
+import { getCourseRatings, type CourseData } from './courseRatings.js'
 import { prisma } from './database.js'
+import {
+  TeeSource,
+  type TeeSource as TeeSourceValue,
+} from './generated/prisma/enums.js'
+
+const COURSE_DATA_SOURCE_BY_TEE_SOURCE: Record<
+  TeeSourceValue,
+  CourseData['source']
+> = {
+  [TeeSource.API]: 'api',
+  [TeeSource.FALLBACK_SCRAPE]: 'fallback_scrape',
+  [TeeSource.MANUAL]: 'manual',
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function getTeeSource(source: unknown) {
+  switch (source) {
+    case 'api':
+      return TeeSource.API
+    case 'fallback_scrape':
+      return TeeSource.FALLBACK_SCRAPE
+    case 'manual':
+      return TeeSource.MANUAL
+    default:
+      return null
+  }
+}
 
 const app = express()
 
@@ -22,7 +52,42 @@ app.get('/api/courses/search', async (request, response) => {
     return
   }
 
-  const courseData = await getCourseRatings(query.trim())
+  const clubName = query.trim()
+  const localClub = await prisma.club.findFirst({
+    where: {
+      name: {
+        equals: clubName,
+        mode: 'insensitive',
+      },
+    },
+    include: {
+      courses: {
+        include: {
+          tees: true,
+        },
+      },
+    },
+  })
+  const firstLocalTee = localClub?.courses[0]?.tees[0]
+
+  if (localClub && firstLocalTee) {
+    response.status(200).json({
+      clubName: localClub.name,
+      source: COURSE_DATA_SOURCE_BY_TEE_SOURCE[firstLocalTee.source],
+      tees: localClub.courses.flatMap((course) =>
+        course.tees.map((tee) => ({
+          courseName: course.name,
+          teeName: tee.teeName,
+          courseRating: Number(tee.courseRating),
+          slopeRating: tee.slopeRating,
+          ...(tee.par === null ? {} : { par: tee.par }),
+        })),
+      ),
+    } satisfies CourseData)
+    return
+  }
+
+  const courseData = await getCourseRatings(clubName)
 
   if (!courseData) {
     response.status(404).json({
@@ -32,6 +97,95 @@ app.get('/api/courses/search', async (request, response) => {
   }
 
   response.status(200).json(courseData)
+})
+
+app.post('/api/courses', async (request, response) => {
+  const body: unknown = request.body
+
+  if (!isRecord(body)) {
+    response.status(400).json({ error: 'Invalid course data' })
+    return
+  }
+
+  const clubName = body.clubName
+  const source = getTeeSource(body.source)
+  const tees = body.tees
+
+  if (
+    typeof clubName !== 'string' ||
+    clubName.trim() === '' ||
+    !source ||
+    !Array.isArray(tees) ||
+    tees.length === 0
+  ) {
+    response.status(400).json({ error: 'Invalid course data' })
+    return
+  }
+
+  const coursesByName = new Map<
+    string,
+    Array<{
+      teeName: string
+      courseRating: number
+      slopeRating: number
+      par?: number
+      source: typeof source
+    }>
+  >()
+
+  for (const tee of tees) {
+    if (
+      !isRecord(tee) ||
+      typeof tee.courseName !== 'string' ||
+      tee.courseName.trim() === '' ||
+      typeof tee.teeName !== 'string' ||
+      tee.teeName.trim() === '' ||
+      typeof tee.courseRating !== 'number' ||
+      !Number.isFinite(tee.courseRating) ||
+      typeof tee.slopeRating !== 'number' ||
+      !Number.isInteger(tee.slopeRating) ||
+      (tee.par !== undefined &&
+        (typeof tee.par !== 'number' || !Number.isInteger(tee.par)))
+    ) {
+      response.status(400).json({ error: 'Invalid course data' })
+      return
+    }
+
+    const courseName = tee.courseName.trim()
+    const courseTees = coursesByName.get(courseName) ?? []
+
+    courseTees.push({
+      teeName: tee.teeName.trim(),
+      courseRating: tee.courseRating,
+      slopeRating: tee.slopeRating,
+      ...(typeof tee.par === 'number' ? { par: tee.par } : {}),
+      source,
+    })
+    coursesByName.set(courseName, courseTees)
+  }
+
+  const club = await prisma.club.create({
+    data: {
+      name: clubName.trim(),
+      courses: {
+        create: [...coursesByName].map(([courseName, courseTees]) => ({
+          name: courseName,
+          tees: {
+            create: courseTees,
+          },
+        })),
+      },
+    },
+    include: {
+      courses: {
+        include: {
+          tees: true,
+        },
+      },
+    },
+  })
+
+  response.status(201).json(club)
 })
 
 app.post('/api/users', async (request, response) => {

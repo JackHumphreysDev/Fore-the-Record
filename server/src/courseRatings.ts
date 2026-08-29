@@ -8,7 +8,7 @@ export type CourseTeeData = {
 
 export type CourseData = {
   clubName: string
-  source: 'api' | 'fallback_scrape'
+  source: 'api' | 'fallback_scrape' | 'manual'
   tees: CourseTeeData[]
 }
 
