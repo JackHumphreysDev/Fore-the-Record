@@ -1,7 +1,8 @@
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { userCreateMock } = vi.hoisted(() => ({
+const { getCourseRatingsMock, userCreateMock } = vi.hoisted(() => ({
+  getCourseRatingsMock: vi.fn(),
   userCreateMock: vi.fn(),
 }))
 
@@ -13,9 +14,14 @@ vi.mock('../src/database.js', () => ({
   },
 }))
 
+vi.mock('../src/courseRatings.js', () => ({
+  getCourseRatings: getCourseRatingsMock,
+}))
+
 import app from '../src/app.js'
 
 beforeEach(() => {
+  getCourseRatingsMock.mockReset()
   userCreateMock.mockReset()
 })
 
@@ -24,6 +30,54 @@ describe('GET /api/health', () => {
     const response = await request(app).get('/api/health')
     expect(response.status).toBe(200)
     expect(response.body).toEqual({ status: 'ok' })
+  })
+})
+
+describe('GET /api/courses/search', () => {
+  it('should return normalized ratings for the requested club', async () => {
+    const courseData = {
+      clubName: 'Sickleholme Golf Club',
+      source: 'fallback_scrape',
+      tees: [
+        {
+          teeName: "Men's White",
+          courseRating: 72.4,
+          slopeRating: 130,
+        },
+      ],
+    }
+    getCourseRatingsMock.mockResolvedValueOnce(courseData)
+
+    const response = await request(app).get(
+      '/api/courses/search?q=Sickleholme%20Golf%20Club',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual(courseData)
+    expect(getCourseRatingsMock).toHaveBeenCalledWith('Sickleholme Golf Club')
+  })
+
+  it('should return 400 when the search query is missing', async () => {
+    const response = await request(app).get('/api/courses/search')
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: 'Course search query is required',
+    })
+    expect(getCourseRatingsMock).not.toHaveBeenCalled()
+  })
+
+  it('should return 404 when course ratings are not found', async () => {
+    getCourseRatingsMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get(
+      '/api/courses/search?q=Unknown',
+    )
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({
+      error: 'Course ratings not found',
+    })
   })
 })
 

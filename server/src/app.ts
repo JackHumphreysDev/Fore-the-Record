@@ -1,4 +1,5 @@
 import express from 'express'
+import { getCourseRatings } from './courseRatings.js'
 import { prisma } from './database.js'
 
 const app = express()
@@ -9,6 +10,28 @@ app.get('/api/health', (_request, response) => {
   response.status(200).json({
     status: 'ok',
   })
+})
+
+app.get('/api/courses/search', async (request, response) => {
+  const query = request.query.q
+
+  if (typeof query !== 'string' || query.trim() === '') {
+    response.status(400).json({
+      error: 'Course search query is required',
+    })
+    return
+  }
+
+  const courseData = await getCourseRatings(query.trim())
+
+  if (!courseData) {
+    response.status(404).json({
+      error: 'Course ratings not found',
+    })
+    return
+  }
+
+  response.status(200).json(courseData)
 })
 
 app.post('/api/users', async (request, response) => {
