@@ -1,8 +1,8 @@
 {
-  "name": "golf-history-tracker",
+  "name": "fore-the-record",
   "version": "0.1.0",
   "private": true,
-  "description": "Golf History Tracker is a web application for recording golf rounds and tracking a player's World Handicap System (WHS) Handicap Index over time. Users will be able to create a profile, find golf courses and tees, enter scorecards and playing conditions, and review which rounds contribute to their current handicap.",
+  "description": "Fore the Record is a web application for recording golf rounds and tracking a player's World Handicap System (WHS) Handicap Index over time. Users will be able to create a profile, find golf courses and tees, enter scorecards and playing conditions, and review which rounds contribute to their current handicap.",
   "workspaces": [
     "client",
     "server"
