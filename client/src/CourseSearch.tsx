@@ -9,13 +9,13 @@ type CourseTee = {
   courseRating: number
   slopeRating: number
   par?: number
+  isSaved: boolean
 }
 
 type CourseSearchResult = {
   clubName: string
   source: CourseSource
   tees: CourseTee[]
-  isSaved: boolean
 }
 
 type CourseGroup = {
@@ -38,7 +38,6 @@ function isCourseSearchResult(value: unknown): value is CourseSearchResult {
     !isRecord(value) ||
     typeof value.clubName !== 'string' ||
     !['api', 'fallback_scrape', 'manual'].includes(String(value.source)) ||
-    typeof value.isSaved !== 'boolean' ||
     !Array.isArray(value.tees)
   ) {
     return false
@@ -51,7 +50,8 @@ function isCourseSearchResult(value: unknown): value is CourseSearchResult {
       typeof tee.teeName === 'string' &&
       typeof tee.courseRating === 'number' &&
       typeof tee.slopeRating === 'number' &&
-      (tee.par === undefined || typeof tee.par === 'number'),
+      (tee.par === undefined || typeof tee.par === 'number') &&
+      typeof tee.isSaved === 'boolean',
   )
 }
 
@@ -94,7 +94,6 @@ function CourseSearch() {
   const [searchMessage, setSearchMessage] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [isSaved, setIsSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
@@ -111,7 +110,6 @@ function CourseSearch() {
     setSearchMessage('')
     setSaveError('')
     setResult(null)
-    setIsSaved(false)
     setIsSearching(true)
 
     try {
@@ -142,8 +140,11 @@ function CourseSearch() {
       }
 
       setResult(body)
-      setIsSaved(body.isSaved)
-      setSelectedTeeIndexes(new Set(body.tees.map((_, index) => index)))
+      setSelectedTeeIndexes(
+        new Set(
+          body.tees.flatMap((tee, index) => (tee.isSaved ? [] : [index])),
+        ),
+      )
     } catch (error: unknown) {
       setSearchMessage(
         error instanceof TypeError
@@ -177,8 +178,9 @@ function CourseSearch() {
       return
     }
 
-    const selectedTees = result.tees.filter((_, index) =>
-      selectedTeeIndexes.has(index),
+    const teeIndexesToSave = new Set(selectedTeeIndexes)
+    const selectedTees = result.tees.filter(
+      (tee, index) => teeIndexesToSave.has(index) && !tee.isSaved,
     )
 
     if (selectedTees.length === 0) {
@@ -217,7 +219,26 @@ function CourseSearch() {
         )
       }
 
-      setIsSaved(true)
+      setResult((currentResult) =>
+        currentResult
+          ? {
+              ...currentResult,
+              tees: currentResult.tees.map((tee, index) =>
+                teeIndexesToSave.has(index)
+                  ? { ...tee, isSaved: true }
+                  : tee,
+              ),
+            }
+          : currentResult,
+      )
+      setSelectedTeeIndexes(
+        (currentIndexes) =>
+          new Set(
+            [...currentIndexes].filter(
+              (index) => !teeIndexesToSave.has(index),
+            ),
+          ),
+      )
     } catch (error: unknown) {
       setSaveError(
         error instanceof TypeError
@@ -233,6 +254,11 @@ function CourseSearch() {
 
   const courseGroups = result ? getCourseGroups(result) : []
   const selectedTeeCount = selectedTeeIndexes.size
+  const savedTeeCount = result?.tees.filter((tee) => tee.isSaved).length ?? 0
+  const allTeesSaved =
+    result !== null &&
+    result.tees.length > 0 &&
+    savedTeeCount === result.tees.length
 
   return (
     <section className="courses-page" id="courses">
@@ -339,8 +365,14 @@ function CourseSearch() {
                 </div>
                 <h2>{result.clubName}</h2>
               </div>
-              <span className={isSaved ? 'saved-badge' : 'lookup-badge'}>
-                {isSaved ? 'Saved' : 'Ready to confirm'}
+              <span
+                className={allTeesSaved ? 'saved-badge' : 'lookup-badge'}
+              >
+                {allTeesSaved
+                  ? 'Saved'
+                  : savedTeeCount > 0
+                    ? `${savedTeeCount} saved`
+                    : 'Ready to confirm'}
               </span>
             </header>
 
@@ -358,10 +390,11 @@ function CourseSearch() {
                   <div className="tee-list">
                     {group.tees.map(({ index, tee }) => (
                       <div className="tee-row" key={`${tee.teeName}-${index}`}>
-                        {!isSaved ? (
+                        {!tee.isSaved ? (
                           <input
                             type="checkbox"
                             checked={selectedTeeIndexes.has(index)}
+                            disabled={isSaving}
                             aria-label={`Select ${tee.teeName} tee`}
                             onChange={() => toggleTee(index)}
                           />
@@ -393,12 +426,12 @@ function CourseSearch() {
               ))}
             </div>
 
-            {isSaved ? (
+            {allTeesSaved ? (
               <div className="course-saved-message" role="status">
                 <span aria-hidden="true">✓</span>
                 <div>
-                  <strong>This club is in your course library.</strong>
-                  <small>Its tees are ready for round entry.</small>
+                  <strong>All shown tees are in your course library.</strong>
+                  <small>They are ready for round entry.</small>
                 </div>
               </div>
             ) : (

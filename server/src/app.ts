@@ -4,6 +4,7 @@ import {
   getClubNameSearchTerms,
 } from './clubNameMatch.js'
 import { getCourseRatings, type CourseData } from './courseRatings.js'
+import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
 import {
   TeeSource,
@@ -27,8 +28,20 @@ const COURSE_DATA_SOURCE_BY_TEE_SOURCE: Record<
   [TeeSource.MANUAL]: 'manual',
 }
 
+type TeePersistenceData = {
+  teeName: string
+  courseRating: number
+  slopeRating: number
+  par?: number
+  source: TeeSourceValue
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function normalizeLabel(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function getTeeSource(source: unknown) {
@@ -193,26 +206,24 @@ app.get('/api/courses/search', async (request, response) => {
   })
   const localClub = findBestClubNameMatch(localClubs, clubName)
   const firstLocalTee = localClub?.courses[0]?.tees[0]
-
-  if (localClub && firstLocalTee) {
-    response.status(200).json({
-      clubName: localClub.name,
-      source: COURSE_DATA_SOURCE_BY_TEE_SOURCE[firstLocalTee.source],
-      tees: localClub.courses.flatMap((course) =>
-        course.tees.map((tee) => ({
-          courseName: course.name,
-          teeName: tee.teeName,
-          courseRating: Number(tee.courseRating),
-          slopeRating: tee.slopeRating,
-          ...(tee.par === null ? {} : { par: tee.par }),
-        })),
-      ),
-      isSaved: true,
-    } satisfies CourseData & { isSaved: true })
-    return
-  }
-
-  const courseData = await getCourseRatings(clubName)
+  const savedCourseData: CourseData | null =
+    localClub && firstLocalTee
+      ? {
+          clubName: localClub.name,
+          source: COURSE_DATA_SOURCE_BY_TEE_SOURCE[firstLocalTee.source],
+          tees: localClub.courses.flatMap((course) =>
+            course.tees.map((tee) => ({
+              courseName: course.name,
+              teeName: tee.teeName,
+              courseRating: Number(tee.courseRating),
+              slopeRating: tee.slopeRating,
+              ...(tee.par === null ? {} : { par: tee.par }),
+            })),
+          ),
+        }
+      : null
+  const lookupData = await getCourseRatings(localClub?.name ?? clubName)
+  const courseData = mergeCourseSearchData(lookupData, savedCourseData)
 
   if (!courseData) {
     response.status(404).json({
@@ -221,10 +232,7 @@ app.get('/api/courses/search', async (request, response) => {
     return
   }
 
-  response.status(200).json({
-    ...courseData,
-    isSaved: false,
-  })
+  response.status(200).json(courseData)
 })
 
 app.post('/api/courses', async (request, response) => {
@@ -250,16 +258,7 @@ app.post('/api/courses', async (request, response) => {
     return
   }
 
-  const coursesByName = new Map<
-    string,
-    Array<{
-      teeName: string
-      courseRating: number
-      slopeRating: number
-      par?: number
-      source: typeof source
-    }>
-  >()
+  const coursesByName = new Map<string, TeePersistenceData[]>()
 
   for (const tee of tees) {
     if (
@@ -292,9 +291,96 @@ app.post('/api/courses', async (request, response) => {
     coursesByName.set(courseName, courseTees)
   }
 
+  const normalizedClubName = clubName.trim()
+  const existingClub = await prisma.club.findFirst({
+    where: {
+      name: {
+        equals: normalizedClubName,
+        mode: 'insensitive',
+      },
+    },
+    include: {
+      courses: {
+        include: {
+          tees: true,
+        },
+      },
+    },
+  })
+
+  if (existingClub) {
+    const coursesToCreate: Array<{
+      name: string
+      tees: { create: TeePersistenceData[] }
+    }> = []
+    const coursesToUpdate: Array<{
+      where: { id: string }
+      data: {
+        tees: {
+          create: TeePersistenceData[]
+        }
+      }
+    }> = []
+
+    for (const [courseName, courseTees] of coursesByName) {
+      const existingCourse = existingClub.courses.find(
+        (course) => normalizeLabel(course.name) === normalizeLabel(courseName),
+      )
+
+      if (!existingCourse) {
+        coursesToCreate.push({
+          name: courseName,
+          tees: { create: courseTees },
+        })
+        continue
+      }
+
+      const savedTeeNames = new Set(
+        existingCourse.tees.map((tee) => normalizeLabel(tee.teeName)),
+      )
+      const newTees = courseTees.filter(
+        (tee) => !savedTeeNames.has(normalizeLabel(tee.teeName)),
+      )
+
+      if (newTees.length > 0) {
+        coursesToUpdate.push({
+          where: { id: existingCourse.id },
+          data: {
+            tees: { create: newTees },
+          },
+        })
+      }
+    }
+
+    if (coursesToCreate.length === 0 && coursesToUpdate.length === 0) {
+      response.status(200).json(existingClub)
+      return
+    }
+
+    const updatedClub = await prisma.club.update({
+      where: { id: existingClub.id },
+      data: {
+        courses: {
+          create: coursesToCreate,
+          update: coursesToUpdate,
+        },
+      },
+      include: {
+        courses: {
+          include: {
+            tees: true,
+          },
+        },
+      },
+    })
+
+    response.status(201).json(updatedClub)
+    return
+  }
+
   const club = await prisma.club.create({
     data: {
-      name: clubName.trim(),
+      name: normalizedClubName,
       courses: {
         create: [...coursesByName].map(([courseName, courseTees]) => ({
           name: courseName,
