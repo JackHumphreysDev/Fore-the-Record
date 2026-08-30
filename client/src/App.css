@@ -665,6 +665,7 @@
   }
 
   .site-nav {
+    gap: 14px;
     font-size: 12px;
   }
 
@@ -747,5 +748,18 @@
 
   .site-footer span:last-child {
     display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .site-header {
+    padding-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 0;
+  }
+
+  .site-nav {
+    width: 100%;
+    justify-content: space-between;
   }
 }

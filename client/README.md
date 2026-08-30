@@ -7,10 +7,12 @@ The React and TypeScript frontend for Fore the Record.
 - Responsive application shell and project branding
 - Profile creation form with client-side validation
 - Loading, API-error, and successful-profile states
-- Interactive Profile and Courses navigation
+- Interactive Profile, Courses, Rounds, and History navigation
 - Full or partial club-name search with per-tee saved status and incremental course-library additions
 - Round entry using saved tees, total gross score, date, and playing conditions
 - Round confirmation with Score Differential and refreshed Handicap Index
+- Newest-first round history with course, tee, score, weather, and rating details
+- Counting-round badges and a current Handicap Index summary
 - Local `/api` proxy to the Express server on port `3000`
 
 ## Local development

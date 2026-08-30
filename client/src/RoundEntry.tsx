@@ -65,6 +65,7 @@ type RoundEntryProps = {
   profile: RoundEntryProfile | null
   onGoToCourses: () => void
   onGoToProfile: () => void
+  onGoToHistory: () => void
   onRoundLogged: (handicapIndex: number | null) => void
 }
 
@@ -185,6 +186,7 @@ function RoundEntry({
   profile,
   onGoToCourses,
   onGoToProfile,
+  onGoToHistory,
   onRoundLogged,
 }: RoundEntryProps) {
   const [clubs, setClubs] = useState<SavedClub[]>([])
@@ -429,16 +431,25 @@ function RoundEntry({
               : 'No hole-by-hole card was supplied, so gross score was used as adjusted gross score.'}
           </p>
 
-          <button
-            className="round-primary-button"
-            type="button"
-            onClick={() => {
-              setConfirmation(null)
-              setForm((current) => ({ ...current, grossScore: '' }))
-            }}
-          >
-            Log another round
-          </button>
+          <div className="round-confirmation-actions">
+            <button
+              className="round-secondary-button"
+              type="button"
+              onClick={onGoToHistory}
+            >
+              View round history
+            </button>
+            <button
+              className="round-primary-button"
+              type="button"
+              onClick={() => {
+                setConfirmation(null)
+                setForm((current) => ({ ...current, grossScore: '' }))
+              }}
+            >
+              Log another round
+            </button>
+          </div>
         </div>
       </section>
     )
