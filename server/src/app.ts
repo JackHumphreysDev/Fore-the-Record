@@ -5,6 +5,11 @@ import {
   TeeSource,
   type TeeSource as TeeSourceValue,
 } from './generated/prisma/enums.js'
+import {
+  logRound,
+  parseLogRoundInput,
+  RoundReferenceNotFoundError,
+} from './rounds.js'
 
 const COURSE_DATA_SOURCE_BY_TEE_SOURCE: Record<
   TeeSourceValue,
@@ -228,6 +233,31 @@ app.post('/api/users', async (request, response) => {
       response.status(409).json({
         error: 'A user with this email already exists',
       })
+      return
+    }
+
+    throw error
+  }
+})
+
+app.post('/api/rounds', async (request, response) => {
+  const input = parseLogRoundInput(request.body)
+
+  if (!input) {
+    response.status(400).json({ error: 'Invalid round data' })
+    return
+  }
+
+  try {
+    const result = await logRound(input)
+
+    response.status(201).json(result)
+  } catch (error: unknown) {
+    if (error instanceof RoundReferenceNotFoundError) {
+      const referenceName =
+        error.reference === 'user' ? 'User' : 'Tee'
+
+      response.status(404).json({ error: `${referenceName} not found` })
       return
     }
 

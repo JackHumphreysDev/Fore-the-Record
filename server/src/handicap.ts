@@ -1,5 +1,8 @@
 const MAX_RECENT_ROUNDS = 20
 const MAX_COUNTING_ROUNDS = 8
+const STANDARD_SLOPE_RATING = 113
+const HOLES_IN_ROUND = 18
+const MAX_HANDICAP_STROKES_PER_HOLE = 3
 
 export type AdjustedGrossScoreInput = {
   grossScore: number
@@ -22,6 +25,13 @@ export type ScoreDifferentialInput = {
   courseRating: number
   slopeRating: number
   pccAdjustment: number
+}
+
+export type CourseHandicapInput = {
+  handicapIndex: number
+  slopeRating: number
+  courseRating: number
+  par: number
 }
 
 export type HandicapRoundInput = {
@@ -80,6 +90,73 @@ function assertFiniteNumber(value: number, fieldName: string): void {
   if (!Number.isFinite(value)) {
     throw new RangeError(`${fieldName} must be a finite number`)
   }
+}
+
+function roundToWholeNumber(value: number): number {
+  const roundedValue = Math.sign(value) * Math.round(Math.abs(value))
+
+  return Object.is(roundedValue, -0) ? 0 : roundedValue
+}
+
+/**
+ * Converts a Handicap Index into the Course Handicap used to allocate
+ * strokes across the scorecard for Net Double Bogey adjustment.
+ */
+export function calculateCourseHandicap({
+  handicapIndex,
+  slopeRating,
+  courseRating,
+  par,
+}: CourseHandicapInput): number {
+  assertFiniteNumber(handicapIndex, 'handicapIndex')
+  assertFiniteNumber(slopeRating, 'slopeRating')
+  assertFiniteNumber(courseRating, 'courseRating')
+  assertFiniteNumber(par, 'par')
+
+  if (slopeRating <= 0) {
+    throw new RangeError('slopeRating must be greater than zero')
+  }
+
+  if (courseRating <= 0) {
+    throw new RangeError('courseRating must be greater than zero')
+  }
+
+  if (par <= 0) {
+    throw new RangeError('par must be greater than zero')
+  }
+
+  return roundToWholeNumber(
+    handicapIndex * (slopeRating / STANDARD_SLOPE_RATING) +
+      (courseRating - par),
+  )
+}
+
+/**
+ * Allocates Course Handicap strokes using the hole's stroke index. Plus
+ * handicaps return negative values on holes where a stroke is given back.
+ * Three received strokes caps the maximum hole score at par + 5.
+ */
+export function calculateHandicapStrokesReceived(
+  courseHandicap: number,
+  strokeIndex: number,
+): number {
+  if (!Number.isInteger(courseHandicap)) {
+    throw new RangeError('courseHandicap must be an integer')
+  }
+
+  if (
+    !Number.isInteger(strokeIndex) ||
+    strokeIndex < 1 ||
+    strokeIndex > HOLES_IN_ROUND
+  ) {
+    throw new RangeError('strokeIndex must be an integer from 1 to 18')
+  }
+
+  const handicapStrokes = Math.floor(
+    (courseHandicap + HOLES_IN_ROUND - strokeIndex) / HOLES_IN_ROUND,
+  )
+
+  return Math.min(handicapStrokes, MAX_HANDICAP_STROKES_PER_HOLE)
 }
 
 export function calculateScoreDifferential({
