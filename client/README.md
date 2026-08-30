@@ -6,6 +6,7 @@ The React and TypeScript frontend for Fore the Record.
 
 - Responsive application shell and project branding
 - Profile creation form with client-side validation
+- Active-profile restoration after page refresh
 - Loading, API-error, and successful-profile states
 - Interactive Profile, Courses, Rounds, and History navigation
 - Full or partial club-name search with per-tee saved status and incremental course-library additions
