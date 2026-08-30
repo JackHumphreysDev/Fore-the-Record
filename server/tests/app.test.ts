@@ -268,6 +268,7 @@ describe('GET /api/courses/search', () => {
           par: 70,
         },
       ],
+      isSaved: true,
     })
     expect(clubFindFirstMock).toHaveBeenCalledWith({
       where: {
@@ -322,7 +323,10 @@ describe('GET /api/courses/search', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(response.body).toEqual(externalCourseData)
+    expect(response.body).toEqual({
+      ...externalCourseData,
+      isSaved: false,
+    })
     expect(getCourseRatingsMock).toHaveBeenCalledWith('Example Golf Club')
   })
 
@@ -345,7 +349,10 @@ describe('GET /api/courses/search', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(response.body).toEqual(courseData)
+    expect(response.body).toEqual({
+      ...courseData,
+      isSaved: false,
+    })
     expect(getCourseRatingsMock).toHaveBeenCalledWith('Sickleholme Golf Club')
   })
 

@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import './App.css'
 import brandLogo from './assets/fore-the-record-logo.png'
+import CourseSearch from './CourseSearch.tsx'
+
+type ActiveView = 'profile' | 'courses'
 
 type Profile = {
   id: string
@@ -83,6 +86,7 @@ async function getApiError(response: Response): Promise<string> {
 }
 
 function App() {
+  const [activeView, setActiveView] = useState<ActiveView>('profile')
   const [form, setForm] = useState<ProfileForm>(EMPTY_FORM)
   const [errors, setErrors] = useState<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -149,17 +153,30 @@ function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <a className="brand" href="#profile" aria-label="Fore the Record home">
+        <a
+          className="brand"
+          href="#profile"
+          aria-label="Fore the Record home"
+          onClick={() => setActiveView('profile')}
+        >
           <img className="brand-logo" src={brandLogo} alt="" />
         </a>
 
         <nav className="site-nav" aria-label="Primary navigation">
-          <a href="#profile" aria-current="page">
+          <button
+            type="button"
+            aria-current={activeView === 'profile' ? 'page' : undefined}
+            onClick={() => setActiveView('profile')}
+          >
             Profile
-          </a>
-          <span aria-disabled="true">
-            Courses <small>Soon</small>
-          </span>
+          </button>
+          <button
+            type="button"
+            aria-current={activeView === 'courses' ? 'page' : undefined}
+            onClick={() => setActiveView('courses')}
+          >
+            Courses
+          </button>
           <span aria-disabled="true">
             Rounds <small>Soon</small>
           </span>
@@ -167,7 +184,8 @@ function App() {
       </header>
 
       <main>
-        <section className="profile-layout" id="profile">
+        {activeView === 'profile' ? (
+          <section className="profile-layout" id="profile">
           <div className="intro-panel">
             <div>
               <p className="eyebrow">
@@ -356,7 +374,10 @@ function App() {
               </form>
             )}
           </div>
-        </section>
+          </section>
+        ) : (
+          <CourseSearch />
+        )}
       </main>
 
       <footer className="site-footer">

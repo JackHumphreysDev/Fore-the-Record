@@ -200,7 +200,8 @@ app.get('/api/courses/search', async (request, response) => {
           ...(tee.par === null ? {} : { par: tee.par }),
         })),
       ),
-    } satisfies CourseData)
+      isSaved: true,
+    } satisfies CourseData & { isSaved: true })
     return
   }
 
@@ -213,7 +214,10 @@ app.get('/api/courses/search', async (request, response) => {
     return
   }
 
-  response.status(200).json(courseData)
+  response.status(200).json({
+    ...courseData,
+    isSaved: false,
+  })
 })
 
 app.post('/api/courses', async (request, response) => {
