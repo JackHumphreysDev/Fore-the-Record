@@ -121,7 +121,7 @@ function CourseSearch() {
 
       if (response.status === 404) {
         setSearchMessage(
-          `We could not find rated tees for “${clubName}”. Check the full club name and try again.`,
+          `We could not find rated tees for “${clubName}”. Try a different spelling or a longer name.`,
         )
         return
       }
@@ -283,7 +283,7 @@ function CourseSearch() {
           </span>
         ) : (
           <span className="course-search-tip" id="search-tip">
-            Use the club’s full name for the closest match.
+            Enter a full or partial club name. The closest match will be shown.
           </span>
         )}
       </form>

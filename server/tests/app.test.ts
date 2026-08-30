@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   clubCreateMock,
-  clubFindFirstMock,
+  clubFindManyMock,
   getCourseRatingsMock,
   userCreateMock,
   userFindUniqueMock,
 } = vi.hoisted(() => ({
   clubCreateMock: vi.fn(),
-  clubFindFirstMock: vi.fn(),
+  clubFindManyMock: vi.fn(),
   getCourseRatingsMock: vi.fn(),
   userCreateMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('../src/database.js', () => ({
   prisma: {
     club: {
       create: clubCreateMock,
-      findFirst: clubFindFirstMock,
+      findMany: clubFindManyMock,
     },
     user: {
       create: userCreateMock,
@@ -36,7 +36,8 @@ import app from '../src/app.js'
 
 beforeEach(() => {
   clubCreateMock.mockReset()
-  clubFindFirstMock.mockReset()
+  clubFindManyMock.mockReset()
+  clubFindManyMock.mockResolvedValue([])
   getCourseRatingsMock.mockReset()
   userCreateMock.mockReset()
   userFindUniqueMock.mockReset()
@@ -225,34 +226,36 @@ describe('GET /api/users/:id/rounds', () => {
 })
 
 describe('GET /api/courses/search', () => {
-  it('should return saved local ratings without calling the external lookup', async () => {
-    clubFindFirstMock.mockResolvedValueOnce({
-      id: '55555555-5555-4555-8555-555555555555',
-      name: 'Example Golf Club',
-      latitude: null,
-      longitude: null,
-      courses: [
-        {
-          id: '33333333-3333-4333-8333-333333333333',
-          clubId: '55555555-5555-4555-8555-555555555555',
-          name: 'Old Course',
-          tees: [
-            {
-              id: '44444444-4444-4444-8444-444444444444',
-              courseId: '33333333-3333-4333-8333-333333333333',
-              teeName: 'Championship',
-              courseRating: 73.1,
-              slopeRating: 137,
-              par: 70,
-              source: 'API',
-            },
-          ],
-        },
-      ],
-    })
+  it('should return a partially matched saved club without calling the external lookup', async () => {
+    clubFindManyMock.mockResolvedValueOnce([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'Example Golf Club',
+        latitude: null,
+        longitude: null,
+        courses: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            clubId: '55555555-5555-4555-8555-555555555555',
+            name: 'Old Course',
+            tees: [
+              {
+                id: '44444444-4444-4444-8444-444444444444',
+                courseId: '33333333-3333-4333-8333-333333333333',
+                teeName: 'Championship',
+                courseRating: 73.1,
+                slopeRating: 137,
+                par: 70,
+                source: 'API',
+              },
+            ],
+          },
+        ],
+      },
+    ])
 
     const response = await request(app).get(
-      '/api/courses/search?q=Example%20Golf%20Club',
+      '/api/courses/search?q=Example',
     )
 
     expect(response.status).toBe(200)
@@ -270,12 +273,16 @@ describe('GET /api/courses/search', () => {
       ],
       isSaved: true,
     })
-    expect(clubFindFirstMock).toHaveBeenCalledWith({
+    expect(clubFindManyMock).toHaveBeenCalledWith({
       where: {
-        name: {
-          equals: 'Example Golf Club',
-          mode: 'insensitive',
-        },
+        AND: [
+          {
+            name: {
+              contains: 'example',
+              mode: 'insensitive',
+            },
+          },
+        ],
       },
       include: {
         courses: {
@@ -289,20 +296,22 @@ describe('GET /api/courses/search', () => {
   })
 
   it('should use the external lookup when a saved club has no tees', async () => {
-    clubFindFirstMock.mockResolvedValueOnce({
-      id: '55555555-5555-4555-8555-555555555555',
-      name: 'Example Golf Club',
-      latitude: null,
-      longitude: null,
-      courses: [
-        {
-          id: '33333333-3333-4333-8333-333333333333',
-          clubId: '55555555-5555-4555-8555-555555555555',
-          name: 'Old Course',
-          tees: [],
-        },
-      ],
-    })
+    clubFindManyMock.mockResolvedValueOnce([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'Example Golf Club',
+        latitude: null,
+        longitude: null,
+        courses: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            clubId: '55555555-5555-4555-8555-555555555555',
+            name: 'Old Course',
+            tees: [],
+          },
+        ],
+      },
+    ])
     const externalCourseData = {
       clubName: 'Example Golf Club',
       source: 'api',
@@ -330,7 +339,7 @@ describe('GET /api/courses/search', () => {
     expect(getCourseRatingsMock).toHaveBeenCalledWith('Example Golf Club')
   })
 
-  it('should return normalized ratings for the requested club', async () => {
+  it('should return normalized ratings for a partial club name', async () => {
     const courseData = {
       clubName: 'Sickleholme Golf Club',
       source: 'fallback_scrape',
@@ -345,7 +354,7 @@ describe('GET /api/courses/search', () => {
     getCourseRatingsMock.mockResolvedValueOnce(courseData)
 
     const response = await request(app).get(
-      '/api/courses/search?q=Sickleholme%20Golf%20Club',
+      '/api/courses/search?q=Sickleholme',
     )
 
     expect(response.status).toBe(200)
@@ -353,7 +362,7 @@ describe('GET /api/courses/search', () => {
       ...courseData,
       isSaved: false,
     })
-    expect(getCourseRatingsMock).toHaveBeenCalledWith('Sickleholme Golf Club')
+    expect(getCourseRatingsMock).toHaveBeenCalledWith('Sickleholme')
   })
 
   it('should return 400 when the search query is missing', async () => {

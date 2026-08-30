@@ -1,4 +1,8 @@
 import express from 'express'
+import {
+  findBestClubNameMatch,
+  getClubNameSearchTerms,
+} from './clubNameMatch.js'
 import { getCourseRatings, type CourseData } from './courseRatings.js'
 import { prisma } from './database.js'
 import {
@@ -170,12 +174,14 @@ app.get('/api/courses/search', async (request, response) => {
   }
 
   const clubName = query.trim()
-  const localClub = await prisma.club.findFirst({
+  const localClubs = await prisma.club.findMany({
     where: {
-      name: {
-        equals: clubName,
-        mode: 'insensitive',
-      },
+      AND: getClubNameSearchTerms(clubName).map((searchTerm) => ({
+        name: {
+          contains: searchTerm,
+          mode: 'insensitive' as const,
+        },
+      })),
     },
     include: {
       courses: {
@@ -185,6 +191,7 @@ app.get('/api/courses/search', async (request, response) => {
       },
     },
   })
+  const localClub = findBestClubNameMatch(localClubs, clubName)
   const firstLocalTee = localClub?.courses[0]?.tees[0]
 
   if (localClub && firstLocalTee) {

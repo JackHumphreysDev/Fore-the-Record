@@ -8,7 +8,7 @@ The React and TypeScript frontend for Fore the Record.
 - Profile creation form with client-side validation
 - Loading, API-error, and successful-profile states
 - Interactive Profile and Courses navigation
-- Course search with tee selection and course-library persistence
+- Full or partial club-name search with tee selection and course-library persistence
 - Local `/api` proxy to the Express server on port `3000`
 
 ## Local development

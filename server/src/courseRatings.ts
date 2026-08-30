@@ -1,3 +1,8 @@
+import {
+  findBestClubNameMatch,
+  normalizeClubName,
+} from './clubNameMatch.js'
+
 export type CourseTeeData = {
   courseName?: string
   teeName: string
@@ -12,10 +17,12 @@ export type CourseData = {
   tees: CourseTeeData[]
 }
 
-const FALLBACK_URLS: Readonly<Record<string, string>> = {
-  'sickleholme golf club':
-    'https://www.sickleholme.co.uk/course/course-slope-ratings/',
-}
+const FALLBACK_CLUBS = [
+  {
+    name: 'Sickleholme Golf Club',
+    url: 'https://www.sickleholme.co.uk/course/course-slope-ratings/',
+  },
+] as const
 
 const BROWSER_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
@@ -132,19 +139,16 @@ async function getApiRatings(clubName: string): Promise<CourseData | null> {
       isRecord(responseBody) && Array.isArray(responseBody.clubs)
         ? responseBody.clubs
         : []
-    const matchingClub = clubs.find(
-      (club) =>
-        isRecord(club) &&
-        typeof club.id === 'string' &&
-        typeof club.name === 'string' &&
-        club.name.trim().toLowerCase() === clubName.toLowerCase(),
+    const availableClubs = clubs.flatMap((club) =>
+      isRecord(club) &&
+      typeof club.id === 'string' &&
+      typeof club.name === 'string'
+        ? [{ id: club.id, name: club.name }]
+        : [],
     )
+    const matchingClub = findBestClubNameMatch(availableClubs, clubName)
 
-    if (
-      !isRecord(matchingClub) ||
-      typeof matchingClub.id !== 'string' ||
-      typeof matchingClub.name !== 'string'
-    ) {
+    if (!matchingClub) {
       console.warn(`RapidAPI returned no match for ${clubName}`)
       return null
     }
@@ -188,8 +192,8 @@ async function getApiRatings(clubName: string): Promise<CourseData | null> {
 async function getFallbackRatings(
   clubName: string,
 ): Promise<CourseData | null> {
-  const normalizedClubName = clubName.trim().toLowerCase()
-  const fallbackUrl = FALLBACK_URLS[normalizedClubName]
+  const fallbackClub = findBestClubNameMatch(FALLBACK_CLUBS, clubName)
+  const fallbackUrl = fallbackClub?.url
 
   if (!fallbackUrl) {
     console.warn(`No fallback URL is configured for ${clubName}`)
@@ -220,7 +224,7 @@ async function getFallbackRatings(
     }
 
     return {
-      clubName,
+      clubName: fallbackClub.name,
       source: 'fallback_scrape',
       tees,
     }
@@ -240,7 +244,7 @@ export async function getCourseRatings(
     return null
   }
 
-  const cacheKey = normalizedClubName.toLowerCase()
+  const cacheKey = normalizeClubName(normalizedClubName)
   const cachedResult = successfulLookupCache.get(cacheKey)
 
   if (cachedResult) {
@@ -251,6 +255,7 @@ export async function getCourseRatings(
 
   if (apiResult) {
     successfulLookupCache.set(cacheKey, apiResult)
+    successfulLookupCache.set(normalizeClubName(apiResult.clubName), apiResult)
     return apiResult
   }
 
@@ -258,6 +263,10 @@ export async function getCourseRatings(
 
   if (fallbackResult) {
     successfulLookupCache.set(cacheKey, fallbackResult)
+    successfulLookupCache.set(
+      normalizeClubName(fallbackResult.clubName),
+      fallbackResult,
+    )
   }
 
   return fallbackResult
