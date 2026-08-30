@@ -6,12 +6,14 @@ const {
   clubFindFirstMock,
   getCourseRatingsMock,
   userCreateMock,
+  userFindUniqueMock,
 } = vi.hoisted(() => ({
-    clubCreateMock: vi.fn(),
-    clubFindFirstMock: vi.fn(),
-    getCourseRatingsMock: vi.fn(),
-    userCreateMock: vi.fn(),
-  }))
+  clubCreateMock: vi.fn(),
+  clubFindFirstMock: vi.fn(),
+  getCourseRatingsMock: vi.fn(),
+  userCreateMock: vi.fn(),
+  userFindUniqueMock: vi.fn(),
+}))
 
 vi.mock('../src/database.js', () => ({
   prisma: {
@@ -21,6 +23,7 @@ vi.mock('../src/database.js', () => ({
     },
     user: {
       create: userCreateMock,
+      findUnique: userFindUniqueMock,
     },
   },
 }))
@@ -36,6 +39,7 @@ beforeEach(() => {
   clubFindFirstMock.mockReset()
   getCourseRatingsMock.mockReset()
   userCreateMock.mockReset()
+  userFindUniqueMock.mockReset()
 })
 
 describe('GET /api/health', () => {
@@ -43,6 +47,180 @@ describe('GET /api/health', () => {
     const response = await request(app).get('/api/health')
     expect(response.status).toBe(200)
     expect(response.body).toEqual({ status: 'ok' })
+  })
+})
+
+describe('GET /api/users/:id', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+
+  it('should return the profile with a numeric handicap index', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: userId,
+      name: 'Jack Humphreys',
+      email: 'jack@example.com',
+      homeClubId: '22222222-2222-4222-8222-222222222222',
+      handicapIndex: '14.2',
+      createdAt: new Date('2026-08-29T12:00:00.000Z'),
+      homeClub: {
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Example Golf Club',
+      },
+    })
+
+    const response = await request(app).get(`/api/users/${userId}`)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      id: userId,
+      name: 'Jack Humphreys',
+      email: 'jack@example.com',
+      homeClubId: '22222222-2222-4222-8222-222222222222',
+      handicapIndex: 14.2,
+      createdAt: '2026-08-29T12:00:00.000Z',
+      homeClub: {
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Example Golf Club',
+      },
+    })
+    expect(userFindUniqueMock).toHaveBeenCalledWith({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        homeClubId: true,
+        handicapIndex: true,
+        createdAt: true,
+        homeClub: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    })
+  })
+
+  it('should return 404 when the user does not exist', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get(`/api/users/${userId}`)
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'User not found' })
+  })
+})
+
+describe('GET /api/users/:id/rounds', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+
+  it('should return newest-first round history with course context', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          userId,
+          teeId: '44444444-4444-4444-8444-444444444444',
+          datePlayed: new Date('2026-08-30T00:00:00.000Z'),
+          grossScore: 90,
+          adjustedGrossScore: 88,
+          isCapped: true,
+          weatherCondition: 'WET',
+          pccAdjustment: '1.0',
+          scoreDifferential: '12.3',
+          isAcceptable: true,
+          usedInHandicapCalc: true,
+          createdAt: new Date('2026-08-30T12:00:00.000Z'),
+          tee: {
+            id: '44444444-4444-4444-8444-444444444444',
+            teeName: 'Championship',
+            courseRating: '73.1',
+            slopeRating: 137,
+            par: 70,
+            course: {
+              id: '55555555-5555-4555-8555-555555555555',
+              name: 'Old Course',
+              club: {
+                id: '66666666-6666-4666-8666-666666666666',
+                name: 'Example Golf Club',
+              },
+            },
+          },
+        },
+      ],
+    })
+
+    const response = await request(app).get(`/api/users/${userId}/rounds`)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual([
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        userId,
+        teeId: '44444444-4444-4444-8444-444444444444',
+        datePlayed: '2026-08-30T00:00:00.000Z',
+        grossScore: 90,
+        adjustedGrossScore: 88,
+        isCapped: true,
+        weatherCondition: 'WET',
+        pccAdjustment: 1,
+        scoreDifferential: 12.3,
+        isAcceptable: true,
+        usedInHandicapCalc: true,
+        createdAt: '2026-08-30T12:00:00.000Z',
+        tee: {
+          id: '44444444-4444-4444-8444-444444444444',
+          teeName: 'Championship',
+          courseRating: 73.1,
+          slopeRating: 137,
+          par: 70,
+          course: {
+            id: '55555555-5555-4555-8555-555555555555',
+            name: 'Old Course',
+            club: {
+              id: '66666666-6666-4666-8666-666666666666',
+              name: 'Example Golf Club',
+            },
+          },
+        },
+      },
+    ])
+    expect(userFindUniqueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: userId },
+        select: expect.objectContaining({
+          rounds: expect.objectContaining({
+            orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+          }),
+        }),
+      }),
+    )
+  })
+
+  it('should return an empty list when the user has no rounds', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ rounds: [] })
+
+    const response = await request(app).get(`/api/users/${userId}/rounds`)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual([])
+  })
+
+  it('should return 404 when the user does not exist', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get(`/api/users/${userId}/rounds`)
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'User not found' })
+  })
+
+  it('should reject an invalid user ID before querying the database', async () => {
+    const response = await request(app).get('/api/users/not-a-uuid/rounds')
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Invalid user ID' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
   })
 })
 

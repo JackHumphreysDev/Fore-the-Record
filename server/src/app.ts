@@ -11,6 +11,9 @@ import {
   RoundReferenceNotFoundError,
 } from './rounds.js'
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 const COURSE_DATA_SOURCE_BY_TEE_SOURCE: Record<
   TeeSourceValue,
   CourseData['source']
@@ -44,6 +47,115 @@ app.use(express.json())
 app.get('/api/health', (_request, response) => {
   response.status(200).json({
     status: 'ok',
+  })
+})
+
+app.get('/api/users/:id/rounds', async (request, response) => {
+  const userId = request.params.id
+
+  if (!UUID_PATTERN.test(userId)) {
+    response.status(400).json({ error: 'Invalid user ID' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      rounds: {
+        orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          id: true,
+          userId: true,
+          teeId: true,
+          datePlayed: true,
+          grossScore: true,
+          adjustedGrossScore: true,
+          isCapped: true,
+          weatherCondition: true,
+          pccAdjustment: true,
+          scoreDifferential: true,
+          isAcceptable: true,
+          usedInHandicapCalc: true,
+          createdAt: true,
+          tee: {
+            select: {
+              id: true,
+              teeName: true,
+              courseRating: true,
+              slopeRating: true,
+              par: true,
+              course: {
+                select: {
+                  id: true,
+                  name: true,
+                  club: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  response.status(200).json(
+    user.rounds.map((round) => ({
+      ...round,
+      pccAdjustment: Number(round.pccAdjustment),
+      scoreDifferential: Number(round.scoreDifferential),
+      tee: {
+        ...round.tee,
+        courseRating: Number(round.tee.courseRating),
+      },
+    })),
+  )
+})
+
+app.get('/api/users/:id', async (request, response) => {
+  const userId = request.params.id
+
+  if (!UUID_PATTERN.test(userId)) {
+    response.status(400).json({ error: 'Invalid user ID' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      homeClubId: true,
+      handicapIndex: true,
+      createdAt: true,
+      homeClub: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  response.status(200).json({
+    ...user,
+    handicapIndex:
+      user.handicapIndex === null ? null : Number(user.handicapIndex),
   })
 })
 
