@@ -234,6 +234,93 @@ describe('GET /api/users/:id/rounds', () => {
   })
 })
 
+describe('GET /api/courses', () => {
+  it('should return saved clubs, courses, and tees with numeric ratings', async () => {
+    clubFindManyMock.mockResolvedValueOnce([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'Example Golf Club',
+        courses: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            name: 'Old Course',
+            tees: [
+              {
+                id: '44444444-4444-4444-8444-444444444444',
+                teeName: 'Championship',
+                courseRating: '73.1',
+                slopeRating: 137,
+                par: 70,
+              },
+            ],
+          },
+          {
+            id: '66666666-6666-4666-8666-666666666666',
+            name: 'Course Without Saved Tees',
+            tees: [],
+          },
+        ],
+      },
+    ])
+
+    const response = await request(app).get('/api/courses')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'Example Golf Club',
+        courses: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            name: 'Old Course',
+            tees: [
+              {
+                id: '44444444-4444-4444-8444-444444444444',
+                teeName: 'Championship',
+                courseRating: 73.1,
+                slopeRating: 137,
+                par: 70,
+              },
+            ],
+          },
+        ],
+      },
+    ])
+    expect(clubFindManyMock).toHaveBeenCalledWith({
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        courses: {
+          orderBy: { name: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            tees: {
+              orderBy: { teeName: 'asc' },
+              select: {
+                id: true,
+                teeName: true,
+                courseRating: true,
+                slopeRating: true,
+                par: true,
+              },
+            },
+          },
+        },
+      },
+    })
+  })
+
+  it('should return an empty list when no tees have been saved', async () => {
+    const response = await request(app).get('/api/courses')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual([])
+  })
+})
+
 describe('GET /api/courses/search', () => {
   it('should merge a saved tee with available tees from the external lookup', async () => {
     clubFindManyMock.mockResolvedValueOnce([
