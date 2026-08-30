@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   calculateAdjustedGrossScore,
+  calculateCourseHandicap,
   calculateHandicap,
   calculateHandicapIndex,
+  calculateHandicapStrokesReceived,
   calculateScoreDifferential,
   type HandicapRoundInput,
 } from '../src/handicap.js'
@@ -84,6 +86,46 @@ describe('calculateScoreDifferential', () => {
         pccAdjustment: 0,
       }),
     ).toThrow('slopeRating must be greater than zero')
+  })
+})
+
+describe('calculateCourseHandicap', () => {
+  it('includes slope, course rating, and par', () => {
+    const result = calculateCourseHandicap({
+      handicapIndex: 12.4,
+      slopeRating: 137,
+      courseRating: 73.1,
+      par: 70,
+    })
+
+    expect(result).toBe(18)
+  })
+
+  it('rounds negative course handicaps away from zero at a half', () => {
+    const result = calculateCourseHandicap({
+      handicapIndex: -0.5,
+      slopeRating: 113,
+      courseRating: 72,
+      par: 72,
+    })
+
+    expect(result).toBe(-1)
+  })
+})
+
+describe('calculateHandicapStrokesReceived', () => {
+  it('allocates second strokes from the lowest stroke indexes', () => {
+    expect(calculateHandicapStrokesReceived(20, 2)).toBe(2)
+    expect(calculateHandicapStrokesReceived(20, 3)).toBe(1)
+  })
+
+  it('gives strokes back on the highest stroke indexes for plus handicaps', () => {
+    expect(calculateHandicapStrokesReceived(-2, 16)).toBe(0)
+    expect(calculateHandicapStrokesReceived(-2, 17)).toBe(-1)
+  })
+
+  it('limits the maximum hole score to par plus five', () => {
+    expect(calculateHandicapStrokesReceived(72, 1)).toBe(3)
   })
 })
 
