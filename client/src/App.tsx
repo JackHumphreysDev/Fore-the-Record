@@ -2,10 +2,16 @@ import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 import brandLogo from './assets/fore-the-record-logo.png'
 import CourseSearch from './CourseSearch.tsx'
+import HomeClubSelector from './HomeClubSelector.tsx'
 import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
 
 type ActiveView = 'profile' | 'courses' | 'rounds' | 'history'
+
+type HomeClub = {
+  id: string
+  name: string
+}
 
 type Profile = {
   id: string
@@ -14,6 +20,7 @@ type Profile = {
   homeClubId: string | null
   handicapIndex: number | null
   createdAt: string
+  homeClub?: HomeClub | null
 }
 
 type ProfileForm = {
@@ -252,6 +259,13 @@ function App() {
     )
   }
 
+  function updateHomeClub(update: {
+    homeClubId: string | null
+    homeClub: HomeClub | null
+  }) {
+    setProfile((current) => (current ? { ...current, ...update } : current))
+  }
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -390,7 +404,7 @@ function App() {
                 <dl className="profile-details">
                   <div>
                     <dt>Home club</dt>
-                    <dd>{profile.homeClubId ? 'Selected' : 'Not set yet'}</dd>
+                    <dd>{profile.homeClub?.name ?? 'Not set yet'}</dd>
                   </div>
                   <div>
                     <dt>Member since</dt>
@@ -403,6 +417,14 @@ function App() {
                     </dd>
                   </div>
                 </dl>
+
+                <HomeClubSelector
+                  profileId={profile.id}
+                  homeClubId={profile.homeClubId}
+                  homeClub={profile.homeClub}
+                  onHomeClubUpdated={updateHomeClub}
+                  onGoToCourses={() => setActiveView('courses')}
+                />
 
                 <button
                   className="secondary-button"

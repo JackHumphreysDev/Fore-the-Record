@@ -176,6 +176,79 @@ app.get('/api/users/:id', async (request, response) => {
   })
 })
 
+app.patch('/api/users/:id', async (request, response) => {
+  const userId = request.params.id
+
+  if (!UUID_PATTERN.test(userId)) {
+    response.status(400).json({ error: 'Invalid user ID' })
+    return
+  }
+
+  const body: unknown = request.body
+  const requestedHomeClubId = isRecord(body) ? body.homeClubId : undefined
+  const homeClubId =
+    typeof requestedHomeClubId === 'string'
+      ? requestedHomeClubId.trim()
+      : requestedHomeClubId
+
+  if (
+    homeClubId !== null &&
+    (typeof homeClubId !== 'string' || !UUID_PATTERN.test(homeClubId))
+  ) {
+    response.status(400).json({ error: 'Invalid home club ID' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  if (homeClubId !== null) {
+    const homeClub = await prisma.club.findUnique({
+      where: { id: homeClubId },
+      select: { id: true },
+    })
+
+    if (!homeClub) {
+      response.status(404).json({ error: 'Home club not found' })
+      return
+    }
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { homeClubId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      homeClubId: true,
+      handicapIndex: true,
+      createdAt: true,
+      homeClub: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  })
+
+  response.status(200).json({
+    ...updatedUser,
+    handicapIndex:
+      updatedUser.handicapIndex === null
+        ? null
+        : Number(updatedUser.handicapIndex),
+  })
+})
+
 app.get('/api/courses', async (_request, response) => {
   const clubs = await prisma.club.findMany({
     orderBy: { name: 'asc' },

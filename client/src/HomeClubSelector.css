@@ -1,0 +1,136 @@
+.home-club-selector {
+  margin: 0 0 20px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.home-club-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.home-club-heading span,
+.home-club-controls label {
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.home-club-heading h3 {
+  margin: 5px 0 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.home-club-heading button,
+.home-club-remove {
+  padding: 0;
+  border: 0;
+  color: var(--forest-soft);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.home-club-heading button:focus-visible,
+.home-club-remove:focus-visible,
+.home-club-actions select:focus-visible,
+.home-club-actions button:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
+.home-club-controls {
+  display: grid;
+  gap: 8px;
+  margin-top: 17px;
+}
+
+.home-club-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.home-club-actions select {
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(23, 56, 42, 0.19);
+  border-radius: 7px;
+  outline: 0;
+  color: var(--forest-deep);
+  background: white;
+  font: inherit;
+  font-size: 12px;
+}
+
+.home-club-actions button {
+  min-width: 72px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--forest-deep);
+  background: var(--lime);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.home-club-actions button:disabled,
+.home-club-remove:disabled {
+  opacity: 0.55;
+}
+
+.home-club-remove {
+  margin-top: 14px;
+  color: var(--danger);
+}
+
+.home-club-state,
+.home-club-error,
+.home-club-status {
+  margin: 15px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.home-club-state {
+  color: var(--ink-muted);
+}
+
+.home-club-error {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.home-club-status {
+  color: var(--forest-soft);
+  font-weight: 700;
+}
+
+@media (max-width: 420px) {
+  .home-club-heading {
+    display: grid;
+  }
+
+  .home-club-heading button {
+    justify-self: start;
+  }
+
+  .home-club-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .home-club-actions button {
+    min-height: 42px;
+  }
+}

@@ -4,19 +4,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   clubCreateMock,
   clubFindFirstMock,
+  clubFindUniqueMock,
   clubFindManyMock,
   clubUpdateMock,
   getCourseRatingsMock,
   userCreateMock,
   userFindUniqueMock,
+  userUpdateMock,
 } = vi.hoisted(() => ({
   clubCreateMock: vi.fn(),
   clubFindFirstMock: vi.fn(),
+  clubFindUniqueMock: vi.fn(),
   clubFindManyMock: vi.fn(),
   clubUpdateMock: vi.fn(),
   getCourseRatingsMock: vi.fn(),
   userCreateMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
+  userUpdateMock: vi.fn(),
 }))
 
 vi.mock('../src/database.js', () => ({
@@ -24,12 +28,14 @@ vi.mock('../src/database.js', () => ({
     club: {
       create: clubCreateMock,
       findFirst: clubFindFirstMock,
+      findUnique: clubFindUniqueMock,
       findMany: clubFindManyMock,
       update: clubUpdateMock,
     },
     user: {
       create: userCreateMock,
       findUnique: userFindUniqueMock,
+      update: userUpdateMock,
     },
   },
 }))
@@ -44,12 +50,14 @@ beforeEach(() => {
   clubCreateMock.mockReset()
   clubFindFirstMock.mockReset()
   clubFindFirstMock.mockResolvedValue(null)
+  clubFindUniqueMock.mockReset()
   clubFindManyMock.mockReset()
   clubFindManyMock.mockResolvedValue([])
   clubUpdateMock.mockReset()
   getCourseRatingsMock.mockReset()
   userCreateMock.mockReset()
   userFindUniqueMock.mockReset()
+  userUpdateMock.mockReset()
 })
 
 describe('GET /api/health', () => {
@@ -118,6 +126,146 @@ describe('GET /api/users/:id', () => {
 
     expect(response.status).toBe(404)
     expect(response.body).toEqual({ error: 'User not found' })
+  })
+})
+
+describe('PATCH /api/users/:id', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const homeClubId = '22222222-2222-4222-8222-222222222222'
+  const profileSelect = {
+    id: true,
+    name: true,
+    email: true,
+    homeClubId: true,
+    handicapIndex: true,
+    createdAt: true,
+    homeClub: {
+      select: {
+        id: true,
+        name: true,
+      },
+    },
+  }
+
+  it('should update and return the selected home club', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    clubFindUniqueMock.mockResolvedValueOnce({ id: homeClubId })
+    userUpdateMock.mockResolvedValueOnce({
+      id: userId,
+      name: 'Jack Humphreys',
+      email: 'jack@example.com',
+      homeClubId,
+      handicapIndex: '14.2',
+      createdAt: new Date('2026-08-29T12:00:00.000Z'),
+      homeClub: {
+        id: homeClubId,
+        name: 'Example Golf Club',
+      },
+    })
+
+    const response = await request(app).patch(`/api/users/${userId}`).send({
+      homeClubId,
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      id: userId,
+      name: 'Jack Humphreys',
+      email: 'jack@example.com',
+      homeClubId,
+      handicapIndex: 14.2,
+      createdAt: '2026-08-29T12:00:00.000Z',
+      homeClub: {
+        id: homeClubId,
+        name: 'Example Golf Club',
+      },
+    })
+    expect(userFindUniqueMock).toHaveBeenCalledWith({
+      where: { id: userId },
+      select: { id: true },
+    })
+    expect(clubFindUniqueMock).toHaveBeenCalledWith({
+      where: { id: homeClubId },
+      select: { id: true },
+    })
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: userId },
+      data: { homeClubId },
+      select: profileSelect,
+    })
+  })
+
+  it('should clear the current home club', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    userUpdateMock.mockResolvedValueOnce({
+      id: userId,
+      name: 'Jack Humphreys',
+      email: 'jack@example.com',
+      homeClubId: null,
+      handicapIndex: null,
+      createdAt: new Date('2026-08-29T12:00:00.000Z'),
+      homeClub: null,
+    })
+
+    const response = await request(app).patch(`/api/users/${userId}`).send({
+      homeClubId: null,
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.homeClubId).toBeNull()
+    expect(response.body.homeClub).toBeNull()
+    expect(clubFindUniqueMock).not.toHaveBeenCalled()
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: userId },
+      data: { homeClubId: null },
+      select: profileSelect,
+    })
+  })
+
+  it('should reject an invalid user ID', async () => {
+    const response = await request(app).patch('/api/users/not-a-uuid').send({
+      homeClubId: null,
+    })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Invalid user ID' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+
+  it('should reject an invalid home club ID', async () => {
+    const response = await request(app).patch(`/api/users/${userId}`).send({
+      homeClubId: 'not-a-uuid',
+    })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Invalid home club ID' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+
+  it('should return 404 when the user does not exist', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).patch(`/api/users/${userId}`).send({
+      homeClubId,
+    })
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'User not found' })
+    expect(clubFindUniqueMock).not.toHaveBeenCalled()
+    expect(userUpdateMock).not.toHaveBeenCalled()
+  })
+
+  it('should return 404 when the home club does not exist', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    clubFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).patch(`/api/users/${userId}`).send({
+      homeClubId,
+    })
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'Home club not found' })
+    expect(userUpdateMock).not.toHaveBeenCalled()
   })
 })
 
