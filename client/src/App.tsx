@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 import brandLogo from './assets/fore-the-record-logo.png'
 import CourseSearch from './CourseSearch.tsx'
@@ -37,6 +37,32 @@ const EMPTY_FORM: ProfileForm = {
   email: '',
 }
 
+const PROFILE_STORAGE_KEY = 'fore-the-record-profile-id'
+
+function getStoredProfileId(): string | null {
+  try {
+    return window.localStorage.getItem(PROFILE_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function storeProfileId(profileId: string) {
+  try {
+    window.localStorage.setItem(PROFILE_STORAGE_KEY, profileId)
+  } catch {
+    // Profile creation should still succeed when browser storage is unavailable.
+  }
+}
+
+function clearStoredProfileId() {
+  try {
+    window.localStorage.removeItem(PROFILE_STORAGE_KEY)
+  } catch {
+    // There is nothing else to clear when browser storage is unavailable.
+  }
+}
+
 function getInitials(name: string): string {
   return name
     .split(/\s+/)
@@ -72,7 +98,10 @@ function validateProfile(form: ProfileForm): FormErrors {
   return errors
 }
 
-async function getApiError(response: Response): Promise<string> {
+async function getApiError(
+  response: Response,
+  fallbackMessage = 'We could not create your profile. Please try again.',
+): Promise<string> {
   const body: unknown = await response.json().catch(() => null)
 
   if (
@@ -84,7 +113,7 @@ async function getApiError(response: Response): Promise<string> {
     return body.error
   }
 
-  return 'We could not create your profile. Please try again.'
+  return fallbackMessage
 }
 
 function App() {
@@ -94,6 +123,69 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [apiError, setApiError] = useState('')
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [storedProfileId] = useState(getStoredProfileId)
+  const [isRestoringProfile, setIsRestoringProfile] = useState(
+    storedProfileId !== null,
+  )
+
+  useEffect(() => {
+    if (!storedProfileId) {
+      return
+    }
+
+    const profileId = storedProfileId
+    let isCancelled = false
+
+    async function restoreProfile() {
+      try {
+        const response = await fetch(
+          `/api/users/${encodeURIComponent(profileId)}`,
+        )
+
+        if (!response.ok) {
+          if (response.status === 400 || response.status === 404) {
+            clearStoredProfileId()
+            throw new Error(
+              'Your saved profile could not be found. Create a new profile to continue.',
+            )
+          }
+
+          throw new Error(
+            await getApiError(
+              response,
+              'We could not restore your profile. Please refresh and try again.',
+            ),
+          )
+        }
+
+        const restoredProfile = (await response.json()) as Profile
+
+        if (!isCancelled) {
+          setProfile(restoredProfile)
+        }
+      } catch (error: unknown) {
+        if (!isCancelled) {
+          setApiError(
+            error instanceof TypeError
+              ? 'We could not reach the server to restore your profile. Please refresh and try again.'
+              : error instanceof Error
+                ? error.message
+                : 'We could not restore your profile. Please refresh and try again.',
+          )
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsRestoringProfile(false)
+        }
+      }
+    }
+
+    void restoreProfile()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [storedProfileId])
 
   function updateField(field: keyof ProfileForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -131,6 +223,7 @@ function App() {
       }
 
       const createdProfile = (await response.json()) as Profile
+      storeProfileId(createdProfile.id)
       setProfile(createdProfile)
     } catch (error: unknown) {
       setApiError(
@@ -146,6 +239,7 @@ function App() {
   }
 
   function resetProfile() {
+    clearStoredProfileId()
     setProfile(null)
     setForm(EMPTY_FORM)
     setErrors({})
@@ -256,7 +350,16 @@ function App() {
           </div>
 
           <div className="form-panel">
-            {profile ? (
+            {isRestoringProfile ? (
+              <div className="profile-loading" role="status" aria-live="polite">
+                <div className="profile-loading-indicator" aria-hidden="true" />
+                <p className="form-kicker">Welcome back</p>
+                <h2>Loading your profile…</h2>
+                <p className="form-intro">
+                  Retrieving your latest rounds and Handicap Index.
+                </p>
+              </div>
+            ) : profile ? (
               <div className="profile-success" aria-live="polite">
                 <div className="success-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24">
