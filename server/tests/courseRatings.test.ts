@@ -101,6 +101,65 @@ describe('getCourseRatings', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('normalizes a club returned for a partial-name search', async () => {
+    vi.stubEnv('RAPIDAPI_KEY', 'test-api-key')
+    vi.stubEnv('RAPIDAPI_HOST', 'uk-golf-course-data-api.p.rapidapi.com')
+    vi.stubEnv('RAPIDAPI_SEARCH_PATH', '/clubs')
+    vi.stubEnv('RAPIDAPI_SEARCH_QUERY_PARAM', 'search')
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            clubs: [
+              {
+                id: '00000000-0000-0000-0000-000000000000',
+                name: 'Sickleholme Golf Club',
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {
+              name: 'Main Course',
+              tee_sets: [
+                {
+                  name: 'White',
+                  par: 71,
+                  course_rating: 71.8,
+                  slope_rating: 129,
+                },
+              ],
+            },
+          ]),
+          { status: 200 },
+        ),
+      )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getCourseRatings('Sickleholme')).resolves.toEqual({
+      clubName: 'Sickleholme Golf Club',
+      source: 'api',
+      tees: [
+        {
+          courseName: 'Main Course',
+          teeName: 'White',
+          courseRating: 71.8,
+          slopeRating: 129,
+          par: 71,
+        },
+      ],
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('uses the configured fallback when RapidAPI returns no match', async () => {
     vi.stubEnv('RAPIDAPI_KEY', 'test-api-key')
     vi.stubEnv('RAPIDAPI_HOST', 'uk-golf-course-data-api.p.rapidapi.com')
@@ -124,7 +183,7 @@ describe('getCourseRatings', () => {
 
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(getCourseRatings('Sickleholme Golf Club')).resolves.toEqual({
+    await expect(getCourseRatings('Sickleholme')).resolves.toEqual({
       clubName: 'Sickleholme Golf Club',
       source: 'fallback_scrape',
       tees: [

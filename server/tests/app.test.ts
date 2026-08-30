@@ -4,12 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   clubCreateMock,
   clubFindFirstMock,
+  clubFindManyMock,
+  clubUpdateMock,
   getCourseRatingsMock,
   userCreateMock,
   userFindUniqueMock,
 } = vi.hoisted(() => ({
   clubCreateMock: vi.fn(),
   clubFindFirstMock: vi.fn(),
+  clubFindManyMock: vi.fn(),
+  clubUpdateMock: vi.fn(),
   getCourseRatingsMock: vi.fn(),
   userCreateMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
@@ -20,6 +24,8 @@ vi.mock('../src/database.js', () => ({
     club: {
       create: clubCreateMock,
       findFirst: clubFindFirstMock,
+      findMany: clubFindManyMock,
+      update: clubUpdateMock,
     },
     user: {
       create: userCreateMock,
@@ -37,6 +43,10 @@ import app from '../src/app.js'
 beforeEach(() => {
   clubCreateMock.mockReset()
   clubFindFirstMock.mockReset()
+  clubFindFirstMock.mockResolvedValue(null)
+  clubFindManyMock.mockReset()
+  clubFindManyMock.mockResolvedValue([])
+  clubUpdateMock.mockReset()
   getCourseRatingsMock.mockReset()
   userCreateMock.mockReset()
   userFindUniqueMock.mockReset()
@@ -225,34 +235,56 @@ describe('GET /api/users/:id/rounds', () => {
 })
 
 describe('GET /api/courses/search', () => {
-  it('should return saved local ratings without calling the external lookup', async () => {
-    clubFindFirstMock.mockResolvedValueOnce({
-      id: '55555555-5555-4555-8555-555555555555',
-      name: 'Example Golf Club',
-      latitude: null,
-      longitude: null,
-      courses: [
+  it('should merge a saved tee with available tees from the external lookup', async () => {
+    clubFindManyMock.mockResolvedValueOnce([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'Example Golf Club',
+        latitude: null,
+        longitude: null,
+        courses: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            clubId: '55555555-5555-4555-8555-555555555555',
+            name: 'Old Course',
+            tees: [
+              {
+                id: '44444444-4444-4444-8444-444444444444',
+                courseId: '33333333-3333-4333-8333-333333333333',
+                teeName: 'Championship',
+                courseRating: 73.1,
+                slopeRating: 137,
+                par: 70,
+                source: 'API',
+              },
+            ],
+          },
+        ],
+      },
+    ])
+    getCourseRatingsMock.mockResolvedValueOnce({
+      clubName: 'Example Golf Club',
+      source: 'api',
+      tees: [
         {
-          id: '33333333-3333-4333-8333-333333333333',
-          clubId: '55555555-5555-4555-8555-555555555555',
-          name: 'Old Course',
-          tees: [
-            {
-              id: '44444444-4444-4444-8444-444444444444',
-              courseId: '33333333-3333-4333-8333-333333333333',
-              teeName: 'Championship',
-              courseRating: 73.1,
-              slopeRating: 137,
-              par: 70,
-              source: 'API',
-            },
-          ],
+          courseName: 'Old Course',
+          teeName: 'Championship',
+          courseRating: 73.1,
+          slopeRating: 137,
+          par: 70,
+        },
+        {
+          courseName: 'Old Course',
+          teeName: 'Forward',
+          courseRating: 69.2,
+          slopeRating: 125,
+          par: 70,
         },
       ],
     })
 
     const response = await request(app).get(
-      '/api/courses/search?q=Example%20Golf%20Club',
+      '/api/courses/search?q=Example',
     )
 
     expect(response.status).toBe(200)
@@ -266,15 +298,28 @@ describe('GET /api/courses/search', () => {
           courseRating: 73.1,
           slopeRating: 137,
           par: 70,
+          isSaved: true,
+        },
+        {
+          courseName: 'Old Course',
+          teeName: 'Forward',
+          courseRating: 69.2,
+          slopeRating: 125,
+          par: 70,
+          isSaved: false,
         },
       ],
     })
-    expect(clubFindFirstMock).toHaveBeenCalledWith({
+    expect(clubFindManyMock).toHaveBeenCalledWith({
       where: {
-        name: {
-          equals: 'Example Golf Club',
-          mode: 'insensitive',
-        },
+        AND: [
+          {
+            name: {
+              contains: 'example',
+              mode: 'insensitive',
+            },
+          },
+        ],
       },
       include: {
         courses: {
@@ -284,24 +329,26 @@ describe('GET /api/courses/search', () => {
         },
       },
     })
-    expect(getCourseRatingsMock).not.toHaveBeenCalled()
+    expect(getCourseRatingsMock).toHaveBeenCalledWith('Example Golf Club')
   })
 
   it('should use the external lookup when a saved club has no tees', async () => {
-    clubFindFirstMock.mockResolvedValueOnce({
-      id: '55555555-5555-4555-8555-555555555555',
-      name: 'Example Golf Club',
-      latitude: null,
-      longitude: null,
-      courses: [
-        {
-          id: '33333333-3333-4333-8333-333333333333',
-          clubId: '55555555-5555-4555-8555-555555555555',
-          name: 'Old Course',
-          tees: [],
-        },
-      ],
-    })
+    clubFindManyMock.mockResolvedValueOnce([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'Example Golf Club',
+        latitude: null,
+        longitude: null,
+        courses: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            clubId: '55555555-5555-4555-8555-555555555555',
+            name: 'Old Course',
+            tees: [],
+          },
+        ],
+      },
+    ])
     const externalCourseData = {
       clubName: 'Example Golf Club',
       source: 'api',
@@ -322,11 +369,24 @@ describe('GET /api/courses/search', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(response.body).toEqual(externalCourseData)
+    expect(response.body).toEqual({
+      clubName: 'Example Golf Club',
+      source: 'api',
+      tees: [
+        {
+          courseName: 'Old Course',
+          teeName: 'Championship',
+          courseRating: 73.1,
+          slopeRating: 137,
+          par: 70,
+          isSaved: false,
+        },
+      ],
+    })
     expect(getCourseRatingsMock).toHaveBeenCalledWith('Example Golf Club')
   })
 
-  it('should return normalized ratings for the requested club', async () => {
+  it('should return normalized ratings for a partial club name', async () => {
     const courseData = {
       clubName: 'Sickleholme Golf Club',
       source: 'fallback_scrape',
@@ -341,12 +401,23 @@ describe('GET /api/courses/search', () => {
     getCourseRatingsMock.mockResolvedValueOnce(courseData)
 
     const response = await request(app).get(
-      '/api/courses/search?q=Sickleholme%20Golf%20Club',
+      '/api/courses/search?q=Sickleholme',
     )
 
     expect(response.status).toBe(200)
-    expect(response.body).toEqual(courseData)
-    expect(getCourseRatingsMock).toHaveBeenCalledWith('Sickleholme Golf Club')
+    expect(response.body).toEqual({
+      clubName: 'Sickleholme Golf Club',
+      source: 'fallback_scrape',
+      tees: [
+        {
+          teeName: "Men's White",
+          courseRating: 72.4,
+          slopeRating: 130,
+          isSaved: false,
+        },
+      ],
+    })
+    expect(getCourseRatingsMock).toHaveBeenCalledWith('Sickleholme')
   })
 
   it('should return 400 when the search query is missing', async () => {
@@ -436,6 +507,108 @@ describe('POST /api/courses', () => {
                     source: 'API',
                   },
                 ],
+              },
+            },
+          ],
+        },
+      },
+      include: {
+        courses: {
+          include: {
+            tees: true,
+          },
+        },
+      },
+    })
+  })
+
+  it('should add a new tee to an existing club without creating a duplicate club', async () => {
+    const existingClub = {
+      id: '55555555-5555-4555-8555-555555555555',
+      name: 'Example Golf Club',
+      latitude: null,
+      longitude: null,
+      courses: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          clubId: '55555555-5555-4555-8555-555555555555',
+          name: 'Old Course',
+          tees: [
+            {
+              id: '44444444-4444-4444-8444-444444444444',
+              courseId: '33333333-3333-4333-8333-333333333333',
+              teeName: 'Championship',
+              courseRating: 73.1,
+              slopeRating: 137,
+              par: 70,
+              source: 'API',
+            },
+          ],
+        },
+      ],
+    }
+    const updatedClub = {
+      ...existingClub,
+      courses: [
+        {
+          ...existingClub.courses[0],
+          tees: [
+            ...existingClub.courses[0].tees,
+            {
+              id: '77777777-7777-4777-8777-777777777777',
+              courseId: '33333333-3333-4333-8333-333333333333',
+              teeName: 'Forward',
+              courseRating: 69.2,
+              slopeRating: 125,
+              par: 70,
+              source: 'API',
+            },
+          ],
+        },
+      ],
+    }
+    clubFindFirstMock.mockResolvedValueOnce(existingClub)
+    clubUpdateMock.mockResolvedValueOnce(updatedClub)
+
+    const response = await request(app)
+      .post('/api/courses')
+      .send({
+        clubName: 'Example Golf Club',
+        source: 'api',
+        tees: [
+          {
+            courseName: 'Old Course',
+            teeName: 'Forward',
+            courseRating: 69.2,
+            slopeRating: 125,
+            par: 70,
+          },
+        ],
+      })
+
+    expect(response.status).toBe(201)
+    expect(response.body).toEqual(updatedClub)
+    expect(clubCreateMock).not.toHaveBeenCalled()
+    expect(clubUpdateMock).toHaveBeenCalledWith({
+      where: { id: '55555555-5555-4555-8555-555555555555' },
+      data: {
+        courses: {
+          create: [],
+          update: [
+            {
+              where: { id: '33333333-3333-4333-8333-333333333333' },
+              data: {
+                tees: {
+                  create: [
+                    {
+                      teeName: 'Forward',
+                      courseRating: 69.2,
+                      slopeRating: 125,
+                      par: 70,
+                      source: 'API',
+                    },
+                  ],
+                },
               },
             },
           ],

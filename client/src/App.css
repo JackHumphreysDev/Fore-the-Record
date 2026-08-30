@@ -36,14 +36,17 @@
   font-weight: 700;
 }
 
-.site-nav a,
+.site-nav button,
 .site-nav > span {
   position: relative;
   padding: 13px 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
   text-decoration: none;
 }
 
-.site-nav a::after {
+.site-nav button[aria-current="page"]::after {
   content: "";
   position: absolute;
   inset: auto 0 2px;
@@ -410,7 +413,7 @@
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
 .brand:focus-visible,
-.site-nav a:focus-visible {
+.site-nav button:focus-visible {
   outline: 3px solid var(--lime);
   outline-offset: 3px;
 }
