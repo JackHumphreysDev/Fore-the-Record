@@ -36,8 +36,7 @@
   font-weight: 700;
 }
 
-.site-nav button,
-.site-nav > span {
+.site-nav button {
   position: relative;
   padding: 13px 0;
   border: 0;
@@ -52,23 +51,6 @@
   inset: auto 0 2px;
   height: 2px;
   background: var(--forest);
-}
-
-.site-nav > span {
-  color: #879188;
-}
-
-.site-nav small {
-  position: absolute;
-  top: -2px;
-  right: -24px;
-  padding: 2px 4px;
-  border-radius: 3px;
-  color: var(--forest-deep);
-  background: var(--lime);
-  font-size: 7px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
 }
 
 .profile-layout {

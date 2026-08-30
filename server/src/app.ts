@@ -176,6 +176,49 @@ app.get('/api/users/:id', async (request, response) => {
   })
 })
 
+app.get('/api/courses', async (_request, response) => {
+  const clubs = await prisma.club.findMany({
+    orderBy: { name: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      courses: {
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          tees: {
+            orderBy: { teeName: 'asc' },
+            select: {
+              id: true,
+              teeName: true,
+              courseRating: true,
+              slopeRating: true,
+              par: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  response.status(200).json(
+    clubs.flatMap((club) => {
+      const courses = club.courses
+        .filter((course) => course.tees.length > 0)
+        .map((course) => ({
+          ...course,
+          tees: course.tees.map((tee) => ({
+            ...tee,
+            courseRating: Number(tee.courseRating),
+          })),
+        }))
+
+      return courses.length > 0 ? [{ ...club, courses }] : []
+    }),
+  )
+})
+
 app.get('/api/courses/search', async (request, response) => {
   const query = request.query.q
 

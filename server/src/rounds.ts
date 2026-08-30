@@ -325,6 +325,8 @@ export async function logRound(input: LogRoundInput) {
     return {
       round: {
         ...createdRound,
+        pccAdjustment: Number(createdRound.pccAdjustment),
+        scoreDifferential: Number(createdRound.scoreDifferential),
         usedInHandicapCalc: handicapCalculation.usedRoundIds.includes(
           createdRound.id,
         ),

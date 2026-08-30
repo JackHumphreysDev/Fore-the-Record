@@ -2,8 +2,9 @@ import { useState, type FormEvent } from 'react'
 import './App.css'
 import brandLogo from './assets/fore-the-record-logo.png'
 import CourseSearch from './CourseSearch.tsx'
+import RoundEntry from './RoundEntry.tsx'
 
-type ActiveView = 'profile' | 'courses'
+type ActiveView = 'profile' | 'courses' | 'rounds'
 
 type Profile = {
   id: string
@@ -150,6 +151,12 @@ function App() {
     setApiError('')
   }
 
+  function updateHandicapIndex(handicapIndex: number | null) {
+    setProfile((current) =>
+      current ? { ...current, handicapIndex } : current,
+    )
+  }
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -177,9 +184,13 @@ function App() {
           >
             Courses
           </button>
-          <span aria-disabled="true">
-            Rounds <small>Soon</small>
-          </span>
+          <button
+            type="button"
+            aria-current={activeView === 'rounds' ? 'page' : undefined}
+            onClick={() => setActiveView('rounds')}
+          >
+            Rounds
+          </button>
         </nav>
       </header>
 
@@ -247,8 +258,8 @@ function App() {
                 <p className="form-kicker">Profile created</p>
                 <h2>You’re on the tee.</h2>
                 <p className="form-intro">
-                  Your record is ready. Add a round when the scorecard flow
-                  lands next.
+                  Your record is ready. Choose Rounds when you’re ready to add
+                  your first score.
                 </p>
 
                 <div className="profile-card">
@@ -375,8 +386,15 @@ function App() {
             )}
           </div>
           </section>
-        ) : (
+        ) : activeView === 'courses' ? (
           <CourseSearch />
+        ) : (
+          <RoundEntry
+            profile={profile}
+            onGoToCourses={() => setActiveView('courses')}
+            onGoToProfile={() => setActiveView('profile')}
+            onRoundLogged={updateHandicapIndex}
+          />
         )}
       </main>
 
