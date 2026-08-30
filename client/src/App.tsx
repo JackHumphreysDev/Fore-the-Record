@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import './App.css'
+import brandLogo from './assets/fore-the-record-logo.png'
 
 type Profile = {
   id: string
@@ -81,28 +82,6 @@ async function getApiError(response: Response): Promise<string> {
   return 'We could not create your profile. Please try again.'
 }
 
-function BrandMark() {
-  return (
-    <svg
-      className="brand-mark"
-      viewBox="0 0 44 44"
-      role="img"
-      aria-label="Fore the Record"
-    >
-      <circle cx="22" cy="22" r="20" fill="currentColor" />
-      <path
-        d="M16 32V12h13l-2.5 4L29 20H20v12"
-        fill="none"
-        stroke="white"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.4"
-      />
-      <circle cx="16" cy="32" r="2.4" fill="#d7ff4f" />
-    </svg>
-  )
-}
-
 function App() {
   const [form, setForm] = useState<ProfileForm>(EMPTY_FORM)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -171,11 +150,7 @@ function App() {
     <div className="app-shell">
       <header className="site-header">
         <a className="brand" href="#profile" aria-label="Fore the Record home">
-          <BrandMark />
-          <span className="brand-copy">
-            <strong>Fore the Record</strong>
-            <small>Your game, in focus</small>
-          </span>
+          <img className="brand-logo" src={brandLogo} alt="" />
         </a>
 
         <nav className="site-nav" aria-label="Primary navigation">

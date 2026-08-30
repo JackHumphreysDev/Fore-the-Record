@@ -17,35 +17,15 @@
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
   color: var(--forest);
   text-decoration: none;
 }
 
-.brand-mark {
-  width: 44px;
-  height: 44px;
+.brand-logo {
+  width: auto;
+  height: 76px;
   flex: 0 0 auto;
-}
-
-.brand-copy {
-  display: grid;
-  gap: 1px;
-}
-
-.brand-copy strong {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 21px;
-  line-height: 1.05;
-  letter-spacing: -0.35px;
-}
-
-.brand-copy small {
-  color: var(--ink-muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
+  object-fit: contain;
 }
 
 .site-nav {
@@ -695,17 +675,8 @@
     min-height: 76px;
   }
 
-  .brand-mark {
-    width: 38px;
-    height: 38px;
-  }
-
-  .brand-copy strong {
-    font-size: 18px;
-  }
-
-  .brand-copy small {
-    display: none;
+  .brand-logo {
+    height: 58px;
   }
 
   .site-nav {
