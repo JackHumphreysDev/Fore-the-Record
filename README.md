@@ -21,4 +21,24 @@ Sensitive values such as database connection strings and API credentials are sto
 
 The project foundation is complete. It includes a React and TypeScript frontend, an Express and TypeScript backend, a tested API health endpoint, and a Prisma schema connected to a Supabase PostgreSQL database. The initial database migration has been created and deployed successfully.
 
-The application features are still under development. The core handicap calculation domain logic, backend profile creation and retrieval, two-tier backend course ratings lookup, course and tee persistence, transactional round logging with scorecard capping and automatic handicap recalculation, the round-history API, and the frontend profile-creation, course-search, total-score round-entry, and round-history flows are implemented. The history view lists rounds newest first, displays score and course details, and identifies the rounds used in the current Handicap Index. Vercel deployment has not yet been implemented. Total-score entry uses gross score as adjusted gross score because Net Double Bogey capping requires a complete hole-by-hole scorecard.
+The application features are still under development. The core handicap calculation domain logic, backend profile creation and retrieval, two-tier backend course ratings lookup, course and tee persistence, transactional round logging with scorecard capping and automatic handicap recalculation, the round-history API, and the frontend profile-creation, course-search, total-score round-entry, and round-history flows are implemented. The history view lists rounds newest first, displays score and course details, and identifies the rounds used in the current Handicap Index. The production application is deployed on Vercel. Total-score entry uses gross score as adjusted gross score because Net Double Bogey capping requires a complete hole-by-hole scorecard.
+
+## Deployment
+
+The production application is available at [fore-the-record.vercel.app](https://fore-the-record.vercel.app).
+
+Vercel builds the Vite client and serves the Express API through the `/api` route. The following environment variables must be configured for both Preview and Production deployments:
+
+- `DATABASE_URL`
+- `RAPIDAPI_KEY`
+- `RAPIDAPI_HOST`
+- `RAPIDAPI_SEARCH_PATH`
+- `RAPIDAPI_SEARCH_QUERY_PARAM`
+
+Their values are deployment secrets and must never be committed to the repository.
+
+Deploy the current branch to Production with:
+
+```bash
+npx --yes vercel@59.10.0 deploy --prod --yes
+```

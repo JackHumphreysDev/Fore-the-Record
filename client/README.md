@@ -25,5 +25,5 @@ npm run dev:client
 ```
 
 The client uses relative `/api` requests. Vite proxies those requests to the
-local Express server during development; deployment routing will be configured
-when hosting is implemented.
+local Express server during development, while Vercel routes them to the
+deployed Express API in production.
