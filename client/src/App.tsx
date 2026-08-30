@@ -3,8 +3,9 @@ import './App.css'
 import brandLogo from './assets/fore-the-record-logo.png'
 import CourseSearch from './CourseSearch.tsx'
 import RoundEntry from './RoundEntry.tsx'
+import RoundHistory from './RoundHistory.tsx'
 
-type ActiveView = 'profile' | 'courses' | 'rounds'
+type ActiveView = 'profile' | 'courses' | 'rounds' | 'history'
 
 type Profile = {
   id: string
@@ -190,6 +191,13 @@ function App() {
             onClick={() => setActiveView('rounds')}
           >
             Rounds
+          </button>
+          <button
+            type="button"
+            aria-current={activeView === 'history' ? 'page' : undefined}
+            onClick={() => setActiveView('history')}
+          >
+            History
           </button>
         </nav>
       </header>
@@ -388,12 +396,19 @@ function App() {
           </section>
         ) : activeView === 'courses' ? (
           <CourseSearch />
-        ) : (
+        ) : activeView === 'rounds' ? (
           <RoundEntry
             profile={profile}
             onGoToCourses={() => setActiveView('courses')}
             onGoToProfile={() => setActiveView('profile')}
+            onGoToHistory={() => setActiveView('history')}
             onRoundLogged={updateHandicapIndex}
+          />
+        ) : (
+          <RoundHistory
+            profile={profile}
+            onGoToProfile={() => setActiveView('profile')}
+            onLogRound={() => setActiveView('rounds')}
           />
         )}
       </main>
