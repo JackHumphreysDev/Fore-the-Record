@@ -87,8 +87,8 @@ describe('POST /api/rounds', () => {
       adjustedGrossScore: 95,
       isCapped: false,
       weatherCondition: 'DRY',
-      pccAdjustment: 0,
-      scoreDifferential: 18.1,
+      pccAdjustment: '0',
+      scoreDifferential: '18.1',
       isAcceptable: true,
       usedInHandicapCalc: false,
       createdAt,
@@ -116,6 +116,8 @@ describe('POST /api/rounds', () => {
     expect(response.body).toEqual({
       round: {
         ...createdRound,
+        pccAdjustment: 0,
+        scoreDifferential: 18.1,
         datePlayed: datePlayed.toISOString(),
         createdAt: createdAt.toISOString(),
         usedInHandicapCalc: true,
