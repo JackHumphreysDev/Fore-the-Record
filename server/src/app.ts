@@ -199,15 +199,20 @@ app.patch('/api/users/me', async (request, response) => {
 
   const body: unknown = request.body
   const requestedHomeClubId = isRecord(body) ? body.homeClubId : undefined
-  const homeClubId =
-    typeof requestedHomeClubId === 'string'
-      ? requestedHomeClubId.trim()
-      : requestedHomeClubId
+  let homeClubId: string | null
 
-  if (
-    homeClubId !== null &&
-    (typeof homeClubId !== 'string' || !UUID_PATTERN.test(homeClubId))
-  ) {
+  if (requestedHomeClubId === null) {
+    homeClubId = null
+  } else if (typeof requestedHomeClubId === 'string') {
+    const normalizedHomeClubId = requestedHomeClubId.trim()
+
+    if (!UUID_PATTERN.test(normalizedHomeClubId)) {
+      response.status(400).json({ error: 'Invalid home club ID' })
+      return
+    }
+
+    homeClubId = normalizedHomeClubId
+  } else {
     response.status(400).json({ error: 'Invalid home club ID' })
     return
   }
