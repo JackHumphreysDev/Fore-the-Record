@@ -31,7 +31,11 @@ In the Supabase dashboard:
 1. Enable the Email authentication provider and keep email confirmation required.
 2. Set the production Site URL to `https://fore-the-record.vercel.app`.
 3. Add `http://localhost:5173/**` and `https://fore-the-record.vercel.app/**` to the allowed redirect URLs.
-4. Configure a production SMTP provider before inviting real users; Supabase's default sender is intended only for limited testing.
+4. Configure a production SMTP provider before inviting real users; Supabase's default sender is intended only for limited testing and has a low project-wide email limit.
+
+Keep email confirmation enabled. Existing-profile claiming relies on a verified email address to prove ownership, so disabling confirmation would make that flow insecure. If Supabase reports that too many emails were requested, wait for the testing allowance to reset or finish the custom SMTP setup below.
+
+For custom SMTP, obtain a host, port, username, password, verified sender address, and sender name from an email provider. In Supabase, open the Authentication settings, enable Custom SMTP, enter those provider values, and save. SMTP credentials are configured in Supabase and must never be committed to this repository or placed in a `VITE_` variable. After SMTP is enabled, review the project's Authentication rate limits for the expected traffic level. See the [Supabase SMTP guide](https://supabase.com/docs/guides/auth/auth-smtp) and [Auth rate-limit reference](https://supabase.com/docs/guides/auth/rate-limits).
 
 Copy the Supabase project URL and publishable key into both `server/.env` and `client/.env.local` using the names shown in their `.env.example` files. The publishable key is designed for browser use. Never use the Supabase service-role secret in a client or `VITE_` variable.
 

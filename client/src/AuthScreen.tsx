@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import brandLogo from './assets/fore-the-record-logo.png'
+import { getAuthErrorMessage } from './authErrors.ts'
 import { getSupabaseClient } from './supabase.ts'
 import './AuthScreen.css'
 
@@ -98,7 +99,8 @@ function AuthScreen({ notice = '' }: AuthScreenProps) {
         })
 
         if (signInError) {
-          throw new Error('Email or password not recognised')
+          setError('Email or password not recognised')
+          return
         }
 
         return
@@ -140,11 +142,7 @@ function AuthScreen({ notice = '' }: AuthScreenProps) {
         'Check your inbox and confirm your email. You will return here to finish securely.',
       )
     } catch (caughtError: unknown) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'We could not complete that request. Please try again.',
-      )
+      setError(getAuthErrorMessage(caughtError))
     } finally {
       setIsSubmitting(false)
     }
