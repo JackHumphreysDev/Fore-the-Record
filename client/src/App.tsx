@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import './App.css'
+import AdminPortal from './AdminPortal.tsx'
 import { fetchWithAccessToken } from './api.ts'
+import {
+  isAdminIdentity,
+  type AdminIdentity,
+} from './adminApi.ts'
 import AuthScreen from './AuthScreen.tsx'
 import brandLogo from './assets/fore-the-record-logo.png'
 import CourseSearch from './CourseSearch.tsx'
@@ -11,7 +16,7 @@ import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
 import { getSupabaseClient } from './supabase.ts'
 
-type ActiveView = 'profile' | 'courses' | 'rounds' | 'history'
+type ActiveView = 'profile' | 'courses' | 'rounds' | 'history' | 'admin'
 
 type HomeClub = {
   id: string
@@ -26,6 +31,27 @@ type Profile = {
   handicapIndex: number | null
   createdAt: string
   homeClub: HomeClub | null
+}
+
+async function loadAdminIdentity(
+  currentSession: Session,
+): Promise<AdminIdentity | null> {
+  try {
+    const response = await fetchWithAccessToken(
+      currentSession.access_token,
+      '/api/admin/me',
+    )
+
+    if (!response.ok) {
+      return null
+    }
+
+    const body: unknown = await response.json()
+
+    return isAdminIdentity(body) ? body : null
+  } catch {
+    return null
+  }
 }
 
 async function getApiError(
@@ -83,6 +109,8 @@ function App() {
   const [activeView, setActiveView] = useState<ActiveView>('profile')
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [adminIdentity, setAdminIdentity] =
+    useState<AdminIdentity | null>(null)
   const [isAuthLoading, setIsAuthLoading] = useState(
     authSetup.client !== null,
   )
@@ -96,6 +124,7 @@ function App() {
 
     setIsAuthLoading(true)
     setAuthError('')
+    setAdminIdentity(null)
 
     try {
       let response = await fetchWithAccessToken(
@@ -141,12 +170,14 @@ function App() {
       }
 
       const nextProfile = (await response.json()) as Profile
+      const nextAdminIdentity = await loadAdminIdentity(currentSession)
 
       if (currentRequest !== profileRequestNumber.current) {
         return
       }
 
       setProfile(nextProfile)
+      setAdminIdentity(nextAdminIdentity)
       removeAuthQueryParameters()
     } catch (error: unknown) {
       if (currentRequest !== profileRequestNumber.current) {
@@ -154,6 +185,7 @@ function App() {
       }
 
       setProfile(null)
+      setAdminIdentity(null)
       setAuthError(
         error instanceof TypeError
           ? 'We could not reach the server. Check your connection and try again.'
@@ -183,6 +215,8 @@ function App() {
         }
 
         setSession(nextSession)
+        setAdminIdentity(null)
+        setActiveView('profile')
 
         if (!nextSession) {
           profileRequestNumber.current += 1
@@ -245,6 +279,7 @@ function App() {
       profileRequestNumber.current += 1
       setSession(null)
       setProfile(null)
+      setAdminIdentity(null)
       setActiveView('profile')
     }
   }
@@ -366,6 +401,15 @@ function App() {
           >
             History
           </button>
+          {adminIdentity ? (
+            <button
+              type="button"
+              aria-current={activeView === 'admin' ? 'page' : undefined}
+              onClick={() => setActiveView('admin')}
+            >
+              Admin
+            </button>
+          ) : null}
         </nav>
       </header>
 
@@ -493,13 +537,15 @@ function App() {
             onGoToHistory={() => setActiveView('history')}
             onRoundLogged={updateHandicapIndex}
           />
-        ) : (
+        ) : activeView === 'history' ? (
           <RoundHistory
             profile={profile}
             onGoToProfile={() => setActiveView('profile')}
             onLogRound={() => setActiveView('rounds')}
           />
-        )}
+        ) : adminIdentity ? (
+          <AdminPortal administratorName={adminIdentity.name} />
+        ) : null}
       </main>
 
       <footer className="site-footer">

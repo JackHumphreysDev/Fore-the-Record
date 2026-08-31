@@ -6,7 +6,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 
 1. Custom domain and production email delivery.
 2. Admin-role and audit-log foundation. Completed in `0.2.0`.
-3. Admin portal.
+3. Admin portal. Read-only monitoring completed in `0.3.0`; management actions remain planned.
 4. User submissions and admin messaging.
 5. Competition, casual, individual, and team round records.
 6. User-facing **What's New** section.
@@ -42,11 +42,15 @@ Give the project owner controlled administrative access without making an email 
 - Add an audit log recording the administrator, action, target record, timestamp, and safe before/after details.
 - Never expose passwords, access tokens, database credentials, or authentication secrets in the portal.
 
-## Admin portal
+## Admin portal — read-only monitoring completed in 0.3.0
 
 ### Goal
 
 Allow authorized administrators to monitor and maintain player data.
+
+### Delivery status
+
+Version `0.3.0` provides protected operational totals, recent registrations, and paginated user search. Creating, editing, suspending, deleting, or otherwise changing user and round data remains planned and is deliberately absent from the read-only release.
 
 ### Capabilities
 

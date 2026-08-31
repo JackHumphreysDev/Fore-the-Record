@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.3.0 - 2026-08-31
+
+### User-facing changes
+
+- No player-facing changes in this release.
+
+### Developer and admin changes
+
+- Added a responsive read-only portal visible only to the authorized administrator.
+- Added operational totals for profiles, recorded rounds, and saved clubs.
+- Added a recent-registration view and a paginated player directory searchable by name or email.
+- Kept all portal data behind server-side administrator authorization and limited responses to safe profile fields.
+- Added API authorization, overview, pagination, search, and client response-validation tests.
+
 ## 0.2.0 - 2026-08-31
 
 ### User-facing changes
