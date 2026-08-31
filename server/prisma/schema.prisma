@@ -25,16 +25,38 @@ enum WeatherCondition {
   SUPER_WET
 }
 
+enum UserRole {
+  PLAYER
+  ADMIN
+}
+
 model User {
-  id            String   @id @default(uuid()) @db.Uuid
-  authUserId    String?  @unique @db.Uuid
-  name          String
-  email         String   @unique
-  homeClubId    String?  @db.Uuid
-  handicapIndex Decimal? @db.Decimal(4, 1)
-  createdAt     DateTime @default(now()) @db.Timestamptz(3)
-  homeClub      Club?    @relation(fields: [homeClubId], references: [id], onDelete: SetNull)
-  rounds        Round[]
+  id             String          @id @default(uuid()) @db.Uuid
+  authUserId     String?         @unique @db.Uuid
+  name           String
+  email          String          @unique
+  role           UserRole        @default(PLAYER)
+  homeClubId     String?         @db.Uuid
+  handicapIndex  Decimal?        @db.Decimal(4, 1)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  homeClub       Club?           @relation(fields: [homeClubId], references: [id], onDelete: SetNull)
+  rounds         Round[]
+  adminAuditLogs AdminAuditLog[] @relation("AdminAuditActor")
+}
+
+model AdminAuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String   @db.Uuid
+  action      String   @db.VarChar(80)
+  targetType  String   @db.VarChar(80)
+  targetId    String?  @db.VarChar(128)
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  actor       User     @relation("AdminAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId])
 }
 
 model Club {

@@ -5,7 +5,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 ## Suggested delivery order
 
 1. Custom domain and production email delivery.
-2. Admin-role and audit-log foundation.
+2. Admin-role and audit-log foundation. Completed in `0.2.0`.
 3. Admin portal.
 4. User submissions and admin messaging.
 5. Competition, casual, individual, and team round records.
@@ -27,7 +27,7 @@ Maintain a professional version history for development while giving players a s
 - Do not require a version number to appear in the player-facing section.
 - Never show internal database, infrastructure, security, dependency, or refactoring notes to ordinary users.
 
-## Admin-role foundation
+## Admin-role foundation — completed in 0.2.0
 
 ### Goal
 
