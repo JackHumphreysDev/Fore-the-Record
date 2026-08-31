@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   getAuthenticatedUserMock,
+  prismaTransactionMock,
+  clubCountMock,
   clubCreateMock,
   clubFindFirstMock,
   clubFindUniqueMock,
@@ -11,12 +13,17 @@ const {
   getCourseRatingsMock,
   logRoundMock,
   parseLogRoundInputMock,
+  roundCountMock,
+  userCountMock,
   userCreateMock,
+  userFindManyMock,
   userFindFirstMock,
   userFindUniqueMock,
   userUpdateMock,
 } = vi.hoisted(() => ({
   getAuthenticatedUserMock: vi.fn(),
+  prismaTransactionMock: vi.fn(),
+  clubCountMock: vi.fn(),
   clubCreateMock: vi.fn(),
   clubFindFirstMock: vi.fn(),
   clubFindUniqueMock: vi.fn(),
@@ -25,7 +32,10 @@ const {
   getCourseRatingsMock: vi.fn(),
   logRoundMock: vi.fn(),
   parseLogRoundInputMock: vi.fn(),
+  roundCountMock: vi.fn(),
+  userCountMock: vi.fn(),
   userCreateMock: vi.fn(),
+  userFindManyMock: vi.fn(),
   userFindFirstMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   userUpdateMock: vi.fn(),
@@ -33,7 +43,9 @@ const {
 
 vi.mock('../src/database.js', () => ({
   prisma: {
+    $transaction: prismaTransactionMock,
     club: {
+      count: clubCountMock,
       create: clubCreateMock,
       findFirst: clubFindFirstMock,
       findUnique: clubFindUniqueMock,
@@ -41,10 +53,15 @@ vi.mock('../src/database.js', () => ({
       update: clubUpdateMock,
     },
     user: {
+      count: userCountMock,
       create: userCreateMock,
       findFirst: userFindFirstMock,
+      findMany: userFindManyMock,
       findUnique: userFindUniqueMock,
       update: userUpdateMock,
+    },
+    round: {
+      count: roundCountMock,
     },
   },
 }))
@@ -72,12 +89,17 @@ vi.mock('../src/rounds.js', async () => {
 import app from '../src/app.js'
 
 beforeEach(() => {
+  prismaTransactionMock.mockReset()
+  prismaTransactionMock.mockImplementation((operations: Promise<unknown>[]) =>
+    Promise.all(operations),
+  )
   getAuthenticatedUserMock.mockReset()
   getAuthenticatedUserMock.mockResolvedValue({
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     email: 'jack@example.com',
     emailConfirmed: true,
   })
+  clubCountMock.mockReset()
   clubCreateMock.mockReset()
   clubFindFirstMock.mockReset()
   clubFindFirstMock.mockResolvedValue(null)
@@ -88,7 +110,10 @@ beforeEach(() => {
   getCourseRatingsMock.mockReset()
   logRoundMock.mockReset()
   parseLogRoundInputMock.mockReset()
+  roundCountMock.mockReset()
+  userCountMock.mockReset()
   userCreateMock.mockReset()
+  userFindManyMock.mockReset()
   userFindFirstMock.mockReset()
   userFindFirstMock.mockResolvedValue(null)
   userFindUniqueMock.mockReset()
@@ -160,6 +185,207 @@ describe('GET /api/admin/me', () => {
 
     expect(response.status).toBe(403)
     expect(response.body).toEqual({ error: 'Administrator access required' })
+  })
+})
+
+describe('GET /api/admin/overview', () => {
+  const adminProfile = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Site Administrator',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  }
+
+  it('should return operational totals and recent registrations', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    userCountMock.mockResolvedValueOnce(14)
+    roundCountMock.mockResolvedValueOnce(38)
+    clubCountMock.mockResolvedValueOnce(6)
+    userFindManyMock.mockResolvedValueOnce([
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Recent Player',
+        email: 'recent@example.com',
+        role: 'PLAYER',
+        handicapIndex: '12.4',
+        createdAt: new Date('2026-08-31T18:15:00.000Z'),
+        homeClub: {
+          id: '33333333-3333-4333-8333-333333333333',
+          name: 'Example Golf Club',
+        },
+        _count: { rounds: 4 },
+      },
+    ])
+
+    const response = await request(app).get('/api/admin/overview')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      totals: {
+        users: 14,
+        rounds: 38,
+        clubs: 6,
+      },
+      recentRegistrations: [
+        {
+          id: '22222222-2222-4222-8222-222222222222',
+          name: 'Recent Player',
+          email: 'recent@example.com',
+          role: 'PLAYER',
+          handicapIndex: 12.4,
+          createdAt: '2026-08-31T18:15:00.000Z',
+          homeClub: {
+            id: '33333333-3333-4333-8333-333333333333',
+            name: 'Example Golf Club',
+          },
+          roundCount: 4,
+        },
+      ],
+    })
+    expect(userCountMock).toHaveBeenCalledWith()
+    expect(roundCountMock).toHaveBeenCalledWith()
+    expect(clubCountMock).toHaveBeenCalledWith()
+    expect(userFindManyMock).toHaveBeenCalledWith({
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        handicapIndex: true,
+        createdAt: true,
+        homeClub: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: { rounds: true },
+        },
+      },
+    })
+  })
+
+  it('should reject a player before reading operational data', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      ...adminProfile,
+      role: 'PLAYER',
+    })
+
+    const response = await request(app).get('/api/admin/overview')
+
+    expect(response.status).toBe(403)
+    expect(userCountMock).not.toHaveBeenCalled()
+    expect(roundCountMock).not.toHaveBeenCalled()
+    expect(clubCountMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/admin/users', () => {
+  const adminProfile = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Site Administrator',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  }
+
+  it('should search safe user fields with server-side pagination', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    userCountMock.mockResolvedValueOnce(5)
+    userFindManyMock.mockResolvedValueOnce([
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Jack Player',
+        email: 'jack.player@example.com',
+        role: 'PLAYER',
+        handicapIndex: null,
+        createdAt: new Date('2026-08-30T09:00:00.000Z'),
+        homeClub: null,
+        _count: { rounds: 0 },
+      },
+    ])
+
+    const response = await request(app).get(
+      '/api/admin/users?search=jack&page=2&pageSize=2',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      users: [
+        {
+          id: '22222222-2222-4222-8222-222222222222',
+          name: 'Jack Player',
+          email: 'jack.player@example.com',
+          role: 'PLAYER',
+          handicapIndex: null,
+          createdAt: '2026-08-30T09:00:00.000Z',
+          homeClub: null,
+          roundCount: 0,
+        },
+      ],
+      pagination: {
+        page: 2,
+        pageSize: 2,
+        total: 5,
+        totalPages: 3,
+      },
+    })
+
+    const where = {
+      OR: [
+        {
+          name: {
+            contains: 'jack',
+            mode: 'insensitive',
+          },
+        },
+        {
+          email: {
+            contains: 'jack',
+            mode: 'insensitive',
+          },
+        },
+      ],
+    }
+    expect(userCountMock).toHaveBeenCalledWith({ where })
+    expect(userFindManyMock).toHaveBeenCalledWith({
+      where,
+      orderBy: [{ name: 'asc' }, { email: 'asc' }, { id: 'asc' }],
+      skip: 2,
+      take: 2,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        handicapIndex: true,
+        createdAt: true,
+        homeClub: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: { rounds: true },
+        },
+      },
+    })
+  })
+
+  it('should reject invalid pagination before querying users', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+
+    const response = await request(app).get(
+      '/api/admin/users?page=0&pageSize=100',
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Invalid pagination' })
+    expect(userCountMock).not.toHaveBeenCalled()
+    expect(userFindManyMock).not.toHaveBeenCalled()
   })
 })
 

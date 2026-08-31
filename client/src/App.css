@@ -676,6 +676,8 @@
 
   .site-header {
     min-height: 76px;
+    padding: 8px 0 12px;
+    flex-wrap: wrap;
   }
 
   .brand-logo {
@@ -683,6 +685,8 @@
   }
 
   .site-nav {
+    width: 100%;
+    justify-content: space-between;
     gap: 14px;
     font-size: 12px;
   }

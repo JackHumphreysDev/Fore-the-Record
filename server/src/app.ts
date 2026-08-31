@@ -55,6 +55,24 @@ const ADMIN_PROFILE_SELECT = {
   role: true,
 } as const
 
+const ADMIN_USER_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  handicapIndex: true,
+  createdAt: true,
+  homeClub: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  _count: {
+    select: { rounds: true },
+  },
+} as const
+
 type AdminProfile = {
   id: string
   name: string
@@ -109,6 +127,43 @@ function serializeProfile<
   }
 }
 
+function serializeAdminUser<
+  T extends {
+    handicapIndex: unknown | null
+    _count: { rounds: number }
+  },
+>(user: T) {
+  const { _count, ...profile } = user
+
+  return {
+    ...profile,
+    handicapIndex:
+      profile.handicapIndex === null
+        ? null
+        : Number(profile.handicapIndex),
+    roundCount: _count.rounds,
+  }
+}
+
+function parsePaginationValue(
+  value: unknown,
+  defaultValue: number,
+): number | null {
+  if (value === undefined) {
+    return defaultValue
+  }
+
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+    return null
+  }
+
+  const parsedValue = Number(value)
+
+  return Number.isSafeInteger(parsedValue) && parsedValue > 0
+    ? parsedValue
+    : null
+}
+
 const app = express()
 
 app.use(express.json())
@@ -149,6 +204,94 @@ app.use('/api/admin', async (_request, response, next) => {
 
 app.get('/api/admin/me', (_request, response) => {
   response.status(200).json(getAdminProfile(response.locals))
+})
+
+app.get('/api/admin/overview', async (_request, response) => {
+  const [userCount, roundCount, clubCount, recentRegistrations] =
+    await prisma.$transaction([
+      prisma.user.count(),
+      prisma.round.count(),
+      prisma.club.count(),
+      prisma.user.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 5,
+        select: ADMIN_USER_SELECT,
+      }),
+    ])
+
+  response.status(200).json({
+    totals: {
+      users: userCount,
+      rounds: roundCount,
+      clubs: clubCount,
+    },
+    recentRegistrations: recentRegistrations.map(serializeAdminUser),
+  })
+})
+
+app.get('/api/admin/users', async (request, response) => {
+  const page = parsePaginationValue(request.query.page, 1)
+  const pageSize = parsePaginationValue(request.query.pageSize, 20)
+
+  if (page === null || pageSize === null || pageSize > 50) {
+    response.status(400).json({ error: 'Invalid pagination' })
+    return
+  }
+
+  if (
+    request.query.search !== undefined &&
+    typeof request.query.search !== 'string'
+  ) {
+    response.status(400).json({ error: 'Invalid search' })
+    return
+  }
+
+  const search = request.query.search?.trim() ?? ''
+
+  if (search.length > 100) {
+    response.status(400).json({ error: 'Invalid search' })
+    return
+  }
+
+  const where = search
+    ? {
+        OR: [
+          {
+            name: {
+              contains: search,
+              mode: 'insensitive' as const,
+            },
+          },
+          {
+            email: {
+              contains: search,
+              mode: 'insensitive' as const,
+            },
+          },
+        ],
+      }
+    : {}
+
+  const [total, users] = await prisma.$transaction([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy: [{ name: 'asc' }, { email: 'asc' }, { id: 'asc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: ADMIN_USER_SELECT,
+    }),
+  ])
+
+  response.status(200).json({
+    users: users.map(serializeAdminUser),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  })
 })
 
 app.get('/api/users/me/rounds', async (_request, response) => {
