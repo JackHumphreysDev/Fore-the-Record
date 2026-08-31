@@ -16,7 +16,13 @@ const {
   roundCountMock,
   submissionCountMock,
   submissionCreateMock,
+  submissionFindFirstMock,
+  submissionFindUniqueMock,
   submissionFindManyMock,
+  submissionUpdateMock,
+  submissionMessageCreateMock,
+  submissionMessageFindManyMock,
+  adminAuditLogCreateMock,
   userCountMock,
   userCreateMock,
   userFindManyMock,
@@ -38,7 +44,13 @@ const {
   roundCountMock: vi.fn(),
   submissionCountMock: vi.fn(),
   submissionCreateMock: vi.fn(),
+  submissionFindFirstMock: vi.fn(),
+  submissionFindUniqueMock: vi.fn(),
   submissionFindManyMock: vi.fn(),
+  submissionUpdateMock: vi.fn(),
+  submissionMessageCreateMock: vi.fn(),
+  submissionMessageFindManyMock: vi.fn(),
+  adminAuditLogCreateMock: vi.fn(),
   userCountMock: vi.fn(),
   userCreateMock: vi.fn(),
   userFindManyMock: vi.fn(),
@@ -72,7 +84,17 @@ vi.mock('../src/database.js', () => ({
     submission: {
       count: submissionCountMock,
       create: submissionCreateMock,
+      findFirst: submissionFindFirstMock,
+      findUnique: submissionFindUniqueMock,
       findMany: submissionFindManyMock,
+      update: submissionUpdateMock,
+    },
+    submissionMessage: {
+      create: submissionMessageCreateMock,
+      findMany: submissionMessageFindManyMock,
+    },
+    adminAuditLog: {
+      create: adminAuditLogCreateMock,
     },
   },
 }))
@@ -124,7 +146,13 @@ beforeEach(() => {
   roundCountMock.mockReset()
   submissionCountMock.mockReset()
   submissionCreateMock.mockReset()
+  submissionFindFirstMock.mockReset()
+  submissionFindUniqueMock.mockReset()
   submissionFindManyMock.mockReset()
+  submissionUpdateMock.mockReset()
+  submissionMessageCreateMock.mockReset()
+  submissionMessageFindManyMock.mockReset()
+  adminAuditLogCreateMock.mockReset()
   userCountMock.mockReset()
   userCreateMock.mockReset()
   userFindManyMock.mockReset()
@@ -657,6 +685,285 @@ describe('GET /api/admin/submissions', () => {
     expect(response.status).toBe(400)
     expect(response.body).toEqual({ error: 'Invalid submission filters' })
     expect(submissionCountMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('submission conversations', () => {
+  const submissionId = '22222222-2222-4222-8222-222222222222'
+  const playerId = '11111111-1111-4111-8111-111111111111'
+  const adminId = '33333333-3333-4333-8333-333333333333'
+  const messageId = '44444444-4444-4444-8444-444444444444'
+  const messageSelect = {
+    id: true,
+    body: true,
+    createdAt: true,
+    sender: {
+      select: {
+        id: true,
+        name: true,
+        role: true,
+      },
+    },
+  }
+
+  it('should return replies only for a submission owned by the player', async () => {
+    submissionFindFirstMock.mockResolvedValueOnce({ id: submissionId })
+    submissionMessageFindManyMock.mockResolvedValueOnce([
+      {
+        id: messageId,
+        body: 'Please confirm which browser you were using.',
+        createdAt: new Date('2026-08-31T21:00:00.000Z'),
+        sender: {
+          id: adminId,
+          name: 'Site Administrator',
+          role: 'ADMIN',
+        },
+      },
+    ])
+
+    const response = await request(app).get(
+      `/api/submissions/${submissionId}/messages`,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.messages).toEqual([
+      {
+        id: messageId,
+        body: 'Please confirm which browser you were using.',
+        createdAt: '2026-08-31T21:00:00.000Z',
+        sender: {
+          id: adminId,
+          name: 'Site Administrator',
+          role: 'ADMIN',
+        },
+      },
+    ])
+    expect(submissionFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: submissionId,
+        user: {
+          authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        },
+      },
+      select: { id: true },
+    })
+    expect(submissionMessageFindManyMock).toHaveBeenCalledWith({
+      where: { submissionId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: messageSelect,
+    })
+  })
+
+  it('should let a player reply to their open submission', async () => {
+    submissionFindFirstMock.mockResolvedValueOnce({
+      id: submissionId,
+      userId: playerId,
+      status: 'IN_PROGRESS',
+    })
+    submissionMessageCreateMock.mockResolvedValueOnce({
+      id: messageId,
+      body: 'I was using the latest version of Firefox.',
+      createdAt: new Date('2026-08-31T21:05:00.000Z'),
+      sender: {
+        id: playerId,
+        name: 'Example Player',
+        role: 'PLAYER',
+      },
+    })
+
+    const response = await request(app)
+      .post(`/api/submissions/${submissionId}/messages`)
+      .send({ message: '  I was using the latest version of Firefox.  ' })
+
+    expect(response.status).toBe(201)
+    expect(response.body.body).toBe(
+      'I was using the latest version of Firefox.',
+    )
+    expect(submissionFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: submissionId,
+        user: {
+          authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        },
+      },
+      select: { id: true, userId: true, status: true },
+    })
+    expect(submissionMessageCreateMock).toHaveBeenCalledWith({
+      data: {
+        submissionId,
+        senderUserId: playerId,
+        body: 'I was using the latest version of Firefox.',
+      },
+      select: messageSelect,
+    })
+  })
+
+  it('should not reveal another player submission conversation', async () => {
+    submissionFindFirstMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get(
+      `/api/submissions/${submissionId}/messages`,
+    )
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'Submission not found' })
+    expect(submissionMessageFindManyMock).not.toHaveBeenCalled()
+  })
+
+  it('should prevent replies to a closed submission', async () => {
+    submissionFindFirstMock.mockResolvedValueOnce({
+      id: submissionId,
+      userId: playerId,
+      status: 'CLOSED',
+    })
+
+    const response = await request(app)
+      .post(`/api/submissions/${submissionId}/messages`)
+      .send({ message: 'I need to add one more detail.' })
+
+    expect(response.status).toBe(409)
+    expect(response.body).toEqual({
+      error: 'Closed submissions cannot receive replies',
+    })
+    expect(submissionMessageCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('should let the administrator reply to an open submission', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: adminId,
+      name: 'Site Administrator',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    })
+    submissionFindUniqueMock.mockResolvedValueOnce({
+      id: submissionId,
+      status: 'NEW',
+    })
+    submissionMessageCreateMock.mockResolvedValueOnce({
+      id: messageId,
+      body: 'Could you provide the club website?',
+      createdAt: new Date('2026-08-31T21:10:00.000Z'),
+      sender: {
+        id: adminId,
+        name: 'Site Administrator',
+        role: 'ADMIN',
+      },
+    })
+
+    const response = await request(app)
+      .post(`/api/admin/submissions/${submissionId}/messages`)
+      .send({ message: 'Could you provide the club website?' })
+
+    expect(response.status).toBe(201)
+    expect(submissionMessageCreateMock).toHaveBeenCalledWith({
+      data: {
+        submissionId,
+        senderUserId: adminId,
+        body: 'Could you provide the club website?',
+      },
+      select: messageSelect,
+    })
+    expect(adminAuditLogCreateMock).toHaveBeenCalledWith({
+      data: {
+        actorUserId: adminId,
+        action: 'SUBMISSION_MESSAGE_CREATED',
+        targetType: 'Submission',
+        targetId: submissionId,
+        after: { senderRole: 'ADMIN' },
+      },
+    })
+  })
+
+  it('should update a status and audit the administrator mutation', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: adminId,
+      name: 'Site Administrator',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    })
+    submissionFindUniqueMock.mockResolvedValueOnce({
+      id: submissionId,
+      status: 'IN_PROGRESS',
+    })
+    submissionUpdateMock.mockResolvedValueOnce({
+      id: submissionId,
+      status: 'RESOLVED',
+      updatedAt: new Date('2026-08-31T21:15:00.000Z'),
+    })
+    adminAuditLogCreateMock.mockResolvedValueOnce({ id: 'audit-id' })
+
+    const response = await request(app)
+      .patch(`/api/admin/submissions/${submissionId}/status`)
+      .send({ status: 'RESOLVED' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      id: submissionId,
+      status: 'RESOLVED',
+      updatedAt: '2026-08-31T21:15:00.000Z',
+    })
+    expect(submissionUpdateMock).toHaveBeenCalledWith({
+      where: { id: submissionId },
+      data: { status: 'RESOLVED' },
+      select: { id: true, status: true, updatedAt: true },
+    })
+    expect(adminAuditLogCreateMock).toHaveBeenCalledWith({
+      data: {
+        actorUserId: adminId,
+        action: 'SUBMISSION_STATUS_UPDATED',
+        targetType: 'Submission',
+        targetId: submissionId,
+        before: { status: 'IN_PROGRESS' },
+        after: { status: 'RESOLVED' },
+      },
+    })
+  })
+
+  it('should reject a player attempting to update a submission status', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: playerId,
+      name: 'Example Player',
+      email: 'player@example.com',
+      role: 'PLAYER',
+    })
+
+    const response = await request(app)
+      .patch(`/api/admin/submissions/${submissionId}/status`)
+      .send({ status: 'RESOLVED' })
+
+    expect(response.status).toBe(403)
+    expect(response.body).toEqual({ error: 'Administrator access required' })
+    expect(submissionFindUniqueMock).not.toHaveBeenCalled()
+    expect(submissionUpdateMock).not.toHaveBeenCalled()
+    expect(adminAuditLogCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('should not audit an unchanged submission status', async () => {
+    const updatedAt = new Date('2026-08-31T21:15:00.000Z')
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: adminId,
+      name: 'Site Administrator',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    })
+    submissionFindUniqueMock.mockResolvedValueOnce({
+      id: submissionId,
+      status: 'RESOLVED',
+      updatedAt,
+    })
+
+    const response = await request(app)
+      .patch(`/api/admin/submissions/${submissionId}/status`)
+      .send({ status: 'RESOLVED' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      id: submissionId,
+      status: 'RESOLVED',
+      updatedAt: updatedAt.toISOString(),
+    })
+    expect(submissionUpdateMock).not.toHaveBeenCalled()
+    expect(adminAuditLogCreateMock).not.toHaveBeenCalled()
   })
 })
 

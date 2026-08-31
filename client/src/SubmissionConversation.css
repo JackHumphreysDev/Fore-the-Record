@@ -1,0 +1,254 @@
+.submission-conversation {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.submission-conversation-toggle {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--forest);
+  border-radius: 8px;
+  color: var(--forest);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.submission-conversation-toggle span {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.submission-conversation-panel {
+  margin-top: 14px;
+  padding: 18px;
+  border-radius: 10px;
+  background: rgba(23, 56, 42, 0.035);
+}
+
+.submission-status-form {
+  padding-bottom: 18px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.submission-status-form label,
+.submission-reply-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--forest-deep);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.submission-status-form select,
+.submission-reply-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  color: var(--forest-deep);
+  background: white;
+  font: inherit;
+  font-weight: 600;
+}
+
+.submission-status-form select {
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.submission-reply-form textarea {
+  padding: 12px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.submission-status-form select:focus,
+.submission-reply-form textarea:focus {
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(49, 88, 68, 0.1);
+}
+
+.submission-status-form button,
+.submission-reply-form > button,
+.conversation-state button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: var(--forest);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.submission-status-form button:disabled,
+.submission-reply-form > button:disabled {
+  opacity: 0.45;
+}
+
+.submission-status-form .conversation-message {
+  grid-column: 1 / -1;
+}
+
+.submission-thread {
+  padding-top: 18px;
+}
+
+.submission-thread h4 {
+  margin: 0 0 12px;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.submission-thread ol {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  list-style: none;
+}
+
+.submission-message {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: white;
+}
+
+.submission-message-admin {
+  border-left: 4px solid var(--forest);
+}
+
+.submission-message-player {
+  border-left: 4px solid var(--lime-deep, #789800);
+}
+
+.submission-message > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.submission-message strong {
+  color: var(--forest-deep);
+  font-size: 10px;
+}
+
+.submission-message span,
+.submission-message time {
+  color: var(--ink-muted);
+  font-size: 8px;
+}
+
+.submission-message time {
+  margin-left: auto;
+}
+
+.submission-message p {
+  margin: 9px 0 0;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.submission-reply-form {
+  margin-top: 18px;
+  padding-top: 18px;
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.submission-reply-form label small {
+  justify-self: end;
+  color: var(--ink-muted);
+  font-size: 8px;
+}
+
+.submission-reply-form > button {
+  justify-self: end;
+  min-width: 130px;
+}
+
+.conversation-state,
+.submission-closed-note {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.conversation-state p {
+  margin: 0 0 12px;
+}
+
+.submission-closed-note {
+  margin-top: 18px;
+}
+
+.conversation-message {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.conversation-error {
+  color: var(--danger);
+  border-color: rgba(164, 63, 50, 0.3);
+  background: rgba(164, 63, 50, 0.06);
+}
+
+.conversation-success {
+  color: var(--forest-deep);
+  border: 1px solid rgba(49, 88, 68, 0.2);
+  background: rgba(215, 255, 79, 0.22);
+}
+
+.submission-conversation-toggle:focus-visible,
+.submission-status-form button:focus-visible,
+.submission-reply-form > button:focus-visible,
+.conversation-state button:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .submission-conversation-panel {
+    padding: 15px 12px;
+  }
+
+  .submission-status-form {
+    grid-template-columns: 1fr;
+  }
+
+  .submission-status-form button,
+  .submission-reply-form > button {
+    width: 100%;
+  }
+
+  .submission-message time {
+    width: 100%;
+    margin: 2px 0 0;
+  }
+}

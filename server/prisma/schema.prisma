@@ -45,18 +45,19 @@ enum SubmissionStatus {
 }
 
 model User {
-  id             String          @id @default(uuid()) @db.Uuid
-  authUserId     String?         @unique @db.Uuid
-  name           String
-  email          String          @unique
-  role           UserRole        @default(PLAYER)
-  homeClubId     String?         @db.Uuid
-  handicapIndex  Decimal?        @db.Decimal(4, 1)
-  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
-  homeClub       Club?           @relation(fields: [homeClubId], references: [id], onDelete: SetNull)
-  rounds         Round[]
-  submissions    Submission[]
-  adminAuditLogs AdminAuditLog[] @relation("AdminAuditActor")
+  id                     String              @id @default(uuid()) @db.Uuid
+  authUserId             String?             @unique @db.Uuid
+  name                   String
+  email                  String              @unique
+  role                   UserRole            @default(PLAYER)
+  homeClubId             String?             @db.Uuid
+  handicapIndex          Decimal?            @db.Decimal(4, 1)
+  createdAt              DateTime            @default(now()) @db.Timestamptz(3)
+  homeClub               Club?               @relation(fields: [homeClubId], references: [id], onDelete: SetNull)
+  rounds                 Round[]
+  submissions            Submission[]
+  sentSubmissionMessages SubmissionMessage[] @relation("SubmissionMessageSender")
+  adminAuditLogs         AdminAuditLog[]     @relation("AdminAuditActor")
 }
 
 model AdminAuditLog {
@@ -75,23 +76,37 @@ model AdminAuditLog {
 }
 
 model Submission {
-  id         String           @id @default(uuid()) @db.Uuid
-  userId     String           @db.Uuid
+  id         String              @id @default(uuid()) @db.Uuid
+  userId     String              @db.Uuid
   type       SubmissionType
-  status     SubmissionStatus @default(NEW)
-  subject    String           @db.VarChar(120)
-  message    String           @db.VarChar(2000)
-  clubName   String?          @db.VarChar(160)
-  townCounty String?          @db.VarChar(160)
-  websiteUrl String?          @db.VarChar(500)
-  courseName String?          @db.VarChar(160)
-  teeDetails String?          @db.VarChar(1000)
-  createdAt  DateTime         @default(now()) @db.Timestamptz(3)
-  updatedAt  DateTime         @updatedAt @db.Timestamptz(3)
-  user       User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  status     SubmissionStatus    @default(NEW)
+  subject    String              @db.VarChar(120)
+  message    String              @db.VarChar(2000)
+  clubName   String?             @db.VarChar(160)
+  townCounty String?             @db.VarChar(160)
+  websiteUrl String?             @db.VarChar(500)
+  courseName String?             @db.VarChar(160)
+  teeDetails String?             @db.VarChar(1000)
+  createdAt  DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime            @updatedAt @db.Timestamptz(3)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  messages   SubmissionMessage[]
 
   @@index([userId, createdAt])
   @@index([status, type, createdAt])
+}
+
+model SubmissionMessage {
+  id           String     @id @default(uuid()) @db.Uuid
+  submissionId String     @db.Uuid
+  senderUserId String     @db.Uuid
+  body         String     @db.VarChar(2000)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  sender       User       @relation("SubmissionMessageSender", fields: [senderUserId], references: [id], onDelete: Restrict)
+
+  @@index([submissionId, createdAt])
+  @@index([senderUserId, createdAt])
 }
 
 model Club {
