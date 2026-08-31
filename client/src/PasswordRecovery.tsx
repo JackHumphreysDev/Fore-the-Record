@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import brandLogo from './assets/fore-the-record-logo.png'
+import { getAuthErrorMessage } from './authErrors.ts'
 import { getSupabaseClient } from './supabase.ts'
 import './AuthScreen.css'
 
@@ -41,11 +42,7 @@ function PasswordRecovery({ onComplete }: PasswordRecoveryProps) {
 
       setIsComplete(true)
     } catch (caughtError: unknown) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'We could not update your password. Please request a new link.',
-      )
+      setError(getAuthErrorMessage(caughtError))
     } finally {
       setIsSubmitting(false)
     }

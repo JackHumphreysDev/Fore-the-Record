@@ -8,6 +8,7 @@ The React and TypeScript frontend for Fore the Record.
 - Email-and-password registration and login through Supabase Auth
 - Verified-email claiming for profiles created before authentication was added
 - Persistent authenticated sessions, logout, and password recovery
+- Friendly, non-sensitive guidance for Supabase email and request rate limits
 - Loading, API-error, and authenticated-profile states
 - Home-club selection and removal using clubs in the saved course library
 - Interactive Profile, Courses, Rounds, and History navigation
