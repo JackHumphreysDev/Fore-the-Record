@@ -5,9 +5,10 @@ The React and TypeScript frontend for Fore the Record.
 ## Current functionality
 
 - Responsive application shell and project branding
-- Profile creation form with client-side validation
-- Active-profile restoration after page refresh
-- Loading, API-error, and successful-profile states
+- Email-and-password registration and login through Supabase Auth
+- Verified-email claiming for profiles created before authentication was added
+- Persistent authenticated sessions, logout, and password recovery
+- Loading, API-error, and authenticated-profile states
 - Home-club selection and removal using clubs in the saved course library
 - Interactive Profile, Courses, Rounds, and History navigation
 - Full or partial club-name search with per-tee saved status and incremental course-library additions
@@ -29,3 +30,7 @@ npm run dev:client
 The client uses relative `/api` requests. Vite proxies those requests to the
 local Express server during development, while Vercel routes them to the
 deployed Express API in production.
+
+Copy `.env.example` to `.env.local` and supply the Supabase project URL and
+publishable key before starting Vite. These are public client configuration;
+never place a service-role secret in a `VITE_` variable.

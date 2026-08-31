@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { authenticatedFetch } from './api.ts'
 import './HomeClubSelector.css'
 
 type HomeClub = {
@@ -12,7 +13,6 @@ type HomeClubUpdate = {
 }
 
 type HomeClubSelectorProps = {
-  profileId: string
   homeClubId: string | null
   homeClub: HomeClub | null | undefined
   onHomeClubUpdated: (update: HomeClubUpdate) => void
@@ -53,7 +53,6 @@ async function readApiError(
 }
 
 function HomeClubSelector({
-  profileId,
   homeClubId,
   homeClub,
   onHomeClubUpdated,
@@ -72,7 +71,7 @@ function HomeClubSelector({
 
     async function loadSavedClubs() {
       try {
-        const response = await fetch('/api/courses')
+        const response = await authenticatedFetch('/api/courses')
 
         if (!response.ok) {
           throw new Error(
@@ -130,16 +129,13 @@ function HomeClubSelector({
     setStatusMessage('')
 
     try {
-      const response = await fetch(
-        `/api/users/${encodeURIComponent(profileId)}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ homeClubId: nextHomeClubId }),
+      const response = await authenticatedFetch('/api/users/me', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      )
+        body: JSON.stringify({ homeClubId: nextHomeClubId }),
+      })
 
       if (!response.ok) {
         throw new Error(
