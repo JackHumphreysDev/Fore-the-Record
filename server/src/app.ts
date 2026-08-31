@@ -11,6 +11,10 @@ import { getCourseRatings, type CourseData } from './courseRatings.js'
 import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
 import {
+  SubmissionStatus,
+  type SubmissionStatus as SubmissionStatusValue,
+  SubmissionType,
+  type SubmissionType as SubmissionTypeValue,
   TeeSource,
   type TeeSource as TeeSourceValue,
   UserRole,
@@ -20,6 +24,10 @@ import {
   parseLogRoundInput,
   RoundReferenceNotFoundError,
 } from './rounds.js'
+import {
+  parseSubmissionInput,
+  SubmissionValidationError,
+} from './submissions.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -70,6 +78,32 @@ const ADMIN_USER_SELECT = {
   },
   _count: {
     select: { rounds: true },
+  },
+} as const
+
+const SUBMISSION_SELECT = {
+  id: true,
+  type: true,
+  status: true,
+  subject: true,
+  message: true,
+  clubName: true,
+  townCounty: true,
+  websiteUrl: true,
+  courseName: true,
+  teeDetails: true,
+  createdAt: true,
+  updatedAt: true,
+} as const
+
+const ADMIN_SUBMISSION_SELECT = {
+  ...SUBMISSION_SELECT,
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
   },
 } as const
 
@@ -162,6 +196,24 @@ function parsePaginationValue(
   return Number.isSafeInteger(parsedValue) && parsedValue > 0
     ? parsedValue
     : null
+}
+
+function isSubmissionStatus(
+  value: unknown,
+): value is SubmissionStatusValue {
+  return (
+    typeof value === 'string' &&
+    Object.values(SubmissionStatus).includes(
+      value as SubmissionStatusValue,
+    )
+  )
+}
+
+function isSubmissionType(value: unknown): value is SubmissionTypeValue {
+  return (
+    typeof value === 'string' &&
+    Object.values(SubmissionType).includes(value as SubmissionTypeValue)
+  )
 }
 
 const app = express()
@@ -285,6 +337,186 @@ app.get('/api/admin/users', async (request, response) => {
 
   response.status(200).json({
     users: users.map(serializeAdminUser),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  })
+})
+
+app.get('/api/admin/submissions', async (request, response) => {
+  const page = parsePaginationValue(request.query.page, 1)
+  const pageSize = parsePaginationValue(request.query.pageSize, 20)
+  const status = request.query.status
+  const type = request.query.type
+
+  if (page === null || pageSize === null || pageSize > 50) {
+    response.status(400).json({ error: 'Invalid pagination' })
+    return
+  }
+
+  if (
+    (status !== undefined && !isSubmissionStatus(status)) ||
+    (type !== undefined && !isSubmissionType(type)) ||
+    (request.query.search !== undefined &&
+      typeof request.query.search !== 'string')
+  ) {
+    response.status(400).json({ error: 'Invalid submission filters' })
+    return
+  }
+
+  const search = request.query.search?.trim() ?? ''
+
+  if (search.length > 100) {
+    response.status(400).json({ error: 'Invalid submission filters' })
+    return
+  }
+
+  const where = {
+    ...(status ? { status } : {}),
+    ...(type ? { type } : {}),
+    ...(search
+      ? {
+          OR: [
+            {
+              subject: {
+                contains: search,
+                mode: 'insensitive' as const,
+              },
+            },
+            {
+              message: {
+                contains: search,
+                mode: 'insensitive' as const,
+              },
+            },
+            {
+              clubName: {
+                contains: search,
+                mode: 'insensitive' as const,
+              },
+            },
+            {
+              courseName: {
+                contains: search,
+                mode: 'insensitive' as const,
+              },
+            },
+            {
+              user: {
+                name: {
+                  contains: search,
+                  mode: 'insensitive' as const,
+                },
+              },
+            },
+            {
+              user: {
+                email: {
+                  contains: search,
+                  mode: 'insensitive' as const,
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+  }
+
+  const [total, submissions] = await prisma.$transaction([
+    prisma.submission.count({ where }),
+    prisma.submission.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: ADMIN_SUBMISSION_SELECT,
+    }),
+  ])
+
+  response.status(200).json({
+    submissions,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  })
+})
+
+app.post('/api/submissions', async (request, response) => {
+  let input
+
+  try {
+    input = parseSubmissionInput(request.body)
+  } catch (error: unknown) {
+    if (error instanceof SubmissionValidationError) {
+      response.status(400).json({ error: error.message })
+      return
+    }
+
+    throw error
+  }
+
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const submission = await prisma.submission.create({
+    data: {
+      userId: user.id,
+      ...input,
+    },
+    select: SUBMISSION_SELECT,
+  })
+
+  response.status(201).json(submission)
+})
+
+app.get('/api/submissions', async (request, response) => {
+  const page = parsePaginationValue(request.query.page, 1)
+  const pageSize = parsePaginationValue(request.query.pageSize, 20)
+
+  if (page === null || pageSize === null || pageSize > 50) {
+    response.status(400).json({ error: 'Invalid pagination' })
+    return
+  }
+
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const where = { userId: user.id }
+  const [total, submissions] = await prisma.$transaction([
+    prisma.submission.count({ where }),
+    prisma.submission.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: SUBMISSION_SELECT,
+    }),
+  ])
+
+  response.status(200).json({
+    submissions,
     pagination: {
       page,
       pageSize,

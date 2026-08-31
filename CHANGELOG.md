@@ -14,6 +14,23 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.4.0 - 2026-08-31
+
+### User-facing changes
+
+- Added a signed-in **Support** tab for sharing ideas, reporting site problems, flagging incorrect information, and submitting missing golf courses.
+- Added structured club, location, website, course, and tee-detail fields for missing-course requests.
+- Added a private request history so each player can follow the status of only their own submissions.
+
+### Developer and admin changes
+
+- Added database-backed submission types and statuses with profile ownership and indexed administrator filtering.
+- Added server-side field validation, length limits, and safe website URL validation.
+- Added authenticated creation and player-history endpoints that derive ownership from the verified session.
+- Added a protected, read-only administrator request queue with search, status and type filters, and pagination.
+- Added validation, ownership, administrator access, filtering, and response-shape tests.
+- Deferred administrator replies and status changes to a future audited mutation release.
+
 ## 0.3.0 - 2026-08-31
 
 ### User-facing changes

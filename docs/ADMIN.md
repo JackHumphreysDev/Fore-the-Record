@@ -1,6 +1,6 @@
 # Administration
 
-Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` adds the first read-only portal; it does not add user or round mutation controls.
+Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, and version `0.4.0` adds read-only support-request review. These releases do not add user, round, or submission mutation controls.
 
 ## Security model
 
@@ -47,6 +47,8 @@ Before running it, the owner must already have registered, confirmed their email
 
 `GET /api/admin/users` returns safe, paginated profile details. Its optional `search` query matches names and emails; `page` and `pageSize` control pagination, with a maximum page size of 50.
 
-The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. The portal is intentionally read-only and exposes no password, token, authentication-secret, or mutation fields.
+`GET /api/admin/submissions` returns safe, paginated support requests with their submitting profile identity. Its optional `search` query matches request text, course details, player names, and player emails. The `status` and `type` queries use the documented submission enums; `page` and `pageSize` control pagination, with a maximum page size of 50.
+
+The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. The portal is intentionally read-only and exposes no password, token, authentication-secret, or mutation fields. Submission replies and status changes remain deferred until they can be implemented as authorized, audited mutations.
 
 Every future `/api/admin/...` route must remain behind this server guard. Hiding a client navigation item is useful presentation, but it is not authorization.

@@ -686,9 +686,10 @@
 
   .site-nav {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: space-between;
-    gap: 14px;
-    font-size: 12px;
+    gap: 4px 12px;
+    font-size: 11px;
   }
 
   .intro-panel {
@@ -789,6 +790,9 @@
 
   .site-nav {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: space-between;
+    gap: 2px 9px;
+    font-size: 10px;
   }
 }
