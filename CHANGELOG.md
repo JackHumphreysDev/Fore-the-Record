@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.2.0 - 2026-08-31
+
+### User-facing changes
+
+- No player-facing changes in this release.
+
+### Developer and admin changes
+
+- Added database-backed `PLAYER` and `ADMIN` roles without using email addresses for runtime authorization.
+- Enforced a single site-wide administrator in both the bootstrap command and PostgreSQL.
+- Added a reusable server guard and protected administrator identity endpoint.
+- Added an audit-log foundation for future administrative changes.
+- Added a one-time, transactionally audited command for promoting an existing claimed profile to administrator.
+- Added allowed, denied, unlinked-account, promotion, and idempotency tests for the administrator foundation.
+
 ## 0.1.0 - 2026-08-31
 
 ### User-facing changes

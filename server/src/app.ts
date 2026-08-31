@@ -13,6 +13,7 @@ import { prisma } from './database.js'
 import {
   TeeSource,
   type TeeSource as TeeSourceValue,
+  UserRole,
 } from './generated/prisma/enums.js'
 import {
   logRound,
@@ -47,6 +48,20 @@ const PROFILE_SELECT = {
   },
 } as const
 
+const ADMIN_PROFILE_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+} as const
+
+type AdminProfile = {
+  id: string
+  name: string
+  email: string
+  role: typeof UserRole.ADMIN
+}
+
 type TeePersistenceData = {
   teeName: string
   courseRating: number
@@ -80,6 +95,10 @@ function getRequestUser(locals: Record<string, unknown>): AuthenticatedUser {
   return locals.authenticatedUser as AuthenticatedUser
 }
 
+function getAdminProfile(locals: Record<string, unknown>): AdminProfile {
+  return locals.adminProfile as AdminProfile
+}
+
 function serializeProfile<
   T extends { handicapIndex: unknown | null },
 >(profile: T) {
@@ -110,6 +129,26 @@ app.use('/api', async (request, response, next) => {
 
   response.locals.authenticatedUser = authenticatedUser
   next()
+})
+
+app.use('/api/admin', async (_request, response, next) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const adminProfile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: ADMIN_PROFILE_SELECT,
+  })
+
+  if (!adminProfile || adminProfile.role !== UserRole.ADMIN) {
+    response.status(403).json({ error: 'Administrator access required' })
+    return
+  }
+
+  response.locals.adminProfile = adminProfile
+  next()
+})
+
+app.get('/api/admin/me', (_request, response) => {
+  response.status(200).json(getAdminProfile(response.locals))
 })
 
 app.get('/api/users/me/rounds', async (_request, response) => {

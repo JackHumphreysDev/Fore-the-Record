@@ -1,6 +1,6 @@
 # Versioning and release notes
 
-Fore the Record uses one application version across the root, client, and server packages. The current version is `0.1.0`.
+Fore the Record uses one application version across the root, client, and server packages. The current version is `0.2.0`.
 
 ## Version format
 
@@ -51,4 +51,3 @@ The in-app update section is for non-technical users. Each entry should include:
 - any action the player needs to take.
 
 Do not include database migrations, API changes, authentication internals, dependency updates, or version numbers in that section.
-

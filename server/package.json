@@ -1,6 +1,6 @@
 {
   "name": "fore-the-record-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Express API for Fore the Record",
   "keywords": [],
@@ -15,6 +15,7 @@
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "admin:promote": "tsx src/promoteAdmin.ts",
     "start": "node dist/index.js",
     "lint": "oxlint src tests",
     "test": "vitest run"

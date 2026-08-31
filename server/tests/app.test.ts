@@ -115,6 +115,54 @@ describe('API authentication', () => {
   })
 })
 
+describe('GET /api/admin/me', () => {
+  const adminProfile = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Site Administrator',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  }
+
+  it('should return the current administrator identity', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+
+    const response = await request(app).get('/api/admin/me')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual(adminProfile)
+    expect(userFindUniqueMock).toHaveBeenCalledWith({
+      where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+    })
+  })
+
+  it('should reject a player account', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      ...adminProfile,
+      role: 'PLAYER',
+    })
+
+    const response = await request(app).get('/api/admin/me')
+
+    expect(response.status).toBe(403)
+    expect(response.body).toEqual({ error: 'Administrator access required' })
+  })
+
+  it('should reject an authenticated account without a linked profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get('/api/admin/me')
+
+    expect(response.status).toBe(403)
+    expect(response.body).toEqual({ error: 'Administrator access required' })
+  })
+})
+
 describe('GET /api/users/me', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
 

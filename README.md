@@ -22,15 +22,16 @@ Sensitive values such as database connection strings and API credentials are sto
 
 The project foundation is complete. It includes a React and TypeScript frontend, an Express and TypeScript backend, a tested API health endpoint, and a Prisma schema connected to a Supabase PostgreSQL database. The initial database migration has been created and deployed successfully.
 
-The application features are still under development. The core handicap calculation domain logic, backend profile creation and retrieval, two-tier backend course ratings lookup, course and tee persistence, transactional round logging with scorecard capping and automatic handicap recalculation, the round-history API, and the frontend authentication, course-search, total-score round-entry, and round-history flows are implemented. Supabase Auth provides email-and-password registration, existing-profile claiming through verified email ownership, login, logout, persistent sessions, and password recovery. Authenticated API requests derive profile ownership from the verified access token rather than trusting a browser-stored profile ID. Players can choose or remove their home club from clubs already saved in the course library. The history view lists rounds newest first, displays score and course details, and identifies the rounds used in the current Handicap Index. The production application is deployed on Vercel. Total-score entry uses gross score as adjusted gross score because Net Double Bogey capping requires a complete hole-by-hole scorecard.
+The application features are still under development. The core handicap calculation domain logic, backend profile creation and retrieval, two-tier backend course ratings lookup, course and tee persistence, transactional round logging with scorecard capping and automatic handicap recalculation, the round-history API, and the frontend authentication, course-search, total-score round-entry, and round-history flows are implemented. Supabase Auth provides email-and-password registration, existing-profile claiming through verified email ownership, login, logout, persistent sessions, and password recovery. Authenticated API requests derive profile ownership from the verified access token rather than trusting a browser-stored profile ID. Players can choose or remove their home club from clubs already saved in the course library. The history view lists rounds newest first, displays score and course details, and identifies the rounds used in the current Handicap Index. A database-backed administrator role, protected API guard, and audit-log foundation are ready for the future admin portal. The production application is deployed on Vercel. Total-score entry uses gross score as adjusted gross score because Net Double Bogey capping requires a complete hole-by-hole scorecard.
 
 ## Roadmap and releases
 
-The current application version is `0.1.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.2.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)
 - [Versioned changelog](CHANGELOG.md)
+- [Administrator foundation](docs/ADMIN.md)
 
 Future releases will include a simple in-app **What's New** section for players. It will explain useful changes in non-technical language without requiring version numbers or exposing internal development details.
 
