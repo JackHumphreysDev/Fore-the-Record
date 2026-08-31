@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { authenticatedFetch } from './api.ts'
 import './RoundEntry.css'
 
 type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
@@ -218,7 +219,7 @@ function RoundEntry({
       setLoadError('')
 
       try {
-        const response = await fetch('/api/courses', {
+        const response = await authenticatedFetch('/api/courses', {
           signal: controller.signal,
         })
 
@@ -319,13 +320,12 @@ function RoundEntry({
     setSubmitError('')
 
     try {
-      const response = await fetch('/api/rounds', {
+      const response = await authenticatedFetch('/api/rounds', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: profile.id,
           teeId: selectedTee.id,
           datePlayed: form.datePlayed,
           grossScore,

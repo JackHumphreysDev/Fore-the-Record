@@ -1,5 +1,9 @@
 import express from 'express'
 import {
+  getAuthenticatedUser,
+  type AuthenticatedUser,
+} from './auth.js'
+import {
   findBestClubNameMatch,
   getClubNameSearchTerms,
 } from './clubNameMatch.js'
@@ -27,6 +31,21 @@ const COURSE_DATA_SOURCE_BY_TEE_SOURCE: Record<
   [TeeSource.FALLBACK_SCRAPE]: 'fallback_scrape',
   [TeeSource.MANUAL]: 'manual',
 }
+
+const PROFILE_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  homeClubId: true,
+  handicapIndex: true,
+  createdAt: true,
+  homeClub: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+} as const
 
 type TeePersistenceData = {
   teeName: string
@@ -57,6 +76,20 @@ function getTeeSource(source: unknown) {
   }
 }
 
+function getRequestUser(locals: Record<string, unknown>): AuthenticatedUser {
+  return locals.authenticatedUser as AuthenticatedUser
+}
+
+function serializeProfile<
+  T extends { handicapIndex: unknown | null },
+>(profile: T) {
+  return {
+    ...profile,
+    handicapIndex:
+      profile.handicapIndex === null ? null : Number(profile.handicapIndex),
+  }
+}
+
 const app = express()
 
 app.use(express.json())
@@ -67,16 +100,23 @@ app.get('/api/health', (_request, response) => {
   })
 })
 
-app.get('/api/users/:id/rounds', async (request, response) => {
-  const userId = request.params.id
+app.use('/api', async (request, response, next) => {
+  const authenticatedUser = await getAuthenticatedUser(request)
 
-  if (!UUID_PATTERN.test(userId)) {
-    response.status(400).json({ error: 'Invalid user ID' })
+  if (!authenticatedUser) {
+    response.status(401).json({ error: 'Authentication required' })
     return
   }
 
+  response.locals.authenticatedUser = authenticatedUser
+  next()
+})
+
+app.get('/api/users/me/rounds', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { authUserId: authenticatedUser.id },
     select: {
       rounds: {
         orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
@@ -138,30 +178,12 @@ app.get('/api/users/:id/rounds', async (request, response) => {
   )
 })
 
-app.get('/api/users/:id', async (request, response) => {
-  const userId = request.params.id
-
-  if (!UUID_PATTERN.test(userId)) {
-    response.status(400).json({ error: 'Invalid user ID' })
-    return
-  }
+app.get('/api/users/me', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
 
   const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      homeClubId: true,
-      handicapIndex: true,
-      createdAt: true,
-      homeClub: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
+    where: { authUserId: authenticatedUser.id },
+    select: PROFILE_SELECT,
   })
 
   if (!user) {
@@ -169,20 +191,11 @@ app.get('/api/users/:id', async (request, response) => {
     return
   }
 
-  response.status(200).json({
-    ...user,
-    handicapIndex:
-      user.handicapIndex === null ? null : Number(user.handicapIndex),
-  })
+  response.status(200).json(serializeProfile(user))
 })
 
-app.patch('/api/users/:id', async (request, response) => {
-  const userId = request.params.id
-
-  if (!UUID_PATTERN.test(userId)) {
-    response.status(400).json({ error: 'Invalid user ID' })
-    return
-  }
+app.patch('/api/users/me', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
 
   const body: unknown = request.body
   const requestedHomeClubId = isRecord(body) ? body.homeClubId : undefined
@@ -200,7 +213,7 @@ app.patch('/api/users/:id', async (request, response) => {
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { authUserId: authenticatedUser.id },
     select: { id: true },
   })
 
@@ -222,31 +235,12 @@ app.patch('/api/users/:id', async (request, response) => {
   }
 
   const updatedUser = await prisma.user.update({
-    where: { id: userId },
+    where: { id: user.id },
     data: { homeClubId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      homeClubId: true,
-      handicapIndex: true,
-      createdAt: true,
-      homeClub: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
+    select: PROFILE_SELECT,
   })
 
-  response.status(200).json({
-    ...updatedUser,
-    handicapIndex:
-      updatedUser.handicapIndex === null
-        ? null
-        : Number(updatedUser.handicapIndex),
-  })
+  response.status(200).json(serializeProfile(updatedUser))
 })
 
 app.get('/api/courses', async (_request, response) => {
@@ -519,35 +513,74 @@ app.post('/api/courses', async (request, response) => {
 })
 
 app.post('/api/users', async (request, response) => {
-  const body = request.body as Record<string, unknown> | undefined
-  const name = body?.name
-  const email = body?.email
-  const homeClubId = body?.homeClubId
+  const authenticatedUser = getRequestUser(response.locals)
 
-  if (
-    typeof name !== 'string' ||
-    name.trim() === '' ||
-    typeof email !== 'string' ||
-    email.trim() === ''
-  ) {
-    response.status(400).json({
-      error: 'Name and email are required',
+  if (!authenticatedUser.emailConfirmed) {
+    response.status(403).json({
+      error: 'Confirm your email before continuing',
+    })
+    return
+  }
+
+  const linkedProfile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: PROFILE_SELECT,
+  })
+
+  if (linkedProfile) {
+    response.status(200).json(serializeProfile(linkedProfile))
+    return
+  }
+
+  const existingProfile = await prisma.user.findFirst({
+    where: {
+      email: {
+        equals: authenticatedUser.email,
+        mode: 'insensitive',
+      },
+    },
+    select: { id: true, authUserId: true },
+  })
+
+  if (existingProfile?.authUserId) {
+    response.status(409).json({
+      error: 'This profile is already linked to another account',
     })
     return
   }
 
   try {
-    const user = await prisma.user.create({
+    if (existingProfile) {
+      const claimedProfile = await prisma.user.update({
+        where: { id: existingProfile.id },
+        data: { authUserId: authenticatedUser.id },
+        select: PROFILE_SELECT,
+      })
+
+      response.status(200).json(serializeProfile(claimedProfile))
+      return
+    }
+
+    const body: unknown = request.body
+    const name = isRecord(body) ? body.name : undefined
+
+    if (typeof name !== 'string' || name.trim() === '') {
+      response.status(400).json({
+        error: 'Name is required for a new profile',
+      })
+      return
+    }
+
+    const createdProfile = await prisma.user.create({
       data: {
         name: name.trim(),
-        email: email.trim(),
-        ...(typeof homeClubId === 'string' && homeClubId.trim() !== ''
-          ? { homeClubId: homeClubId.trim() }
-          : {}),
+        email: authenticatedUser.email.trim().toLowerCase(),
+        authUserId: authenticatedUser.id,
       },
+      select: PROFILE_SELECT,
     })
 
-    response.status(201).json(user)
+    response.status(201).json(serializeProfile(createdProfile))
   } catch (error: unknown) {
     if (
       typeof error === 'object' &&
@@ -556,7 +589,7 @@ app.post('/api/users', async (request, response) => {
       error.code === 'P2002'
     ) {
       response.status(409).json({
-        error: 'A user with this email already exists',
+        error: 'This account or email is already linked to a profile',
       })
       return
     }
@@ -566,7 +599,22 @@ app.post('/api/users', async (request, response) => {
 })
 
 app.post('/api/rounds', async (request, response) => {
-  const input = parseLogRoundInput(request.body)
+  const authenticatedUser = getRequestUser(response.locals)
+  const profile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!profile) {
+    response.status(404).json({ error: 'Profile not found' })
+    return
+  }
+
+  const input = parseLogRoundInput(
+    isRecord(request.body)
+      ? { ...request.body, userId: profile.id }
+      : request.body,
+  )
 
   if (!input) {
     response.status(400).json({ error: 'Invalid round data' })

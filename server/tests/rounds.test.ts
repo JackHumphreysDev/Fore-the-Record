@@ -2,6 +2,8 @@ import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  getAuthenticatedUserMock,
+  profileFindUniqueMock,
   roundCreateMock,
   roundFindManyMock,
   roundUpdateManyMock,
@@ -10,6 +12,8 @@ const {
   userFindUniqueMock,
   userUpdateMock,
 } = vi.hoisted(() => ({
+  getAuthenticatedUserMock: vi.fn(),
+  profileFindUniqueMock: vi.fn(),
   roundCreateMock: vi.fn(),
   roundFindManyMock: vi.fn(),
   roundUpdateManyMock: vi.fn(),
@@ -37,7 +41,14 @@ const transactionClient = {
 vi.mock('../src/database.js', () => ({
   prisma: {
     $transaction: transactionMock,
+    user: {
+      findUnique: profileFindUniqueMock,
+    },
   },
+}))
+
+vi.mock('../src/auth.js', () => ({
+  getAuthenticatedUser: getAuthenticatedUserMock,
 }))
 
 vi.mock('../src/courseRatings.js', () => ({
@@ -53,6 +64,14 @@ const datePlayed = new Date('2026-08-30T00:00:00.000Z')
 const createdAt = new Date('2026-08-30T12:00:00.000Z')
 
 beforeEach(() => {
+  getAuthenticatedUserMock.mockReset()
+  getAuthenticatedUserMock.mockResolvedValue({
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    email: 'player@example.com',
+    emailConfirmed: true,
+  })
+  profileFindUniqueMock.mockReset()
+  profileFindUniqueMock.mockResolvedValue({ id: userId })
   roundCreateMock.mockReset()
   roundFindManyMock.mockReset()
   roundUpdateManyMock.mockReset()

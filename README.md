@@ -2,13 +2,14 @@
 
 ## Project purpose
 
-Fore the Record is a web application for recording golf rounds and tracking a player's World Handicap System (WHS) Handicap Index over time. Users will be able to create a profile, find golf courses and tees, enter scorecards and playing conditions, and review which rounds contribute to their current handicap.
+Fore the Record is a web application for recording golf rounds and tracking a player's World Handicap System (WHS) Handicap Index over time. Players can create or securely claim a profile, find golf courses and tees, enter scorecards and playing conditions, and review which rounds contribute to their current handicap.
 
 ## Technology stack
 
 - **Frontend:** React, Vite, and TypeScript
 - **Backend:** Node.js, Express, and TypeScript
 - **Database:** PostgreSQL hosted by Supabase
+- **Authentication:** Supabase Auth with verified email and password accounts
 - **ORM:** Prisma
 - **Testing:** Vitest
 - **Package management:** npm workspaces
@@ -21,7 +22,24 @@ Sensitive values such as database connection strings and API credentials are sto
 
 The project foundation is complete. It includes a React and TypeScript frontend, an Express and TypeScript backend, a tested API health endpoint, and a Prisma schema connected to a Supabase PostgreSQL database. The initial database migration has been created and deployed successfully.
 
-The application features are still under development. The core handicap calculation domain logic, backend profile creation and retrieval, two-tier backend course ratings lookup, course and tee persistence, transactional round logging with scorecard capping and automatic handicap recalculation, the round-history API, and the frontend profile-creation, course-search, total-score round-entry, and round-history flows are implemented. The active profile is restored from the API after a page refresh using its browser-stored ID. Players can choose or remove their home club from clubs already saved in the course library, and the selection is persisted with their profile. The history view lists rounds newest first, displays score and course details, and identifies the rounds used in the current Handicap Index. The production application is deployed on Vercel. Total-score entry uses gross score as adjusted gross score because Net Double Bogey capping requires a complete hole-by-hole scorecard.
+The application features are still under development. The core handicap calculation domain logic, backend profile creation and retrieval, two-tier backend course ratings lookup, course and tee persistence, transactional round logging with scorecard capping and automatic handicap recalculation, the round-history API, and the frontend authentication, course-search, total-score round-entry, and round-history flows are implemented. Supabase Auth provides email-and-password registration, existing-profile claiming through verified email ownership, login, logout, persistent sessions, and password recovery. Authenticated API requests derive profile ownership from the verified access token rather than trusting a browser-stored profile ID. Players can choose or remove their home club from clubs already saved in the course library. The history view lists rounds newest first, displays score and course details, and identifies the rounds used in the current Handicap Index. The production application is deployed on Vercel. Total-score entry uses gross score as adjusted gross score because Net Double Bogey capping requires a complete hole-by-hole scorecard.
+
+## Authentication setup
+
+In the Supabase dashboard:
+
+1. Enable the Email authentication provider and keep email confirmation required.
+2. Set the production Site URL to `https://fore-the-record.vercel.app`.
+3. Add `http://localhost:5173/**` and `https://fore-the-record.vercel.app/**` to the allowed redirect URLs.
+4. Configure a production SMTP provider before inviting real users; Supabase's default sender is intended only for limited testing.
+
+Copy the Supabase project URL and publishable key into both `server/.env` and `client/.env.local` using the names shown in their `.env.example` files. The publishable key is designed for browser use. Never use the Supabase service-role secret in a client or `VITE_` variable.
+
+Existing profiles have a nullable `authUserId`. Apply the included migration before testing account creation or claiming:
+
+```bash
+npm run db:deploy --workspace server
+```
 
 ## Deployment
 
@@ -34,8 +52,10 @@ Vercel builds the Vite client and serves the Express API through the `/api` rout
 - `RAPIDAPI_HOST`
 - `RAPIDAPI_SEARCH_PATH`
 - `RAPIDAPI_SEARCH_QUERY_PARAM`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-Their values are deployment secrets and must never be committed to the repository.
+The database connection and RapidAPI values are secrets and must never be committed. The Supabase publishable key is intentionally public, but it should still be managed as configuration rather than hardcoded.
 
 Deploy the current branch to Production with:
 

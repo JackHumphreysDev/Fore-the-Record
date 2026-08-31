@@ -2,23 +2,31 @@ import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  getAuthenticatedUserMock,
   clubCreateMock,
   clubFindFirstMock,
   clubFindUniqueMock,
   clubFindManyMock,
   clubUpdateMock,
   getCourseRatingsMock,
+  logRoundMock,
+  parseLogRoundInputMock,
   userCreateMock,
+  userFindFirstMock,
   userFindUniqueMock,
   userUpdateMock,
 } = vi.hoisted(() => ({
+  getAuthenticatedUserMock: vi.fn(),
   clubCreateMock: vi.fn(),
   clubFindFirstMock: vi.fn(),
   clubFindUniqueMock: vi.fn(),
   clubFindManyMock: vi.fn(),
   clubUpdateMock: vi.fn(),
   getCourseRatingsMock: vi.fn(),
+  logRoundMock: vi.fn(),
+  parseLogRoundInputMock: vi.fn(),
   userCreateMock: vi.fn(),
+  userFindFirstMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   userUpdateMock: vi.fn(),
 }))
@@ -34,6 +42,7 @@ vi.mock('../src/database.js', () => ({
     },
     user: {
       create: userCreateMock,
+      findFirst: userFindFirstMock,
       findUnique: userFindUniqueMock,
       update: userUpdateMock,
     },
@@ -44,9 +53,31 @@ vi.mock('../src/courseRatings.js', () => ({
   getCourseRatings: getCourseRatingsMock,
 }))
 
+vi.mock('../src/auth.js', () => ({
+  getAuthenticatedUser: getAuthenticatedUserMock,
+}))
+
+vi.mock('../src/rounds.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/rounds.js')>(
+    '../src/rounds.js',
+  )
+
+  return {
+    ...actual,
+    logRound: logRoundMock,
+    parseLogRoundInput: parseLogRoundInputMock,
+  }
+})
+
 import app from '../src/app.js'
 
 beforeEach(() => {
+  getAuthenticatedUserMock.mockReset()
+  getAuthenticatedUserMock.mockResolvedValue({
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    email: 'jack@example.com',
+    emailConfirmed: true,
+  })
   clubCreateMock.mockReset()
   clubFindFirstMock.mockReset()
   clubFindFirstMock.mockResolvedValue(null)
@@ -55,7 +86,11 @@ beforeEach(() => {
   clubFindManyMock.mockResolvedValue([])
   clubUpdateMock.mockReset()
   getCourseRatingsMock.mockReset()
+  logRoundMock.mockReset()
+  parseLogRoundInputMock.mockReset()
   userCreateMock.mockReset()
+  userFindFirstMock.mockReset()
+  userFindFirstMock.mockResolvedValue(null)
   userFindUniqueMock.mockReset()
   userUpdateMock.mockReset()
 })
@@ -68,7 +103,19 @@ describe('GET /api/health', () => {
   })
 })
 
-describe('GET /api/users/:id', () => {
+describe('API authentication', () => {
+  it('should reject a protected request without a verified session', async () => {
+    getAuthenticatedUserMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get('/api/users/me')
+
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({ error: 'Authentication required' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/users/me', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
 
   it('should return the profile with a numeric handicap index', async () => {
@@ -85,7 +132,7 @@ describe('GET /api/users/:id', () => {
       },
     })
 
-    const response = await request(app).get(`/api/users/${userId}`)
+    const response = await request(app).get('/api/users/me')
 
     expect(response.status).toBe(200)
     expect(response.body).toEqual({
@@ -101,7 +148,7 @@ describe('GET /api/users/:id', () => {
       },
     })
     expect(userFindUniqueMock).toHaveBeenCalledWith({
-      where: { id: userId },
+      where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
       select: {
         id: true,
         name: true,
@@ -122,14 +169,14 @@ describe('GET /api/users/:id', () => {
   it('should return 404 when the user does not exist', async () => {
     userFindUniqueMock.mockResolvedValueOnce(null)
 
-    const response = await request(app).get(`/api/users/${userId}`)
+    const response = await request(app).get('/api/users/me')
 
     expect(response.status).toBe(404)
     expect(response.body).toEqual({ error: 'User not found' })
   })
 })
 
-describe('PATCH /api/users/:id', () => {
+describe('PATCH /api/users/me', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
   const homeClubId = '22222222-2222-4222-8222-222222222222'
   const profileSelect = {
@@ -163,7 +210,7 @@ describe('PATCH /api/users/:id', () => {
       },
     })
 
-    const response = await request(app).patch(`/api/users/${userId}`).send({
+    const response = await request(app).patch('/api/users/me').send({
       homeClubId,
     })
 
@@ -181,7 +228,7 @@ describe('PATCH /api/users/:id', () => {
       },
     })
     expect(userFindUniqueMock).toHaveBeenCalledWith({
-      where: { id: userId },
+      where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
       select: { id: true },
     })
     expect(clubFindUniqueMock).toHaveBeenCalledWith({
@@ -207,7 +254,7 @@ describe('PATCH /api/users/:id', () => {
       homeClub: null,
     })
 
-    const response = await request(app).patch(`/api/users/${userId}`).send({
+    const response = await request(app).patch('/api/users/me').send({
       homeClubId: null,
     })
 
@@ -222,18 +269,8 @@ describe('PATCH /api/users/:id', () => {
     })
   })
 
-  it('should reject an invalid user ID', async () => {
-    const response = await request(app).patch('/api/users/not-a-uuid').send({
-      homeClubId: null,
-    })
-
-    expect(response.status).toBe(400)
-    expect(response.body).toEqual({ error: 'Invalid user ID' })
-    expect(userFindUniqueMock).not.toHaveBeenCalled()
-  })
-
   it('should reject an invalid home club ID', async () => {
-    const response = await request(app).patch(`/api/users/${userId}`).send({
+    const response = await request(app).patch('/api/users/me').send({
       homeClubId: 'not-a-uuid',
     })
 
@@ -245,7 +282,7 @@ describe('PATCH /api/users/:id', () => {
   it('should return 404 when the user does not exist', async () => {
     userFindUniqueMock.mockResolvedValueOnce(null)
 
-    const response = await request(app).patch(`/api/users/${userId}`).send({
+    const response = await request(app).patch('/api/users/me').send({
       homeClubId,
     })
 
@@ -259,7 +296,7 @@ describe('PATCH /api/users/:id', () => {
     userFindUniqueMock.mockResolvedValueOnce({ id: userId })
     clubFindUniqueMock.mockResolvedValueOnce(null)
 
-    const response = await request(app).patch(`/api/users/${userId}`).send({
+    const response = await request(app).patch('/api/users/me').send({
       homeClubId,
     })
 
@@ -269,7 +306,7 @@ describe('PATCH /api/users/:id', () => {
   })
 })
 
-describe('GET /api/users/:id/rounds', () => {
+describe('GET /api/users/me/rounds', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
 
   it('should return newest-first round history with course context', async () => {
@@ -308,7 +345,7 @@ describe('GET /api/users/:id/rounds', () => {
       ],
     })
 
-    const response = await request(app).get(`/api/users/${userId}/rounds`)
+    const response = await request(app).get('/api/users/me/rounds')
 
     expect(response.status).toBe(200)
     expect(response.body).toEqual([
@@ -345,7 +382,7 @@ describe('GET /api/users/:id/rounds', () => {
     ])
     expect(userFindUniqueMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: userId },
+        where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
         select: expect.objectContaining({
           rounds: expect.objectContaining({
             orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
@@ -358,7 +395,7 @@ describe('GET /api/users/:id/rounds', () => {
   it('should return an empty list when the user has no rounds', async () => {
     userFindUniqueMock.mockResolvedValueOnce({ rounds: [] })
 
-    const response = await request(app).get(`/api/users/${userId}/rounds`)
+    const response = await request(app).get('/api/users/me/rounds')
 
     expect(response.status).toBe(200)
     expect(response.body).toEqual([])
@@ -367,19 +404,12 @@ describe('GET /api/users/:id/rounds', () => {
   it('should return 404 when the user does not exist', async () => {
     userFindUniqueMock.mockResolvedValueOnce(null)
 
-    const response = await request(app).get(`/api/users/${userId}/rounds`)
+    const response = await request(app).get('/api/users/me/rounds')
 
     expect(response.status).toBe(404)
     expect(response.body).toEqual({ error: 'User not found' })
   })
 
-  it('should reject an invalid user ID before querying the database', async () => {
-    const response = await request(app).get('/api/users/not-a-uuid/rounds')
-
-    expect(response.status).toBe(400)
-    expect(response.body).toEqual({ error: 'Invalid user ID' })
-    expect(userFindUniqueMock).not.toHaveBeenCalled()
-  })
 })
 
 describe('GET /api/courses', () => {
@@ -884,16 +914,53 @@ describe('POST /api/courses', () => {
 })
 
 describe('POST /api/users', () => {
-  it('should return 400 when name and email are missing', async () => {
+  const authUserId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const profileSelect = {
+    id: true,
+    name: true,
+    email: true,
+    homeClubId: true,
+    handicapIndex: true,
+    createdAt: true,
+    homeClub: {
+      select: {
+        id: true,
+        name: true,
+      },
+    },
+  }
+
+  it('should require a confirmed email before creating or claiming a profile', async () => {
+    getAuthenticatedUserMock.mockResolvedValueOnce({
+      id: authUserId,
+      email: 'jack@example.com',
+      emailConfirmed: false,
+    })
+
+    const response = await request(app).post('/api/users').send({
+      name: 'Jack Humphreys',
+    })
+
+    expect(response.status).toBe(403)
+    expect(response.body).toEqual({
+      error: 'Confirm your email before continuing',
+    })
+    expect(userCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('should return 400 when a new profile has no name', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
     const response = await request(app).post('/api/users').send({})
 
     expect(response.status).toBe(400)
     expect(response.body).toEqual({
-      error: 'Name and email are required',
+      error: 'Name is required for a new profile',
     })
   })
 
-  it('should return 201 with the created profile', async () => {
+  it('should create a profile using the verified authentication email', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
     userCreateMock.mockResolvedValueOnce({
       id: '11111111-1111-4111-8111-111111111111',
       name: 'Jack Humphreys',
@@ -901,11 +968,12 @@ describe('POST /api/users', () => {
       homeClubId: null,
       handicapIndex: null,
       createdAt: new Date('2026-08-29T12:00:00.000Z'),
+      homeClub: null,
     })
 
     const response = await request(app).post('/api/users').send({
       name: 'Jack Humphreys',
-      email: 'jack@example.com',
+      email: 'attacker@example.com',
     })
 
     expect(response.status).toBe(201)
@@ -916,55 +984,144 @@ describe('POST /api/users', () => {
       homeClubId: null,
       handicapIndex: null,
       createdAt: expect.any(String),
+      homeClub: null,
     })
     expect(userCreateMock).toHaveBeenCalledWith({
       data: {
         name: 'Jack Humphreys',
         email: 'jack@example.com',
+        authUserId,
       },
+      select: profileSelect,
     })
   })
 
-  it('should include an optional home club when creating a profile', async () => {
-    const homeClubId = '22222222-2222-4222-8222-222222222222'
-
-    userCreateMock.mockResolvedValueOnce({
+  it('should claim an existing profile with the same verified email', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+    userFindFirstMock.mockResolvedValueOnce({
+      id: '11111111-1111-4111-8111-111111111111',
+      authUserId: null,
+    })
+    userUpdateMock.mockResolvedValueOnce({
       id: '11111111-1111-4111-8111-111111111111',
       name: 'Jack Humphreys',
       email: 'jack@example.com',
-      homeClubId,
+      homeClubId: null,
       handicapIndex: null,
       createdAt: new Date('2026-08-29T12:00:00.000Z'),
+      homeClub: null,
     })
 
-    const response = await request(app).post('/api/users').send({
-      name: 'Jack Humphreys',
-      email: 'jack@example.com',
-      homeClubId,
-    })
+    const response = await request(app).post('/api/users').send({})
 
-    expect(response.status).toBe(201)
-    expect(response.body.homeClubId).toBe(homeClubId)
-    expect(userCreateMock).toHaveBeenCalledWith({
-      data: {
-        name: 'Jack Humphreys',
-        email: 'jack@example.com',
-        homeClubId,
+    expect(response.status).toBe(200)
+    expect(response.body.email).toBe('jack@example.com')
+    expect(userFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        email: {
+          equals: 'jack@example.com',
+          mode: 'insensitive',
+        },
       },
+      select: { id: true, authUserId: true },
     })
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: '11111111-1111-4111-8111-111111111111' },
+      data: { authUserId },
+      select: profileSelect,
+    })
+    expect(userCreateMock).not.toHaveBeenCalled()
   })
 
-  it('should return 409 when the email already exists', async () => {
-    userCreateMock.mockRejectedValueOnce({ code: 'P2002' })
-
-    const response = await request(app).post('/api/users').send({
+  it('should return an already-linked profile without creating another', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: '11111111-1111-4111-8111-111111111111',
       name: 'Jack Humphreys',
       email: 'jack@example.com',
+      homeClubId: null,
+      handicapIndex: '12.4',
+      createdAt: new Date('2026-08-29T12:00:00.000Z'),
+      homeClub: null,
     })
+
+    const response = await request(app).post('/api/users').send({})
+
+    expect(response.status).toBe(200)
+    expect(response.body.handicapIndex).toBe(12.4)
+    expect(userFindFirstMock).not.toHaveBeenCalled()
+    expect(userCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('should reject an email already linked to a different auth account', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+    userFindFirstMock.mockResolvedValueOnce({
+      id: '11111111-1111-4111-8111-111111111111',
+      authUserId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    })
+
+    const response = await request(app).post('/api/users').send({})
 
     expect(response.status).toBe(409)
     expect(response.body).toEqual({
-      error: 'A user with this email already exists',
+      error: 'This profile is already linked to another account',
     })
+    expect(userUpdateMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/rounds authentication', () => {
+  const profileId = '11111111-1111-4111-8111-111111111111'
+  const parsedInput = {
+    userId: profileId,
+    teeId: '44444444-4444-4444-8444-444444444444',
+    datePlayed: new Date('2026-08-31T00:00:00.000Z'),
+    grossScore: 84,
+    weatherCondition: 'DRY' as const,
+    pccAdjustment: 0,
+    isAcceptable: true,
+  }
+
+  it('should derive the round owner from the authenticated profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: profileId })
+    parseLogRoundInputMock.mockReturnValueOnce(parsedInput)
+    logRoundMock.mockResolvedValueOnce({
+      round: { id: '33333333-3333-4333-8333-333333333333' },
+      handicapIndex: 12.4,
+    })
+
+    const response = await request(app).post('/api/rounds').send({
+      userId: '99999999-9999-4999-8999-999999999999',
+      teeId: parsedInput.teeId,
+      datePlayed: '2026-08-31',
+      grossScore: 84,
+      weatherCondition: 'DRY',
+    })
+
+    expect(response.status).toBe(201)
+    expect(userFindUniqueMock).toHaveBeenCalledWith({
+      where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      select: { id: true },
+    })
+    expect(parseLogRoundInputMock).toHaveBeenCalledWith({
+      userId: profileId,
+      teeId: parsedInput.teeId,
+      datePlayed: '2026-08-31',
+      grossScore: 84,
+      weatherCondition: 'DRY',
+    })
+    expect(logRoundMock).toHaveBeenCalledWith(parsedInput)
+  })
+
+  it('should reject round entry when the account has no linked profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).post('/api/rounds').send({
+      teeId: parsedInput.teeId,
+    })
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'Profile not found' })
+    expect(parseLogRoundInputMock).not.toHaveBeenCalled()
+    expect(logRoundMock).not.toHaveBeenCalled()
   })
 })

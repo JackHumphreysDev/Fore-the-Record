@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { authenticatedFetch } from './api.ts'
 import './RoundHistory.css'
 
 type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
@@ -141,15 +142,13 @@ function RoundHistory({
     }
 
     const controller = new AbortController()
-    const requestedProfileId = profileId
-
     async function loadRoundHistory() {
       setIsLoading(true)
       setLoadError('')
 
       try {
-        const response = await fetch(
-          `/api/users/${encodeURIComponent(requestedProfileId)}/rounds`,
+        const response = await authenticatedFetch(
+          '/api/users/me/rounds',
           { signal: controller.signal },
         )
 

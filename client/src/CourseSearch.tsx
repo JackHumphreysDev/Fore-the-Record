@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { authenticatedFetch } from './api.ts'
 import './CourseSearch.css'
 
 type CourseSource = 'api' | 'fallback_scrape' | 'manual'
@@ -113,7 +114,7 @@ function CourseSearch() {
     setIsSearching(true)
 
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `/api/courses/search?q=${encodeURIComponent(clubName)}`,
       )
 
@@ -192,7 +193,7 @@ function CourseSearch() {
     setSaveError('')
 
     try {
-      const response = await fetch('/api/courses', {
+      const response = await authenticatedFetch('/api/courses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
