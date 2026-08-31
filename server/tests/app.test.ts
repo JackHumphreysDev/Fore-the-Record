@@ -14,6 +14,9 @@ const {
   logRoundMock,
   parseLogRoundInputMock,
   roundCountMock,
+  submissionCountMock,
+  submissionCreateMock,
+  submissionFindManyMock,
   userCountMock,
   userCreateMock,
   userFindManyMock,
@@ -33,6 +36,9 @@ const {
   logRoundMock: vi.fn(),
   parseLogRoundInputMock: vi.fn(),
   roundCountMock: vi.fn(),
+  submissionCountMock: vi.fn(),
+  submissionCreateMock: vi.fn(),
+  submissionFindManyMock: vi.fn(),
   userCountMock: vi.fn(),
   userCreateMock: vi.fn(),
   userFindManyMock: vi.fn(),
@@ -62,6 +68,11 @@ vi.mock('../src/database.js', () => ({
     },
     round: {
       count: roundCountMock,
+    },
+    submission: {
+      count: submissionCountMock,
+      create: submissionCreateMock,
+      findMany: submissionFindManyMock,
     },
   },
 }))
@@ -111,6 +122,9 @@ beforeEach(() => {
   logRoundMock.mockReset()
   parseLogRoundInputMock.mockReset()
   roundCountMock.mockReset()
+  submissionCountMock.mockReset()
+  submissionCreateMock.mockReset()
+  submissionFindManyMock.mockReset()
   userCountMock.mockReset()
   userCreateMock.mockReset()
   userFindManyMock.mockReset()
@@ -386,6 +400,263 @@ describe('GET /api/admin/users', () => {
     expect(response.body).toEqual({ error: 'Invalid pagination' })
     expect(userCountMock).not.toHaveBeenCalled()
     expect(userFindManyMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('player submissions', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const submissionId = '22222222-2222-4222-8222-222222222222'
+  const submissionSelect = {
+    id: true,
+    type: true,
+    status: true,
+    subject: true,
+    message: true,
+    clubName: true,
+    townCounty: true,
+    websiteUrl: true,
+    courseName: true,
+    teeDetails: true,
+    createdAt: true,
+    updatedAt: true,
+  }
+
+  it('should create a submission for the authenticated profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    submissionCreateMock.mockResolvedValueOnce({
+      id: submissionId,
+      type: 'ISSUE',
+      status: 'NEW',
+      subject: 'Round history is unclear',
+      message: 'The counting badge is difficult to understand.',
+      clubName: null,
+      townCounty: null,
+      websiteUrl: null,
+      courseName: null,
+      teeDetails: null,
+      createdAt: new Date('2026-08-31T20:00:00.000Z'),
+      updatedAt: new Date('2026-08-31T20:00:00.000Z'),
+    })
+
+    const response = await request(app).post('/api/submissions').send({
+      type: 'ISSUE',
+      subject: '  Round history is unclear  ',
+      message: '  The counting badge is difficult to understand.  ',
+    })
+
+    expect(response.status).toBe(201)
+    expect(response.body).toEqual({
+      id: submissionId,
+      type: 'ISSUE',
+      status: 'NEW',
+      subject: 'Round history is unclear',
+      message: 'The counting badge is difficult to understand.',
+      clubName: null,
+      townCounty: null,
+      websiteUrl: null,
+      courseName: null,
+      teeDetails: null,
+      createdAt: '2026-08-31T20:00:00.000Z',
+      updatedAt: '2026-08-31T20:00:00.000Z',
+    })
+    expect(userFindUniqueMock).toHaveBeenCalledWith({
+      where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      select: { id: true },
+    })
+    expect(submissionCreateMock).toHaveBeenCalledWith({
+      data: {
+        userId,
+        type: 'ISSUE',
+        subject: 'Round history is unclear',
+        message: 'The counting badge is difficult to understand.',
+        clubName: null,
+        townCounty: null,
+        websiteUrl: null,
+        courseName: null,
+        teeDetails: null,
+      },
+      select: submissionSelect,
+    })
+  })
+
+  it('should return a validation message without writing invalid data', async () => {
+    const response = await request(app).post('/api/submissions').send({
+      type: 'ISSUE',
+      subject: 'Bug',
+      message: 'This message is long enough.',
+    })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: 'Subject must be between 5 and 120 characters',
+    })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+    expect(submissionCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('should return only the authenticated profile submissions', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    submissionCountMock.mockResolvedValueOnce(1)
+    submissionFindManyMock.mockResolvedValueOnce([
+      {
+        id: submissionId,
+        type: 'IDEA',
+        status: 'IN_PROGRESS',
+        subject: 'Season review',
+        message: 'A yearly performance summary would be useful.',
+        clubName: null,
+        townCounty: null,
+        websiteUrl: null,
+        courseName: null,
+        teeDetails: null,
+        createdAt: new Date('2026-08-31T19:00:00.000Z'),
+        updatedAt: new Date('2026-08-31T20:00:00.000Z'),
+      },
+    ])
+
+    const response = await request(app).get(
+      '/api/submissions?page=1&pageSize=20',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.pagination).toEqual({
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      totalPages: 1,
+    })
+    expect(response.body.submissions).toHaveLength(1)
+    expect(submissionCountMock).toHaveBeenCalledWith({ where: { userId } })
+    expect(submissionFindManyMock).toHaveBeenCalledWith({
+      where: { userId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 0,
+      take: 20,
+      select: submissionSelect,
+    })
+  })
+})
+
+describe('GET /api/admin/submissions', () => {
+  const adminProfile = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Site Administrator',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  }
+
+  it('should return a filtered paginated review queue', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    submissionCountMock.mockResolvedValueOnce(1)
+    submissionFindManyMock.mockResolvedValueOnce([
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        type: 'ISSUE',
+        status: 'NEW',
+        subject: 'Login problem',
+        message: 'The login screen returned an unexpected message.',
+        clubName: null,
+        townCounty: null,
+        websiteUrl: null,
+        courseName: null,
+        teeDetails: null,
+        createdAt: new Date('2026-08-31T20:00:00.000Z'),
+        updatedAt: new Date('2026-08-31T20:00:00.000Z'),
+        user: {
+          id: '33333333-3333-4333-8333-333333333333',
+          name: 'Example Player',
+          email: 'player@example.com',
+        },
+      },
+    ])
+
+    const response = await request(app).get(
+      '/api/admin/submissions?status=NEW&type=ISSUE&search=login&page=1&pageSize=10',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      submissions: [
+        {
+          id: '22222222-2222-4222-8222-222222222222',
+          type: 'ISSUE',
+          status: 'NEW',
+          subject: 'Login problem',
+          message: 'The login screen returned an unexpected message.',
+          clubName: null,
+          townCounty: null,
+          websiteUrl: null,
+          courseName: null,
+          teeDetails: null,
+          createdAt: '2026-08-31T20:00:00.000Z',
+          updatedAt: '2026-08-31T20:00:00.000Z',
+          user: {
+            id: '33333333-3333-4333-8333-333333333333',
+            name: 'Example Player',
+            email: 'player@example.com',
+          },
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 10,
+        total: 1,
+        totalPages: 1,
+      },
+    })
+
+    const where = {
+      status: 'NEW',
+      type: 'ISSUE',
+      OR: [
+        { subject: { contains: 'login', mode: 'insensitive' } },
+        { message: { contains: 'login', mode: 'insensitive' } },
+        { clubName: { contains: 'login', mode: 'insensitive' } },
+        { courseName: { contains: 'login', mode: 'insensitive' } },
+        { user: { name: { contains: 'login', mode: 'insensitive' } } },
+        { user: { email: { contains: 'login', mode: 'insensitive' } } },
+      ],
+    }
+    expect(submissionCountMock).toHaveBeenCalledWith({ where })
+    expect(submissionFindManyMock).toHaveBeenCalledWith({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 0,
+      take: 10,
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        subject: true,
+        message: true,
+        clubName: true,
+        townCounty: true,
+        websiteUrl: true,
+        courseName: true,
+        teeDetails: true,
+        createdAt: true,
+        updatedAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+  })
+
+  it('should reject an invalid status before querying the queue', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+
+    const response = await request(app).get(
+      '/api/admin/submissions?status=PENDING',
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Invalid submission filters' })
+    expect(submissionCountMock).not.toHaveBeenCalled()
   })
 })
 

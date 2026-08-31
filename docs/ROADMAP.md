@@ -7,7 +7,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 1. Custom domain and production email delivery.
 2. Admin-role and audit-log foundation. Completed in `0.2.0`.
 3. Admin portal. Read-only monitoring completed in `0.3.0`; management actions remain planned.
-4. User submissions and admin messaging.
+4. User submissions and admin messaging. Submission and read-only review foundation completed in `0.4.0`; messaging remains planned.
 5. Competition, casual, individual, and team round records.
 6. User-facing **What's New** section.
 
@@ -72,11 +72,15 @@ Version `0.3.0` provides protected operational totals, recent registrations, and
 - Preserve an audit record for every administrative change.
 - Add pagination and filters rather than loading every user and round at once.
 
-## User submissions and admin messaging
+## User submissions and admin messaging — foundation completed in 0.4.0
 
 ### Goal
 
 Give signed-in players one place to report problems, suggest improvements, request data corrections, and submit missing courses.
+
+### Delivery status
+
+Version `0.4.0` adds player submission creation, private player history, structured missing-course details, and a protected read-only administrator queue with search, filters, and pagination. Administrator replies, status updates, linked data-correction records, and submission rate limiting remain planned; later mutations must use the existing administrator audit-log foundation.
 
 ### Submission types
 

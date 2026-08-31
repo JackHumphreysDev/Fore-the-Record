@@ -14,9 +14,16 @@ import HomeClubSelector from './HomeClubSelector.tsx'
 import PasswordRecovery from './PasswordRecovery.tsx'
 import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
+import Support from './Support.tsx'
 import { getSupabaseClient } from './supabase.ts'
 
-type ActiveView = 'profile' | 'courses' | 'rounds' | 'history' | 'admin'
+type ActiveView =
+  | 'profile'
+  | 'courses'
+  | 'rounds'
+  | 'history'
+  | 'support'
+  | 'admin'
 
 type HomeClub = {
   id: string
@@ -401,6 +408,13 @@ function App() {
           >
             History
           </button>
+          <button
+            type="button"
+            aria-current={activeView === 'support' ? 'page' : undefined}
+            onClick={() => setActiveView('support')}
+          >
+            Support
+          </button>
           {adminIdentity ? (
             <button
               type="button"
@@ -543,6 +557,8 @@ function App() {
             onGoToProfile={() => setActiveView('profile')}
             onLogRound={() => setActiveView('rounds')}
           />
+        ) : activeView === 'support' ? (
+          <Support />
         ) : adminIdentity ? (
           <AdminPortal administratorName={adminIdentity.name} />
         ) : null}
