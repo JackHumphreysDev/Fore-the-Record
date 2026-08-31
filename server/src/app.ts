@@ -28,6 +28,11 @@ import {
   parseSubmissionInput,
   SubmissionValidationError,
 } from './submissions.js'
+import {
+  parseSubmissionMessageInput,
+  parseSubmissionStatusInput,
+  SubmissionResponseValidationError,
+} from './submissionResponses.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -105,6 +110,25 @@ const ADMIN_SUBMISSION_SELECT = {
       email: true,
     },
   },
+} as const
+
+const SUBMISSION_MESSAGE_SELECT = {
+  id: true,
+  body: true,
+  createdAt: true,
+  sender: {
+    select: {
+      id: true,
+      name: true,
+      role: true,
+    },
+  },
+} as const
+
+const SUBMISSION_STATUS_SELECT = {
+  id: true,
+  status: true,
+  updatedAt: true,
 } as const
 
 type AdminProfile = {
@@ -447,6 +471,171 @@ app.get('/api/admin/submissions', async (request, response) => {
   })
 })
 
+app.get(
+  '/api/admin/submissions/:submissionId/messages',
+  async (request, response) => {
+    const submissionId = request.params.submissionId
+
+    if (
+      typeof submissionId !== 'string' ||
+      !UUID_PATTERN.test(submissionId)
+    ) {
+      response.status(400).json({ error: 'Invalid submission ID' })
+      return
+    }
+
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      select: { id: true },
+    })
+
+    if (!submission) {
+      response.status(404).json({ error: 'Submission not found' })
+      return
+    }
+
+    const messages = await prisma.submissionMessage.findMany({
+      where: { submissionId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: SUBMISSION_MESSAGE_SELECT,
+    })
+
+    response.status(200).json({ messages })
+  },
+)
+
+app.post(
+  '/api/admin/submissions/:submissionId/messages',
+  async (request, response) => {
+    const submissionId = request.params.submissionId
+
+    if (
+      typeof submissionId !== 'string' ||
+      !UUID_PATTERN.test(submissionId)
+    ) {
+      response.status(400).json({ error: 'Invalid submission ID' })
+      return
+    }
+
+    let input
+
+    try {
+      input = parseSubmissionMessageInput(request.body)
+    } catch (error: unknown) {
+      if (error instanceof SubmissionResponseValidationError) {
+        response.status(400).json({ error: error.message })
+        return
+      }
+
+      throw error
+    }
+
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      select: { id: true, status: true },
+    })
+
+    if (!submission) {
+      response.status(404).json({ error: 'Submission not found' })
+      return
+    }
+
+    if (submission.status === SubmissionStatus.CLOSED) {
+      response.status(409).json({
+        error: 'Closed submissions cannot receive replies',
+      })
+      return
+    }
+
+    const administrator = getAdminProfile(response.locals)
+    const [message] = await prisma.$transaction([
+      prisma.submissionMessage.create({
+        data: {
+          submissionId,
+          senderUserId: administrator.id,
+          ...input,
+        },
+        select: SUBMISSION_MESSAGE_SELECT,
+      }),
+      prisma.adminAuditLog.create({
+        data: {
+          actorUserId: administrator.id,
+          action: 'SUBMISSION_MESSAGE_CREATED',
+          targetType: 'Submission',
+          targetId: submissionId,
+          after: { senderRole: UserRole.ADMIN },
+        },
+      }),
+    ])
+
+    response.status(201).json(message)
+  },
+)
+
+app.patch(
+  '/api/admin/submissions/:submissionId/status',
+  async (request, response) => {
+    const submissionId = request.params.submissionId
+
+    if (
+      typeof submissionId !== 'string' ||
+      !UUID_PATTERN.test(submissionId)
+    ) {
+      response.status(400).json({ error: 'Invalid submission ID' })
+      return
+    }
+
+    let input
+
+    try {
+      input = parseSubmissionStatusInput(request.body)
+    } catch (error: unknown) {
+      if (error instanceof SubmissionResponseValidationError) {
+        response.status(400).json({ error: error.message })
+        return
+      }
+
+      throw error
+    }
+
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      select: SUBMISSION_STATUS_SELECT,
+    })
+
+    if (!submission) {
+      response.status(404).json({ error: 'Submission not found' })
+      return
+    }
+
+    if (submission.status === input.status) {
+      response.status(200).json(submission)
+      return
+    }
+
+    const administrator = getAdminProfile(response.locals)
+    const [updatedSubmission] = await prisma.$transaction([
+      prisma.submission.update({
+        where: { id: submissionId },
+        data: input,
+        select: SUBMISSION_STATUS_SELECT,
+      }),
+      prisma.adminAuditLog.create({
+        data: {
+          actorUserId: administrator.id,
+          action: 'SUBMISSION_STATUS_UPDATED',
+          targetType: 'Submission',
+          targetId: submissionId,
+          before: { status: submission.status },
+          after: { status: input.status },
+        },
+      }),
+    ])
+
+    response.status(200).json(updatedSubmission)
+  },
+)
+
 app.post('/api/submissions', async (request, response) => {
   let input
 
@@ -525,6 +714,103 @@ app.get('/api/submissions', async (request, response) => {
     },
   })
 })
+
+app.get(
+  '/api/submissions/:submissionId/messages',
+  async (request, response) => {
+    const submissionId = request.params.submissionId
+
+    if (
+      typeof submissionId !== 'string' ||
+      !UUID_PATTERN.test(submissionId)
+    ) {
+      response.status(400).json({ error: 'Invalid submission ID' })
+      return
+    }
+
+    const authenticatedUser = getRequestUser(response.locals)
+    const submission = await prisma.submission.findFirst({
+      where: {
+        id: submissionId,
+        user: { authUserId: authenticatedUser.id },
+      },
+      select: { id: true },
+    })
+
+    if (!submission) {
+      response.status(404).json({ error: 'Submission not found' })
+      return
+    }
+
+    const messages = await prisma.submissionMessage.findMany({
+      where: { submissionId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: SUBMISSION_MESSAGE_SELECT,
+    })
+
+    response.status(200).json({ messages })
+  },
+)
+
+app.post(
+  '/api/submissions/:submissionId/messages',
+  async (request, response) => {
+    const submissionId = request.params.submissionId
+
+    if (
+      typeof submissionId !== 'string' ||
+      !UUID_PATTERN.test(submissionId)
+    ) {
+      response.status(400).json({ error: 'Invalid submission ID' })
+      return
+    }
+
+    let input
+
+    try {
+      input = parseSubmissionMessageInput(request.body)
+    } catch (error: unknown) {
+      if (error instanceof SubmissionResponseValidationError) {
+        response.status(400).json({ error: error.message })
+        return
+      }
+
+      throw error
+    }
+
+    const authenticatedUser = getRequestUser(response.locals)
+    const submission = await prisma.submission.findFirst({
+      where: {
+        id: submissionId,
+        user: { authUserId: authenticatedUser.id },
+      },
+      select: { id: true, userId: true, status: true },
+    })
+
+    if (!submission) {
+      response.status(404).json({ error: 'Submission not found' })
+      return
+    }
+
+    if (submission.status === SubmissionStatus.CLOSED) {
+      response.status(409).json({
+        error: 'Closed submissions cannot receive replies',
+      })
+      return
+    }
+
+    const message = await prisma.submissionMessage.create({
+      data: {
+        submissionId,
+        senderUserId: submission.userId,
+        ...input,
+      },
+      select: SUBMISSION_MESSAGE_SELECT,
+    })
+
+    response.status(201).json(message)
+  },
+)
 
 app.get('/api/users/me/rounds', async (_request, response) => {
   const authenticatedUser = getRequestUser(response.locals)

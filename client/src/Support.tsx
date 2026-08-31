@@ -10,6 +10,7 @@ import {
   type SubmissionType,
   type SubmissionsResponse,
 } from './submissionApi.ts'
+import SubmissionConversation from './SubmissionConversation.tsx'
 import './Support.css'
 
 const PAGE_SIZE = 10
@@ -393,6 +394,10 @@ function Support() {
                         ) : null}
                       </dl>
                     ) : null}
+                    <SubmissionConversation
+                      submissionId={submission.id}
+                      status={submission.status}
+                    />
                   </article>
                 ))}
               </div>

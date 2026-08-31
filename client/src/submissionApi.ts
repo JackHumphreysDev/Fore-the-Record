@@ -69,6 +69,27 @@ export type AdminSubmissionsResponse = {
   pagination: Pagination
 }
 
+export type SubmissionMessage = {
+  id: string
+  body: string
+  createdAt: string
+  sender: {
+    id: string
+    name: string
+    role: 'PLAYER' | 'ADMIN'
+  }
+}
+
+export type SubmissionMessagesResponse = {
+  messages: SubmissionMessage[]
+}
+
+export type SubmissionStatusUpdate = {
+  id: string
+  status: SubmissionStatus
+  updatedAt: string
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -184,6 +205,44 @@ export function isAdminSubmissionsResponse(
   )
 }
 
+export function isSubmissionMessage(
+  value: unknown,
+): value is SubmissionMessage {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.body === 'string' &&
+    typeof value.createdAt === 'string' &&
+    !Number.isNaN(Date.parse(value.createdAt)) &&
+    isRecord(value.sender) &&
+    typeof value.sender.id === 'string' &&
+    typeof value.sender.name === 'string' &&
+    (value.sender.role === 'PLAYER' || value.sender.role === 'ADMIN')
+  )
+}
+
+export function isSubmissionMessagesResponse(
+  value: unknown,
+): value is SubmissionMessagesResponse {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.messages) &&
+    value.messages.every(isSubmissionMessage)
+  )
+}
+
+export function isSubmissionStatusUpdate(
+  value: unknown,
+): value is SubmissionStatusUpdate {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    isSubmissionStatus(value.status) &&
+    typeof value.updatedAt === 'string' &&
+    !Number.isNaN(Date.parse(value.updatedAt))
+  )
+}
+
 export function buildSubmissionsPath(page: number, pageSize: number): string {
   const parameters = new URLSearchParams({
     page: String(page),
@@ -219,4 +278,18 @@ export function buildAdminSubmissionsPath(filters: {
   parameters.set('pageSize', String(filters.pageSize))
 
   return `/api/admin/submissions?${parameters.toString()}`
+}
+
+export function buildSubmissionMessagesPath(
+  submissionId: string,
+  administrator: boolean,
+): string {
+  const prefix = administrator ? '/api/admin' : '/api'
+  return `${prefix}/submissions/${encodeURIComponent(submissionId)}/messages`
+}
+
+export function buildAdminSubmissionStatusPath(
+  submissionId: string,
+): string {
+  return `/api/admin/submissions/${encodeURIComponent(submissionId)}/status`
 }

@@ -1,6 +1,6 @@
 # Administration
 
-Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, and version `0.4.0` adds read-only support-request review. These releases do not add user, round, or submission mutation controls.
+Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, and version `0.5.0` adds audited replies and status controls. User and round management remains read-only.
 
 ## Security model
 
@@ -49,6 +49,12 @@ Before running it, the owner must already have registered, confirmed their email
 
 `GET /api/admin/submissions` returns safe, paginated support requests with their submitting profile identity. Its optional `search` query matches request text, course details, player names, and player emails. The `status` and `type` queries use the documented submission enums; `page` and `pageSize` control pagination, with a maximum page size of 50.
 
-The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. The portal is intentionally read-only and exposes no password, token, authentication-secret, or mutation fields. Submission replies and status changes remain deferred until they can be implemented as authorized, audited mutations.
+`GET /api/admin/submissions/:submissionId/messages` returns the ordered conversation for an existing request. `POST` to the same path adds a validated administrator reply unless the request is closed. The audit record notes that a reply was added but deliberately excludes the support-message text.
+
+`PATCH /api/admin/submissions/:submissionId/status` accepts `NEW`, `IN_PROGRESS`, `RESOLVED`, or `CLOSED`. A changed status and its before/after audit record are written in one database transaction. Repeating the current status is safe and does not create duplicate audit noise.
+
+Players use the corresponding `/api/submissions/:submissionId/messages` routes. Those routes resolve ownership from the verified authentication account and return `404` for requests belonging to another player. Closed requests cannot receive player or administrator replies until the administrator reopens them.
+
+The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. Submission replies and status changes are the portal's only mutation controls. It exposes no password, token, authentication-secret, user-management, or round-management mutation fields.
 
 Every future `/api/admin/...` route must remain behind this server guard. Hiding a client navigation item is useful presentation, but it is not authorization.

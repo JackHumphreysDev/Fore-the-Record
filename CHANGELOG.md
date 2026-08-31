@@ -14,6 +14,24 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.5.0 - 2026-08-31
+
+### User-facing changes
+
+- Added private conversation threads to support requests so players can provide more information when asked.
+- Added administrator replies within the original request instead of creating unrestricted direct messages.
+- Added visible request progress through New, In progress, Resolved, and Closed statuses.
+- Locked closed conversations while allowing the administrator to reopen them when further discussion is needed.
+
+### Developer and admin changes
+
+- Added a relational submission-message model that records the verified sender for every reply.
+- Added ownership-protected player conversation endpoints and administrator-protected reply endpoints.
+- Added administrator controls for resolving, closing, reopening, and otherwise updating submission status.
+- Added audit records for administrator replies and changed statuses without copying support-message text into the audit log.
+- Added reply validation plus cross-account, closed-thread, administrator-authorization, audit, response-shape, and client path tests.
+- Kept profile and round administration read-only and deferred email notifications until production email delivery is configured.
+
 ## 0.4.0 - 2026-08-31
 
 ### User-facing changes

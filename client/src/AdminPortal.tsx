@@ -199,7 +199,7 @@ function AdminPortal({ administratorName }: AdminPortalProps) {
         <div className="admin-access-note">
           <span aria-hidden="true">✓</span>
           <div>
-            <strong>Read-only access</strong>
+            <strong>Administrator access</strong>
             <small>Signed in as {administratorName}</small>
           </div>
         </div>

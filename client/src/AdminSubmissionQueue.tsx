@@ -9,8 +9,10 @@ import {
   SUBMISSION_TYPE_LABELS,
   type AdminSubmissionsResponse,
   type SubmissionStatus,
+  type SubmissionStatusUpdate,
   type SubmissionType,
 } from './submissionApi.ts'
+import SubmissionConversation from './SubmissionConversation.tsx'
 import './AdminSubmissionQueue.css'
 
 const PAGE_SIZE = 10
@@ -153,6 +155,25 @@ function AdminSubmissionQueue() {
     }
   }
 
+  function updateSubmissionStatus(update: SubmissionStatusUpdate) {
+    setResponse((current) =>
+      current
+        ? {
+            ...current,
+            submissions: current.submissions.map((submission) =>
+              submission.id === update.id
+                ? {
+                    ...submission,
+                    status: update.status,
+                    updatedAt: update.updatedAt,
+                  }
+                : submission,
+            ),
+          }
+        : current,
+    )
+  }
+
   const pagination = response?.pagination
   const pageCount = Math.max(pagination?.totalPages ?? 0, 1)
   const hasAppliedFilters = Boolean(search || status || type)
@@ -167,7 +188,7 @@ function AdminSubmissionQueue() {
           <p>Player support</p>
           <h2 id="admin-submission-title">Request queue</h2>
         </div>
-        <span>Read only</span>
+        <span>Response tools</span>
       </div>
 
       <form className="admin-submission-filters" onSubmit={applyFilters}>
@@ -321,6 +342,12 @@ function AdminSubmissionQueue() {
                       ) : null}
                     </dl>
                   ) : null}
+                  <SubmissionConversation
+                    administrator
+                    submissionId={submission.id}
+                    status={submission.status}
+                    onStatusUpdated={updateSubmissionStatus}
+                  />
                 </article>
               ))}
             </div>
