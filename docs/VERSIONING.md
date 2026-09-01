@@ -1,6 +1,6 @@
 # Versioning and release notes
 
-Fore the Record uses one application version across the root, client, and server packages. The current version is `0.7.0`.
+Fore the Record uses one application version across the root, client, and server packages. The current version is `0.8.0`.
 
 ## Version format
 
@@ -15,6 +15,7 @@ Examples:
 - `0.4.0` → `0.5.0` for support conversations and resolution controls.
 - `0.5.0` → `0.6.0` for the imported course catalogue and database-backed search.
 - `0.6.0` → `0.7.0` for hole-by-hole scorecards and administrator review.
+- `0.7.0` → `0.8.0` for casual, individual competition, and team competition records.
 - `0.7.0` → `0.7.1` for a correction to scorecard validation.
 - `0.x.x` → `1.0.0` when the product is ready for its first stable release.
 

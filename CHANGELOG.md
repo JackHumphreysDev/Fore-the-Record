@@ -14,6 +14,24 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.8.0 - 2026-09-02
+
+### User-facing changes
+
+- Added clear choices for casual rounds, individual competitions, and team competitions during round entry.
+- Added competition name, format, number of players, and time played to competition records.
+- Allowed team competitions to be saved without a gross score or hole-by-hole card.
+- Labelled every history entry by round type and displayed competition details in plain language.
+- Kept team competitions in the player’s golf history without changing their Handicap Index.
+
+### Developer and admin changes
+
+- Added server-derived round category and participation rules instead of accepting a browser-supplied handicap-eligibility flag.
+- Added nullable score fields exclusively for validated team record entries, backed by database consistency constraints.
+- Added a `NOT_REQUIRED` scorecard status for team competitions and excluded those entries from all handicap calculations.
+- Preserved every existing round as a casual individual round through compatible migration defaults.
+- Added API, persistence, history serialization, null-safety, and client response-validation regression coverage.
+
 ## 0.7.0 - 2026-09-01
 
 ### User-facing changes

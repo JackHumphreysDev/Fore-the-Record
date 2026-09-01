@@ -1,42 +1,16 @@
 import { useEffect, useState } from 'react'
 import { authenticatedFetch } from './api.ts'
+import {
+  isHistoryRound,
+  type HistoryRound,
+  type WeatherCondition,
+} from './roundRecordValidation.ts'
 import './RoundHistory.css'
-
-type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
 
 type RoundHistoryProfile = {
   id: string
   name: string
   handicapIndex: number | null
-}
-
-type HistoryRound = {
-  id: string
-  datePlayed: string
-  grossScore: number
-  adjustedGrossScore: number
-  isCapped: boolean
-  weatherCondition: WeatherCondition
-  pccAdjustment: number
-  scoreDifferential: number
-  isAcceptable: boolean
-  usedInHandicapCalc: boolean
-  scorecardStatus: 'VERIFIED' | 'PENDING_REVIEW' | 'REJECTED'
-  tee: {
-    id: string
-    teeName: string
-    courseRating: number
-    slopeRating: number
-    par: number | null
-    course: {
-      id: string
-      name: string
-      club: {
-        id: string
-        name: string
-      }
-    }
-  }
 }
 
 type RoundHistoryProps = {
@@ -52,54 +26,8 @@ const WEATHER_LABELS: Record<WeatherCondition, string> = {
   SUPER_WET: 'Super wet',
 }
 
-const WEATHER_CONDITIONS = Object.keys(
-  WEATHER_LABELS,
-) as WeatherCondition[]
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
-
-function isHistoryRound(value: unknown): value is HistoryRound {
-  if (!isRecord(value) || !isRecord(value.tee)) {
-    return false
-  }
-
-  const tee = value.tee
-
-  if (!isRecord(tee.course) || !isRecord(tee.course.club)) {
-    return false
-  }
-
-  return (
-    typeof value.id === 'string' &&
-    typeof value.datePlayed === 'string' &&
-    isFiniteNumber(value.grossScore) &&
-    isFiniteNumber(value.adjustedGrossScore) &&
-    typeof value.isCapped === 'boolean' &&
-    typeof value.weatherCondition === 'string' &&
-    WEATHER_CONDITIONS.includes(value.weatherCondition as WeatherCondition) &&
-    isFiniteNumber(value.pccAdjustment) &&
-    isFiniteNumber(value.scoreDifferential) &&
-    typeof value.isAcceptable === 'boolean' &&
-    typeof value.usedInHandicapCalc === 'boolean' &&
-    (value.scorecardStatus === 'VERIFIED' ||
-      value.scorecardStatus === 'PENDING_REVIEW' ||
-      value.scorecardStatus === 'REJECTED') &&
-    typeof tee.id === 'string' &&
-    typeof tee.teeName === 'string' &&
-    isFiniteNumber(tee.courseRating) &&
-    isFiniteNumber(tee.slopeRating) &&
-    (tee.par === null || isFiniteNumber(tee.par)) &&
-    typeof tee.course.id === 'string' &&
-    typeof tee.course.name === 'string' &&
-    typeof tee.course.club.id === 'string' &&
-    typeof tee.course.club.name === 'string'
-  )
 }
 
 async function readApiError(response: Response): Promise<string> {
@@ -122,6 +50,10 @@ function formatRoundDate(datePlayed: string): string {
 }
 
 function getRoundStatus(round: HistoryRound): string {
+  if (round.participation === 'TEAM') {
+    return 'Record only'
+  }
+
   if (round.scorecardStatus === 'PENDING_REVIEW') {
     return 'Scorecard review pending'
   }
@@ -135,6 +67,16 @@ function getRoundStatus(round: HistoryRound): string {
   }
 
   return round.isAcceptable ? 'Not counting' : 'Not acceptable'
+}
+
+function getRoundTypeLabel(round: HistoryRound): string {
+  if (round.participation === 'TEAM') {
+    return 'Team competition'
+  }
+
+  return round.category === 'COMPETITION'
+    ? 'Individual competition'
+    : 'Casual round'
 }
 
 function RoundHistory({
@@ -339,8 +281,12 @@ function RoundHistory({
                     <header className="history-round-header">
                       <time dateTime={round.datePlayed.slice(0, 10)}>
                         {formatRoundDate(round.datePlayed)}
+                        {round.timePlayed ? ` · ${round.timePlayed}` : ''}
                       </time>
                       <div className="history-badges">
+                        <span className="history-type-badge">
+                          {getRoundTypeLabel(round)}
+                        </span>
                         {round.isCapped ? (
                           <span className="history-capped-badge">Adjusted</span>
                         ) : null}
@@ -348,6 +294,8 @@ function RoundHistory({
                           className={
                             round.usedInHandicapCalc
                               ? 'history-status-badge history-status-counting'
+                              : round.participation === 'TEAM'
+                                ? 'history-status-badge history-status-record-only'
                               : round.scorecardStatus === 'PENDING_REVIEW'
                                 ? 'history-status-badge history-status-pending'
                               : 'history-status-badge'
@@ -362,30 +310,62 @@ function RoundHistory({
                     <p className="history-course-line">
                       {round.tee.course.name} · {round.tee.teeName}
                     </p>
+                    {round.competitionName ? (
+                      <p className="history-competition-name">
+                        {round.competitionName}
+                      </p>
+                    ) : null}
 
                     <dl className="history-round-metrics">
-                      <div>
-                        <dt>Gross</dt>
-                        <dd>{round.grossScore}</dd>
-                      </div>
-                      <div>
-                        <dt>Adjusted</dt>
-                        <dd>{round.adjustedGrossScore}</dd>
-                      </div>
-                      <div className="history-differential">
-                        <dt>Differential</dt>
-                        <dd>{round.scoreDifferential.toFixed(1)}</dd>
-                      </div>
-                      <div>
-                        <dt>Conditions</dt>
-                        <dd>{WEATHER_LABELS[round.weatherCondition]}</dd>
-                      </div>
+                      {round.participation === 'TEAM' ? (
+                        <>
+                          <div>
+                            <dt>Format</dt>
+                            <dd>{round.competitionFormat}</dd>
+                          </div>
+                          <div>
+                            <dt>Players</dt>
+                            <dd>{round.numberOfPlayers}</dd>
+                          </div>
+                          <div className="history-differential">
+                            <dt>Score</dt>
+                            <dd>Record only</dd>
+                          </div>
+                          <div>
+                            <dt>Handicap</dt>
+                            <dd>No effect</dd>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <dt>Gross</dt>
+                            <dd>{round.grossScore}</dd>
+                          </div>
+                          <div>
+                            <dt>Adjusted</dt>
+                            <dd>{round.adjustedGrossScore}</dd>
+                          </div>
+                          <div className="history-differential">
+                            <dt>Differential</dt>
+                            <dd>{round.scoreDifferential?.toFixed(1)}</dd>
+                          </div>
+                          <div>
+                            <dt>Conditions</dt>
+                            <dd>
+                              {round.weatherCondition
+                                ? WEATHER_LABELS[round.weatherCondition]
+                                : '—'}
+                            </dd>
+                          </div>
+                        </>
+                      )}
                     </dl>
 
                     <p className="history-rating-line">
-                      Course rating {round.tee.courseRating.toFixed(1)} · Slope{' '}
-                      {round.tee.slopeRating} · Par {round.tee.par ?? '—'} · PCC{' '}
-                      {round.pccAdjustment.toFixed(1)}
+                      {round.participation === 'TEAM'
+                        ? 'Course and tee retained for your playing record. No score differential was created.'
+                        : `Course rating ${round.tee.courseRating.toFixed(1)} · Slope ${round.tee.slopeRating} · Par ${round.tee.par ?? '—'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}`}
                     </p>
                   </div>
                 </article>

@@ -28,6 +28,7 @@ import {
   type TeeSource as TeeSourceValue,
   UserRole,
   ScorecardSource,
+  RoundParticipation,
   RoundScorecardStatus,
 } from './generated/prisma/enums.js'
 import {
@@ -730,9 +731,12 @@ app.patch(
       return
     }
 
-    if (review.round.holeScores.length !== 18) {
+    if (
+      review.round.grossScore === null ||
+      review.round.holeScores.length !== 18
+    ) {
       response.status(409).json({
-        error: 'The player round does not contain 18 hole scores',
+        error: 'The player round does not contain a complete scored card',
       })
       return
     }
@@ -788,7 +792,14 @@ app.patch(
     const recentRounds = await prisma.round.findMany({
       where: {
         userId: review.round.userId,
-        OR: [{ isAcceptable: true }, { id: review.round.id }],
+        OR: [
+          {
+            isAcceptable: true,
+            participation: RoundParticipation.INDIVIDUAL,
+            scoreDifferential: { not: null },
+          },
+          { id: review.round.id },
+        ],
       },
       orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
       take: 20,
@@ -800,18 +811,26 @@ app.patch(
       },
     })
     const handicapCalculation = calculateHandicap(
-      recentRounds.map((round) =>
-        round.id === review.round.id
-          ? {
+      recentRounds.flatMap((round) => {
+        if (round.id === review.round.id) {
+          return [
+            {
               ...round,
               scoreDifferential,
               isAcceptable: true,
-            }
-          : {
-              ...round,
-              scoreDifferential: Number(round.scoreDifferential),
             },
-      ),
+          ]
+        }
+
+        return round.scoreDifferential === null
+          ? []
+          : [
+              {
+                ...round,
+                scoreDifferential: Number(round.scoreDifferential),
+              },
+            ]
+      }),
     )
     const amended = scorecardWasAmended(review.holes, decision.holes)
     const allYardages = decision.holes.map((hole) => hole.yardage)
@@ -1271,6 +1290,12 @@ app.get('/api/users/me/rounds', async (_request, response) => {
           userId: true,
           teeId: true,
           datePlayed: true,
+          timePlayed: true,
+          category: true,
+          participation: true,
+          competitionName: true,
+          competitionFormat: true,
+          numberOfPlayers: true,
           grossScore: true,
           adjustedGrossScore: true,
           isCapped: true,
@@ -1325,7 +1350,10 @@ app.get('/api/users/me/rounds', async (_request, response) => {
     user.rounds.map((round) => ({
       ...round,
       pccAdjustment: Number(round.pccAdjustment),
-      scoreDifferential: Number(round.scoreDifferential),
+      scoreDifferential:
+        round.scoreDifferential === null
+          ? null
+          : Number(round.scoreDifferential),
       tee: {
         ...round.tee,
         courseRating: Number(round.tee.courseRating),

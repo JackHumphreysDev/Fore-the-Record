@@ -28,6 +28,17 @@ enum RoundScorecardStatus {
   VERIFIED
   PENDING_REVIEW
   REJECTED
+  NOT_REQUIRED
+}
+
+enum RoundCategory {
+  CASUAL
+  COMPETITION
+}
+
+enum RoundParticipation {
+  INDIVIDUAL
+  TEAM
 }
 
 enum WeatherCondition {
@@ -185,13 +196,19 @@ model Round {
   userId             String               @db.Uuid
   teeId              String               @db.Uuid
   datePlayed         DateTime             @db.Date
-  grossScore         Int
-  adjustedGrossScore Int
+  timePlayed         String?              @db.VarChar(5)
+  category           RoundCategory        @default(CASUAL)
+  participation      RoundParticipation   @default(INDIVIDUAL)
+  competitionName    String?              @db.VarChar(120)
+  competitionFormat  String?              @db.VarChar(100)
+  numberOfPlayers    Int?
+  grossScore         Int?
+  adjustedGrossScore Int?
   isCapped           Boolean              @default(false)
-  weatherCondition   WeatherCondition
+  weatherCondition   WeatherCondition?
   /// Manual override; automated club-wide PCC calculation is out of scope.
   pccAdjustment      Decimal              @default(0) @db.Decimal(2, 1)
-  scoreDifferential  Decimal              @db.Decimal(4, 1)
+  scoreDifferential  Decimal?             @db.Decimal(4, 1)
   user               User                 @relation(fields: [userId], references: [id])
   tee                Tee                  @relation(fields: [teeId], references: [id])
   /// Explicitly determined by the application's handicap rules configuration.
