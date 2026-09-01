@@ -8,10 +8,34 @@ This roadmap records agreed future work. Items are planned requirements, not com
 2. Admin-role and audit-log foundation. Completed in `0.2.0`.
 3. Admin portal. Read-only monitoring completed in `0.3.0`; management actions remain planned.
 4. User submissions and admin messaging. Submission foundation completed in `0.4.0`; private conversations and audited resolution controls completed in `0.5.0`.
-5. Competition, casual, individual, and team round records.
-6. User-facing **What's New** section.
+5. Course catalogue and database-backed search. Import tooling, search, and quota-safe on-demand additions completed in `0.6.0`; a full production data load requires a future RapidAPI plan change.
+6. Competition, casual, individual, and team round records.
+7. User-facing **What's New** section.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Full course catalogue — tooling completed in 0.6.0
+
+### Goal
+
+Make all available RapidAPI clubs, courses, and rated tee sets searchable without spending a provider request every time a player uses the site.
+
+### Delivery status
+
+Version `0.6.0` adds the database fields, migration, resilient import command, paginated catalogue APIs, searchable home-club picker, separate club/course search, missing-course route, and bounded round-entry tee search. The current 200-request monthly plan cannot support the approximately 2,802-request production data load. Instead, **Search catalogue** checks the provider only after an unsuccessful database search, previews the result, and saves all new rated tees for future database-only searches. A full import remains deferred until the provider plan changes.
+
+### Safeguards
+
+- Keep RapidAPI credentials on the server and never expose them in browser code.
+- Default the importer to dry-run and require `--write` for database changes.
+- Upsert provider records and safely attach matching legacy records so repeat or resumed runs do not duplicate data or break existing rounds.
+- Validate provider response shapes before persisting them.
+- Retry temporary rate-limit and server failures without logging credentials.
+- Paginate player searches and load only matching tees during round entry.
+- Call the provider only after a database miss and show the possible two-request cost beside the search action.
+- Show all club candidates from the first provider page and retrieve courses only after the player chooses one.
+- Persist successful on-demand results so ordinary searches do not repeatedly spend provider requests.
+- Treat the production migration and full catalogue import as separate operations.
 
 ## Versioned releases and What's New
 

@@ -17,6 +17,15 @@ export type CourseData = {
   tees: CourseTeeData[]
 }
 
+export type ProviderClubCandidate = {
+  id: string
+  name: string
+  city?: string
+  county?: string
+  postcode?: string
+  countryCode?: string
+}
+
 const FALLBACK_CLUBS = [
   {
     name: 'Sickleholme Golf Club',
@@ -28,9 +37,11 @@ const BROWSER_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 
 const successfulLookupCache = new Map<string, CourseData>()
+const providerClubSearchCache = new Map<string, ProviderClubCandidate[]>()
 
 export function clearCourseRatingsCache(): void {
   successfulLookupCache.clear()
+  providerClubSearchCache.clear()
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -107,20 +118,37 @@ export function parseFallbackRatings(html: string): CourseTeeData[] {
   return tees
 }
 
-async function getApiRatings(clubName: string): Promise<CourseData | null> {
+export async function searchCourseProviderClubs(
+  clubName: string,
+): Promise<ProviderClubCandidate[]> {
   const apiKey = process.env.RAPIDAPI_KEY
   const apiHost = process.env.RAPIDAPI_HOST
   const searchPath = process.env.RAPIDAPI_SEARCH_PATH
   const searchQueryParam = process.env.RAPIDAPI_SEARCH_QUERY_PARAM
+  const normalizedClubName = clubName.trim()
 
-  if (!apiKey || !apiHost || !searchPath || !searchQueryParam) {
+  if (
+    normalizedClubName === '' ||
+    !apiKey ||
+    !apiHost ||
+    !searchPath ||
+    !searchQueryParam
+  ) {
     console.warn(`RapidAPI configuration is incomplete for ${clubName}`)
-    return null
+    return []
+  }
+
+  const cacheKey = normalizeClubName(normalizedClubName)
+  const cachedClubs = providerClubSearchCache.get(cacheKey)
+
+  if (cachedClubs) {
+    return cachedClubs
   }
 
   try {
     const url = new URL(searchPath, `https://${apiHost}`)
-    url.searchParams.set(searchQueryParam, clubName)
+    url.searchParams.set(searchQueryParam, normalizedClubName)
+    url.searchParams.set('limit', '20')
 
     const response = await fetch(url, {
       headers: {
@@ -131,7 +159,7 @@ async function getApiRatings(clubName: string): Promise<CourseData | null> {
 
     if (!response.ok) {
       console.warn(`RapidAPI returned ${response.status} for ${clubName}`)
-      return null
+      return []
     }
 
     const responseBody: unknown = await response.json()
@@ -139,22 +167,61 @@ async function getApiRatings(clubName: string): Promise<CourseData | null> {
       isRecord(responseBody) && Array.isArray(responseBody.clubs)
         ? responseBody.clubs
         : []
-    const availableClubs = clubs.flatMap((club) =>
-      isRecord(club) &&
-      typeof club.id === 'string' &&
-      typeof club.name === 'string'
-        ? [{ id: club.id, name: club.name }]
-        : [],
-    )
-    const matchingClub = findBestClubNameMatch(availableClubs, clubName)
+    const availableClubs = clubs.flatMap((club): ProviderClubCandidate[] => {
+      if (
+        !isRecord(club) ||
+        typeof club.id !== 'string' ||
+        typeof club.name !== 'string'
+      ) {
+        return []
+      }
 
-    if (!matchingClub) {
-      console.warn(`RapidAPI returned no match for ${clubName}`)
-      return null
-    }
+      return [
+        {
+          id: club.id,
+          name: club.name,
+          ...(typeof club.city === 'string' ? { city: club.city } : {}),
+          ...(typeof club.county === 'string' ? { county: club.county } : {}),
+          ...(typeof club.postcode === 'string'
+            ? { postcode: club.postcode }
+            : {}),
+          ...(typeof club.country_code === 'string'
+            ? { countryCode: club.country_code }
+            : {}),
+        },
+      ]
+    })
+
+    providerClubSearchCache.set(cacheKey, availableClubs)
+    return availableClubs
+  } catch (error: unknown) {
+    console.warn(`RapidAPI lookup failed for ${clubName}`, error)
+    return []
+  }
+}
+
+export async function getProviderClubCourseRatings(
+  club: Pick<ProviderClubCandidate, 'id' | 'name'>,
+): Promise<CourseData | null> {
+  const apiKey = process.env.RAPIDAPI_KEY
+  const apiHost = process.env.RAPIDAPI_HOST
+
+  if (!apiKey || !apiHost) {
+    console.warn(`RapidAPI configuration is incomplete for ${club.name}`)
+    return null
+  }
+
+  const cacheKey = `provider:${club.id}`
+  const cachedResult = successfulLookupCache.get(cacheKey)
+
+  if (cachedResult) {
+    return cachedResult
+  }
+
+  try {
 
     const coursesUrl = new URL(
-      `/clubs/${encodeURIComponent(matchingClub.id)}/courses`,
+      `/clubs/${encodeURIComponent(club.id)}/courses`,
       `https://${apiHost}`,
     )
     const coursesResponse = await fetch(coursesUrl, {
@@ -166,7 +233,7 @@ async function getApiRatings(clubName: string): Promise<CourseData | null> {
 
     if (!coursesResponse.ok) {
       console.warn(
-        `RapidAPI returned ${coursesResponse.status} for ${clubName} courses`,
+        `RapidAPI returned ${coursesResponse.status} for ${club.name} courses`,
       )
       return null
     }
@@ -174,19 +241,35 @@ async function getApiRatings(clubName: string): Promise<CourseData | null> {
     const tees = getApiTees(await coursesResponse.json())
 
     if (tees.length === 0) {
-      console.warn(`RapidAPI returned no tee ratings for ${clubName}`)
+      console.warn(`RapidAPI returned no tee ratings for ${club.name}`)
       return null
     }
 
-    return {
-      clubName: matchingClub.name,
+    const result: CourseData = {
+      clubName: club.name,
       source: 'api',
       tees,
     }
+
+    successfulLookupCache.set(cacheKey, result)
+    successfulLookupCache.set(normalizeClubName(club.name), result)
+    return result
   } catch (error: unknown) {
-    console.warn(`RapidAPI lookup failed for ${clubName}`, error)
+    console.warn(`RapidAPI course lookup failed for ${club.name}`, error)
     return null
   }
+}
+
+async function getApiRatings(clubName: string): Promise<CourseData | null> {
+  const availableClubs = await searchCourseProviderClubs(clubName)
+  const matchingClub = findBestClubNameMatch(availableClubs, clubName)
+
+  if (!matchingClub) {
+    console.warn(`RapidAPI returned no match for ${clubName}`)
+    return null
+  }
+
+  return getProviderClubCourseRatings(matchingClub)
 }
 
 async function getFallbackRatings(

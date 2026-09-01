@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   clearCourseRatingsCache,
+  getProviderClubCourseRatings,
   getCourseRatings,
   parseFallbackRatings,
+  searchCourseProviderClubs,
 } from '../src/courseRatings.js'
 
 afterEach(() => {
@@ -35,6 +37,110 @@ describe('parseFallbackRatings', () => {
 })
 
 describe('getCourseRatings', () => {
+  it('returns every provider club matching a partial search in one request', async () => {
+    vi.stubEnv('RAPIDAPI_KEY', 'test-api-key')
+    vi.stubEnv('RAPIDAPI_HOST', 'uk-golf-course-data-api.p.rapidapi.com')
+    vi.stubEnv('RAPIDAPI_SEARCH_PATH', '/clubs')
+    vi.stubEnv('RAPIDAPI_SEARCH_QUERY_PARAM', 'search')
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          clubs: [
+            {
+              id: '11111111-1111-4111-8111-111111111111',
+              name: 'Hallamshire Golf Club',
+              city: 'Sheffield',
+              county: 'South Yorkshire',
+              postcode: 'S10 4LA',
+              country_code: 'ENG',
+            },
+            {
+              id: '22222222-2222-4222-8222-222222222222',
+              name: 'Hallowes Golf Club',
+              city: 'Dronfield',
+              county: 'Derbyshire',
+              postcode: 'S18 1UR',
+              country_code: 'ENG',
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(searchCourseProviderClubs('Hall')).resolves.toEqual([
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        name: 'Hallamshire Golf Club',
+        city: 'Sheffield',
+        county: 'South Yorkshire',
+        postcode: 'S10 4LA',
+        countryCode: 'ENG',
+      },
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Hallowes Golf Club',
+        city: 'Dronfield',
+        county: 'Derbyshire',
+        postcode: 'S18 1UR',
+        countryCode: 'ENG',
+      },
+    ])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      'https://uk-golf-course-data-api.p.rapidapi.com/clubs?search=Hall&limit=20',
+    )
+  })
+
+  it('loads courses only for the provider club selected by the player', async () => {
+    vi.stubEnv('RAPIDAPI_KEY', 'test-api-key')
+    vi.stubEnv('RAPIDAPI_HOST', 'uk-golf-course-data-api.p.rapidapi.com')
+    vi.stubEnv('RAPIDAPI_SEARCH_PATH', '/clubs')
+    vi.stubEnv('RAPIDAPI_SEARCH_QUERY_PARAM', 'search')
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {
+            name: 'Hallamshire',
+            tee_sets: [
+              {
+                name: 'White',
+                par: 71,
+                course_rating: 70.8,
+                slope_rating: 128,
+              },
+            ],
+          },
+        ]),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      getProviderClubCourseRatings({
+        id: '11111111-1111-4111-8111-111111111111',
+        name: 'Hallamshire Golf Club',
+      }),
+    ).resolves.toEqual({
+      clubName: 'Hallamshire Golf Club',
+      source: 'api',
+      tees: [
+        {
+          courseName: 'Hallamshire',
+          teeName: 'White',
+          courseRating: 70.8,
+          slopeRating: 128,
+          par: 71,
+        },
+      ],
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('normalizes an exact club match and its course tee sets', async () => {
     vi.stubEnv('RAPIDAPI_KEY', 'test-api-key')
     vi.stubEnv('RAPIDAPI_HOST', 'uk-golf-course-data-api.p.rapidapi.com')

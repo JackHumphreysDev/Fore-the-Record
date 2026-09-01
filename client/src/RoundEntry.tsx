@@ -1,5 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
+import {
+  buildCatalogueCoursesPath,
+  isCatalogueCoursesResponse,
+  type CatalogueCoursesResponse,
+  type CatalogueTee,
+} from './courseCatalogueApi.ts'
 import './RoundEntry.css'
 
 type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
@@ -10,27 +16,7 @@ type RoundEntryProfile = {
   handicapIndex: number | null
 }
 
-type SavedTee = {
-  id: string
-  teeName: string
-  courseRating: number
-  slopeRating: number
-  par: number | null
-}
-
-type SavedCourse = {
-  id: string
-  name: string
-  tees: SavedTee[]
-}
-
-type SavedClub = {
-  id: string
-  name: string
-  courses: SavedCourse[]
-}
-
-type TeeOption = SavedTee & {
+type TeeOption = CatalogueTee & {
   clubName: string
   courseName: string
 }
@@ -98,37 +84,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function isSavedTee(value: unknown): value is SavedTee {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.teeName === 'string' &&
-    typeof value.courseRating === 'number' &&
-    typeof value.slopeRating === 'number' &&
-    (value.par === null || typeof value.par === 'number')
-  )
-}
-
-function isSavedCourse(value: unknown): value is SavedCourse {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.name === 'string' &&
-    Array.isArray(value.tees) &&
-    value.tees.every(isSavedTee)
-  )
-}
-
-function isSavedClub(value: unknown): value is SavedClub {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.name === 'string' &&
-    Array.isArray(value.courses) &&
-    value.courses.every(isSavedCourse)
-  )
-}
-
 function isRoundResult(value: unknown): value is RoundResult {
   if (
     !isRecord(value) ||
@@ -149,15 +104,13 @@ function isRoundResult(value: unknown): value is RoundResult {
   )
 }
 
-function getTeeOptions(clubs: SavedClub[]): TeeOption[] {
-  return clubs.flatMap((club) =>
-    club.courses.flatMap((course) =>
-      course.tees.map((tee) => ({
-        ...tee,
-        clubName: club.name,
-        courseName: course.name,
-      })),
-    ),
+function getTeeOptions(response: CatalogueCoursesResponse | null): TeeOption[] {
+  return (response?.courses ?? []).flatMap((course) =>
+    course.tees.map((tee) => ({
+      ...tee,
+      clubName: course.club.name,
+      courseName: course.name,
+    })),
   )
 }
 
@@ -190,7 +143,10 @@ function RoundEntry({
   onGoToHistory,
   onRoundLogged,
 }: RoundEntryProps) {
-  const [clubs, setClubs] = useState<SavedClub[]>([])
+  const [clubQuery, setClubQuery] = useState('')
+  const [courseQuery, setCourseQuery] = useState('')
+  const [catalogueResponse, setCatalogueResponse] =
+    useState<CatalogueCoursesResponse | null>(null)
   const [form, setForm] = useState<RoundForm>({
     teeId: '',
     datePlayed: getToday(),
@@ -198,81 +154,73 @@ function RoundEntry({
     weatherCondition: 'DRY',
   })
   const [errors, setErrors] = useState<RoundFormErrors>({})
-  const [loadError, setLoadError] = useState('')
+  const [courseSearchError, setCourseSearchError] = useState('')
   const [submitError, setSubmitError] = useState('')
-  const [isLoading, setIsLoading] = useState(Boolean(profile))
+  const [isSearching, setIsSearching] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [loadAttempt, setLoadAttempt] = useState(0)
   const [confirmation, setConfirmation] =
     useState<RoundConfirmation | null>(null)
-  const profileId = profile?.id
 
-  useEffect(() => {
-    if (!profileId) {
+  const teeOptions = getTeeOptions(catalogueResponse)
+  const selectedTee = teeOptions.find((option) => option.id === form.teeId)
+
+  async function handleCourseSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const club = clubQuery.trim()
+    const course = courseQuery.trim()
+
+    if (!club && !course) {
+      setCourseSearchError('Enter a club name, a course name, or both')
       return
     }
 
-    const controller = new AbortController()
+    setIsSearching(true)
+    setCourseSearchError('')
+    setSubmitError('')
 
-    async function loadSavedCourses() {
-      setIsLoading(true)
-      setLoadError('')
+    try {
+      const response = await authenticatedFetch(
+        buildCatalogueCoursesPath({ club, course, page: 1, pageSize: 10 }),
+      )
 
-      try {
-        const response = await authenticatedFetch('/api/courses', {
-          signal: controller.signal,
-        })
-
-        if (!response.ok) {
-          throw new Error(
-            await readApiError(
-              response,
-              'We could not load your saved tees. Please try again.',
-            ),
-          )
-        }
-
-        const body: unknown = await response.json()
-
-        if (!Array.isArray(body) || !body.every(isSavedClub)) {
-          throw new Error('The saved course data returned was incomplete.')
-        }
-
-        const nextOptions = getTeeOptions(body)
-
-        setClubs(body)
-        setForm((current) => ({
-          ...current,
-          teeId: nextOptions.some((option) => option.id === current.teeId)
-            ? current.teeId
-            : (nextOptions[0]?.id ?? ''),
-        }))
-      } catch (error: unknown) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          return
-        }
-
-        setLoadError(
-          error instanceof TypeError
-            ? 'We could not reach the server. Check your connection and try again.'
-            : error instanceof Error
-              ? error.message
-              : 'We could not load your saved tees. Please try again.',
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+            'We could not search the course catalogue. Please try again.',
+          ),
         )
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false)
-        }
       }
+
+      const body: unknown = await response.json()
+
+      if (!isCatalogueCoursesResponse(body)) {
+        throw new Error('The course search results returned were incomplete.')
+      }
+
+      const nextOptions = getTeeOptions(body)
+      setCatalogueResponse(body)
+      setForm((current) => ({
+        ...current,
+        teeId: nextOptions.some((option) => option.id === current.teeId)
+          ? current.teeId
+          : (nextOptions[0]?.id ?? ''),
+      }))
+      setErrors((current) => ({ ...current, teeId: undefined }))
+    } catch (error: unknown) {
+      setCatalogueResponse(null)
+      setForm((current) => ({ ...current, teeId: '' }))
+      setCourseSearchError(
+        error instanceof TypeError
+          ? 'We could not reach the server. Check your connection and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'We could not search the course catalogue. Please try again.',
+      )
+    } finally {
+      setIsSearching(false)
     }
-
-    void loadSavedCourses()
-
-    return () => controller.abort()
-  }, [profileId, loadAttempt])
-
-  const teeOptions = getTeeOptions(clubs)
-  const selectedTee = teeOptions.find((option) => option.id === form.teeId)
+  }
 
   function updateField<Field extends keyof RoundForm>(
     field: Field,
@@ -468,52 +416,99 @@ function RoundEntry({
           </h1>
         </div>
         <p>
-          Choose a saved tee, add your total score and conditions, and we’ll
-          calculate the differential.
+          Search for a rated tee, add your total score and conditions, and
+          we’ll calculate the differential.
         </p>
       </header>
 
-      {isLoading ? (
+      <form className="round-course-search" onSubmit={handleCourseSearch} noValidate>
+        <div>
+          <label>
+            Club name
+            <input
+              type="search"
+              maxLength={100}
+              autoComplete="off"
+              placeholder="e.g. Sickleholme"
+              value={clubQuery}
+              aria-invalid={Boolean(courseSearchError)}
+              onChange={(event) => {
+                setClubQuery(event.target.value)
+                setCourseSearchError('')
+              }}
+            />
+          </label>
+          <label>
+            Course name
+            <input
+              type="search"
+              maxLength={100}
+              autoComplete="off"
+              placeholder="e.g. Old Course"
+              value={courseQuery}
+              aria-invalid={Boolean(courseSearchError)}
+              onChange={(event) => {
+                setCourseQuery(event.target.value)
+                setCourseSearchError('')
+              }}
+            />
+          </label>
+          <button type="submit" disabled={isSearching}>
+            {isSearching ? 'Searching…' : 'Find tees'}
+          </button>
+        </div>
+        <small>Use either field or combine both for a narrower result.</small>
+      </form>
+
+      {courseSearchError ? (
+        <p className="round-course-search-error" role="alert">
+          {courseSearchError}
+        </p>
+      ) : null}
+
+      {isSearching ? (
         <div className="round-state-card" aria-live="polite">
-          <div className="round-loading" aria-label="Loading saved tees">
+          <div className="round-loading" aria-label="Searching for tees">
             <span />
             <span />
             <span />
           </div>
-          <h2>Reading the course library…</h2>
+          <h2>Searching the course catalogue…</h2>
         </div>
       ) : null}
 
-      {!isLoading && loadError ? (
-        <div className="round-state-card" role="alert">
-          <span className="round-state-number" aria-hidden="true">
-            !
-          </span>
-          <h2>We couldn’t load your tees.</h2>
-          <p>{loadError}</p>
-          <button type="button" onClick={() => setLoadAttempt((value) => value + 1)}>
-            Try again
-          </button>
-        </div>
-      ) : null}
-
-      {!isLoading && !loadError && teeOptions.length === 0 ? (
+      {!isSearching && catalogueResponse && teeOptions.length === 0 ? (
         <div className="round-state-card">
           <span className="round-state-number" aria-hidden="true">
             00
           </span>
-          <p className="form-kicker">No tees saved</p>
-          <h2>Add a course before logging a round.</h2>
+          <p className="form-kicker">No rated tees found</p>
+          <h2>Try a broader course search.</h2>
           <p>
-            Search the Courses tab and save at least one rated tee first.
+            Use fewer words or browse the full catalogue. Missing course
+            details can be sent to the administrator from Courses.
           </p>
           <button type="button" onClick={onGoToCourses}>
-            Find a course
+            Browse courses
           </button>
         </div>
       ) : null}
 
-      {!isLoading && !loadError && teeOptions.length > 0 ? (
+      {!isSearching && !courseSearchError && !catalogueResponse ? (
+        <div className="round-state-card">
+          <span className="round-state-number" aria-hidden="true">
+            01
+          </span>
+          <p className="form-kicker">Choose a rated tee</p>
+          <h2>Find the course you played.</h2>
+          <p>
+            Search by club, course, or both. Only the matching tees will be
+            loaded into your round form.
+          </p>
+        </div>
+      ) : null}
+
+      {!isSearching && teeOptions.length > 0 ? (
         <div className="round-entry-layout">
           <form className="round-entry-form" onSubmit={handleSubmit} noValidate>
             <div className="round-form-heading">
@@ -539,6 +534,12 @@ function RoundEntry({
                   </option>
                 ))}
               </select>
+              {catalogueResponse && catalogueResponse.pagination.total > 10 ? (
+                <small>
+                  Showing tees from the first 10 matching courses. Refine your
+                  search if the course you need is not listed.
+                </small>
+              ) : null}
               {errors.teeId ? (
                 <span className="round-field-error" id="round-tee-error">
                   {errors.teeId}

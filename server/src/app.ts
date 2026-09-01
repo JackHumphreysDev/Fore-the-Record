@@ -7,7 +7,12 @@ import {
   findBestClubNameMatch,
   getClubNameSearchTerms,
 } from './clubNameMatch.js'
-import { getCourseRatings, type CourseData } from './courseRatings.js'
+import {
+  getCourseRatings,
+  getProviderClubCourseRatings,
+  searchCourseProviderClubs,
+  type CourseData,
+} from './courseRatings.js'
 import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
 import {
@@ -131,6 +136,47 @@ const SUBMISSION_STATUS_SELECT = {
   updatedAt: true,
 } as const
 
+const CATALOGUE_CLUB_SELECT = {
+  id: true,
+  name: true,
+  city: true,
+  county: true,
+  postcode: true,
+  countryCode: true,
+  _count: { select: { courses: true } },
+} as const
+
+const CATALOGUE_COURSE_SELECT = {
+  id: true,
+  name: true,
+  holes: true,
+  par: true,
+  designedBy: true,
+  yearOpened: true,
+  club: {
+    select: {
+      id: true,
+      name: true,
+      city: true,
+      county: true,
+    },
+  },
+  tees: {
+    orderBy: { teeName: 'asc' },
+    select: {
+      id: true,
+      teeName: true,
+      colour: true,
+      gender: true,
+      totalYardage: true,
+      totalMetres: true,
+      par: true,
+      courseRating: true,
+      slopeRating: true,
+    },
+  },
+} as const
+
 type AdminProfile = {
   id: string
   name: string
@@ -152,6 +198,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeLabel(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function getTeePersistenceKey(tee: {
+  teeName: string
+  courseRating: number | { toString(): string }
+  slopeRating: number
+}): string {
+  return [
+    normalizeLabel(tee.teeName),
+    Number(tee.courseRating),
+    tee.slopeRating,
+  ].join('::')
 }
 
 function getTeeSource(source: unknown) {
@@ -948,6 +1006,152 @@ app.patch('/api/users/me', async (request, response) => {
   response.status(200).json(serializeProfile(updatedUser))
 })
 
+app.get('/api/catalogue/clubs', async (request, response) => {
+  const search = request.query.search
+  const page = parsePaginationValue(request.query.page, 1)
+  const pageSize = parsePaginationValue(request.query.pageSize, 10)
+
+  if (
+    typeof search !== 'string' ||
+    search.trim() === '' ||
+    search.trim().length > 100
+  ) {
+    response.status(400).json({ error: 'Club search query is required' })
+    return
+  }
+
+  if (page === null || pageSize === null || pageSize > 25) {
+    response.status(400).json({ error: 'Invalid pagination' })
+    return
+  }
+
+  const normalizedSearch = search.trim()
+  const where = {
+    AND: getClubNameSearchTerms(normalizedSearch).map((searchTerm) => ({
+      name: {
+        contains: searchTerm,
+        mode: 'insensitive' as const,
+      },
+    })),
+  }
+  const [total, clubs] = await prisma.$transaction([
+    prisma.club.count({ where }),
+    prisma.club.findMany({
+      where,
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: CATALOGUE_CLUB_SELECT,
+    }),
+  ])
+
+  response.status(200).json({
+    clubs: clubs.map(({ _count, ...club }) => ({
+      ...club,
+      courseCount: _count.courses,
+    })),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  })
+})
+
+app.get('/api/catalogue/courses', async (request, response) => {
+  const clubQuery = request.query.club
+  const courseQuery = request.query.course
+  const page = parsePaginationValue(request.query.page, 1)
+  const pageSize = parsePaginationValue(request.query.pageSize, 10)
+
+  if (
+    (clubQuery !== undefined && typeof clubQuery !== 'string') ||
+    (courseQuery !== undefined && typeof courseQuery !== 'string')
+  ) {
+    response.status(400).json({
+      error: 'Club or course search query is required',
+    })
+    return
+  }
+
+  const clubSearch = clubQuery?.trim() ?? ''
+  const courseSearch = courseQuery?.trim() ?? ''
+
+  if (
+    (!clubSearch && !courseSearch) ||
+    clubSearch.length > 100 ||
+    courseSearch.length > 100
+  ) {
+    response.status(400).json({
+      error: 'Club or course search query is required',
+    })
+    return
+  }
+
+  if (page === null || pageSize === null || pageSize > 25) {
+    response.status(400).json({ error: 'Invalid pagination' })
+    return
+  }
+
+  const where = {
+    AND: [
+      ...(clubSearch
+        ? [
+            {
+              club: {
+                name: {
+                  contains: clubSearch,
+                  mode: 'insensitive' as const,
+                },
+              },
+            },
+          ]
+        : []),
+      ...(courseSearch
+        ? [
+            {
+              name: {
+                contains: courseSearch,
+                mode: 'insensitive' as const,
+              },
+            },
+          ]
+        : []),
+    ],
+  }
+  const [total, courses] = await prisma.$transaction([
+    prisma.course.count({ where }),
+    prisma.course.findMany({
+      where,
+      orderBy: [
+        { club: { name: 'asc' } },
+        { name: 'asc' },
+        { id: 'asc' },
+      ],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: CATALOGUE_COURSE_SELECT,
+    }),
+  ])
+
+  response.status(200).json({
+    courses: courses.map((course) => ({
+      ...course,
+      tees: course.tees.map((tee) => ({
+        ...tee,
+        courseRating: Number(tee.courseRating),
+      })),
+    })),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  })
+})
+
 app.get('/api/courses', async (_request, response) => {
   const clubs = await prisma.club.findMany({
     orderBy: { name: 'asc' },
@@ -990,6 +1194,57 @@ app.get('/api/courses', async (_request, response) => {
     }),
   )
 })
+
+app.get('/api/courses/provider/clubs', async (request, response) => {
+  const query = request.query.q
+
+  if (
+    typeof query !== 'string' ||
+    query.trim() === '' ||
+    query.trim().length > 100
+  ) {
+    response.status(400).json({ error: 'Provider club search is required' })
+    return
+  }
+
+  const clubs = await searchCourseProviderClubs(query.trim())
+
+  response.status(200).json({ clubs })
+})
+
+app.get(
+  '/api/courses/provider/clubs/:clubId/courses',
+  async (request, response) => {
+    const clubId = request.params.clubId
+    const clubName = request.query.name
+
+    if (
+      typeof clubId !== 'string' ||
+      !UUID_PATTERN.test(clubId) ||
+      typeof clubName !== 'string' ||
+      clubName.trim() === '' ||
+      clubName.trim().length > 100
+    ) {
+      response.status(400).json({ error: 'Invalid provider club selection' })
+      return
+    }
+
+    const courseData = await getProviderClubCourseRatings({
+      id: clubId,
+      name: clubName.trim(),
+    })
+
+    if (!courseData) {
+      response.status(404).json({ error: 'Course ratings not found' })
+      return
+    }
+
+    response.status(200).json({
+      ...courseData,
+      tees: courseData.tees.map((tee) => ({ ...tee, isSaved: false })),
+    })
+  },
+)
 
 app.get('/api/courses/search', async (request, response) => {
   const query = request.query.q
@@ -1150,11 +1405,11 @@ app.post('/api/courses', async (request, response) => {
         continue
       }
 
-      const savedTeeNames = new Set(
-        existingCourse.tees.map((tee) => normalizeLabel(tee.teeName)),
+      const savedTeeKeys = new Set(
+        existingCourse.tees.map((tee) => getTeePersistenceKey(tee)),
       )
       const newTees = courseTees.filter(
-        (tee) => !savedTeeNames.has(normalizeLabel(tee.teeName)),
+        (tee) => !savedTeeKeys.has(getTeePersistenceKey(tee)),
       )
 
       if (newTees.length > 0) {

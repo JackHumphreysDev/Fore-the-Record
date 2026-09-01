@@ -10,7 +10,11 @@ const {
   clubFindUniqueMock,
   clubFindManyMock,
   clubUpdateMock,
+  courseCountMock,
+  courseFindManyMock,
   getCourseRatingsMock,
+  getProviderClubCourseRatingsMock,
+  searchCourseProviderClubsMock,
   logRoundMock,
   parseLogRoundInputMock,
   roundCountMock,
@@ -38,7 +42,11 @@ const {
   clubFindUniqueMock: vi.fn(),
   clubFindManyMock: vi.fn(),
   clubUpdateMock: vi.fn(),
+  courseCountMock: vi.fn(),
+  courseFindManyMock: vi.fn(),
   getCourseRatingsMock: vi.fn(),
+  getProviderClubCourseRatingsMock: vi.fn(),
+  searchCourseProviderClubsMock: vi.fn(),
   logRoundMock: vi.fn(),
   parseLogRoundInputMock: vi.fn(),
   roundCountMock: vi.fn(),
@@ -69,6 +77,10 @@ vi.mock('../src/database.js', () => ({
       findUnique: clubFindUniqueMock,
       findMany: clubFindManyMock,
       update: clubUpdateMock,
+    },
+    course: {
+      count: courseCountMock,
+      findMany: courseFindManyMock,
     },
     user: {
       count: userCountMock,
@@ -101,6 +113,8 @@ vi.mock('../src/database.js', () => ({
 
 vi.mock('../src/courseRatings.js', () => ({
   getCourseRatings: getCourseRatingsMock,
+  getProviderClubCourseRatings: getProviderClubCourseRatingsMock,
+  searchCourseProviderClubs: searchCourseProviderClubsMock,
 }))
 
 vi.mock('../src/auth.js', () => ({
@@ -140,7 +154,11 @@ beforeEach(() => {
   clubFindManyMock.mockReset()
   clubFindManyMock.mockResolvedValue([])
   clubUpdateMock.mockReset()
+  courseCountMock.mockReset()
+  courseFindManyMock.mockReset()
   getCourseRatingsMock.mockReset()
+  getProviderClubCourseRatingsMock.mockReset()
+  searchCourseProviderClubsMock.mockReset()
   logRoundMock.mockReset()
   parseLogRoundInputMock.mockReset()
   roundCountMock.mockReset()
@@ -1264,6 +1282,189 @@ describe('GET /api/users/me/rounds', () => {
 
 })
 
+describe('GET /api/catalogue/clubs', () => {
+  it('should return paginated partial-name club matches', async () => {
+    clubCountMock.mockResolvedValueOnce(1)
+    clubFindManyMock.mockResolvedValueOnce([
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        name: 'Sickleholme Golf Club',
+        city: 'Hope Valley',
+        county: 'Derbyshire',
+        postcode: 'S33 0BN',
+        countryCode: 'ENG',
+        _count: { courses: 1 },
+      },
+    ])
+
+    const response = await request(app).get(
+      '/api/catalogue/clubs?search=sickle&page=1&pageSize=10',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      clubs: [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          name: 'Sickleholme Golf Club',
+          city: 'Hope Valley',
+          county: 'Derbyshire',
+          postcode: 'S33 0BN',
+          countryCode: 'ENG',
+          courseCount: 1,
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 10,
+        total: 1,
+        totalPages: 1,
+      },
+    })
+    const where = {
+      AND: [
+        {
+          name: {
+            contains: 'sickle',
+            mode: 'insensitive',
+          },
+        },
+      ],
+    }
+    expect(clubCountMock).toHaveBeenCalledWith({ where })
+    expect(clubFindManyMock).toHaveBeenCalledWith({
+      where,
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      skip: 0,
+      take: 10,
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        county: true,
+        postcode: true,
+        countryCode: true,
+        _count: { select: { courses: true } },
+      },
+    })
+  })
+
+  it('should require a club search term', async () => {
+    const response = await request(app).get('/api/catalogue/clubs')
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Club search query is required' })
+    expect(clubFindManyMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/catalogue/courses', () => {
+  it('should filter by club and course names with paginated tee details', async () => {
+    courseCountMock.mockResolvedValueOnce(1)
+    courseFindManyMock.mockResolvedValueOnce([
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Old Course',
+        holes: 18,
+        par: 70,
+        designedBy: 'Example Designer',
+        yearOpened: '1901',
+        club: {
+          id: '11111111-1111-4111-8111-111111111111',
+          name: 'Example Golf Club',
+          city: 'Example City',
+          county: 'Example County',
+        },
+        tees: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            teeName: 'Championship',
+            colour: 'white',
+            gender: 'male',
+            totalYardage: 6627,
+            totalMetres: 6060,
+            par: 70,
+            courseRating: '73.1',
+            slopeRating: 137,
+          },
+        ],
+      },
+    ])
+
+    const response = await request(app).get(
+      '/api/catalogue/courses?club=Example&course=Old&page=1&pageSize=10',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.courses[0]).toEqual({
+      id: '22222222-2222-4222-8222-222222222222',
+      name: 'Old Course',
+      holes: 18,
+      par: 70,
+      designedBy: 'Example Designer',
+      yearOpened: '1901',
+      club: {
+        id: '11111111-1111-4111-8111-111111111111',
+        name: 'Example Golf Club',
+        city: 'Example City',
+        county: 'Example County',
+      },
+      tees: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          teeName: 'Championship',
+          colour: 'white',
+          gender: 'male',
+          totalYardage: 6627,
+          totalMetres: 6060,
+          par: 70,
+          courseRating: 73.1,
+          slopeRating: 137,
+        },
+      ],
+    })
+    expect(response.body.pagination).toEqual({
+      page: 1,
+      pageSize: 10,
+      total: 1,
+      totalPages: 1,
+    })
+    const where = {
+      AND: [
+        {
+          club: {
+            name: { contains: 'Example', mode: 'insensitive' },
+          },
+        },
+        { name: { contains: 'Old', mode: 'insensitive' } },
+      ],
+    }
+    expect(courseCountMock).toHaveBeenCalledWith({ where })
+    expect(courseFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where,
+        orderBy: [
+          { club: { name: 'asc' } },
+          { name: 'asc' },
+          { id: 'asc' },
+        ],
+        skip: 0,
+        take: 10,
+      }),
+    )
+  })
+
+  it('should require at least one catalogue search term', async () => {
+    const response = await request(app).get('/api/catalogue/courses')
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: 'Club or course search query is required',
+    })
+    expect(courseFindManyMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /api/courses', () => {
   it('should return saved clubs, courses, and tees with numeric ratings', async () => {
     clubFindManyMock.mockResolvedValueOnce([
@@ -1561,6 +1762,78 @@ describe('GET /api/courses/search', () => {
   })
 })
 
+describe('on-demand provider catalogue routes', () => {
+  it('should return every club candidate from a partial provider search', async () => {
+    const clubs = [
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        name: 'Hallamshire Golf Club',
+        city: 'Sheffield',
+        county: 'South Yorkshire',
+        postcode: 'S10 4LA',
+        countryCode: 'ENG',
+      },
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Hallowes Golf Club',
+        city: 'Dronfield',
+        county: 'Derbyshire',
+        postcode: 'S18 1UR',
+        countryCode: 'ENG',
+      },
+    ]
+    searchCourseProviderClubsMock.mockResolvedValueOnce(clubs)
+
+    const response = await request(app).get(
+      '/api/courses/provider/clubs?q=Hall',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ clubs })
+    expect(searchCourseProviderClubsMock).toHaveBeenCalledWith('Hall')
+  })
+
+  it('should load tee ratings only for the selected provider club', async () => {
+    getProviderClubCourseRatingsMock.mockResolvedValueOnce({
+      clubName: 'Hallamshire Golf Club',
+      source: 'api',
+      tees: [
+        {
+          courseName: 'Hallamshire',
+          teeName: 'White',
+          courseRating: 70.8,
+          slopeRating: 128,
+          par: 71,
+        },
+      ],
+    })
+
+    const response = await request(app).get(
+      '/api/courses/provider/clubs/11111111-1111-4111-8111-111111111111/courses?name=Hallamshire%20Golf%20Club',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      clubName: 'Hallamshire Golf Club',
+      source: 'api',
+      tees: [
+        {
+          courseName: 'Hallamshire',
+          teeName: 'White',
+          courseRating: 70.8,
+          slopeRating: 128,
+          par: 71,
+          isSaved: false,
+        },
+      ],
+    })
+    expect(getProviderClubCourseRatingsMock).toHaveBeenCalledWith({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'Hallamshire Golf Club',
+    })
+  })
+})
+
 describe('POST /api/courses', () => {
   it('should create a club with nested courses and tees', async () => {
     const createdClub = {
@@ -1739,6 +2012,71 @@ describe('POST /api/courses', () => {
         },
       },
     })
+  })
+
+  it('should save a same-name tee when its ratings are different', async () => {
+    const existingClub = {
+      id: '55555555-5555-4555-8555-555555555555',
+      name: 'Example Golf Club',
+      courses: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          name: 'Old Course',
+          tees: [
+            {
+              teeName: 'Championship',
+              courseRating: 73.1,
+              slopeRating: 137,
+            },
+          ],
+        },
+      ],
+    }
+    clubFindFirstMock.mockResolvedValueOnce(existingClub)
+    clubUpdateMock.mockResolvedValueOnce(existingClub)
+
+    const response = await request(app)
+      .post('/api/courses')
+      .send({
+        clubName: 'Example Golf Club',
+        source: 'api',
+        tees: [
+          {
+            courseName: 'Old Course',
+            teeName: 'Championship',
+            courseRating: 75.2,
+            slopeRating: 142,
+          },
+        ],
+      })
+
+    expect(response.status).toBe(201)
+    expect(clubUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          courses: {
+            create: [],
+            update: [
+              {
+                where: { id: '33333333-3333-4333-8333-333333333333' },
+                data: {
+                  tees: {
+                    create: [
+                      {
+                        teeName: 'Championship',
+                        courseRating: 75.2,
+                        slopeRating: 142,
+                        source: 'API',
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      }),
+    )
   })
 
   it('should reject a tee without a course name', async () => {

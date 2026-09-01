@@ -38,8 +38,12 @@ function formatSupportDate(value: string): string {
   }).format(new Date(value))
 }
 
-function Support() {
-  const [type, setType] = useState<SubmissionType>('IDEA')
+type SupportProps = {
+  initialType?: SubmissionType
+}
+
+function Support({ initialType = 'IDEA' }: SupportProps) {
+  const [type, setType] = useState<SubmissionType>(initialType)
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [clubName, setClubName] = useState('')
