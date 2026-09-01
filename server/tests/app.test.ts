@@ -12,9 +12,16 @@ const {
   clubUpdateMock,
   courseCountMock,
   courseFindManyMock,
+  courseUpdateMock,
   getCourseRatingsMock,
   getProviderClubCourseRatingsMock,
   searchCourseProviderClubsMock,
+  getProviderTeeScorecardMock,
+  teeFindUniqueMock,
+  teeUpdateMock,
+  teeHoleCreateManyMock,
+  teeHoleDeleteManyMock,
+  scorecardReviewFindManyMock,
   logRoundMock,
   parseLogRoundInputMock,
   roundCountMock,
@@ -44,9 +51,16 @@ const {
   clubUpdateMock: vi.fn(),
   courseCountMock: vi.fn(),
   courseFindManyMock: vi.fn(),
+  courseUpdateMock: vi.fn(),
   getCourseRatingsMock: vi.fn(),
   getProviderClubCourseRatingsMock: vi.fn(),
   searchCourseProviderClubsMock: vi.fn(),
+  getProviderTeeScorecardMock: vi.fn(),
+  teeFindUniqueMock: vi.fn(),
+  teeUpdateMock: vi.fn(),
+  teeHoleCreateManyMock: vi.fn(),
+  teeHoleDeleteManyMock: vi.fn(),
+  scorecardReviewFindManyMock: vi.fn(),
   logRoundMock: vi.fn(),
   parseLogRoundInputMock: vi.fn(),
   roundCountMock: vi.fn(),
@@ -81,6 +95,18 @@ vi.mock('../src/database.js', () => ({
     course: {
       count: courseCountMock,
       findMany: courseFindManyMock,
+      update: courseUpdateMock,
+    },
+    tee: {
+      findUnique: teeFindUniqueMock,
+      update: teeUpdateMock,
+    },
+    teeHole: {
+      createMany: teeHoleCreateManyMock,
+      deleteMany: teeHoleDeleteManyMock,
+    },
+    scorecardReview: {
+      findMany: scorecardReviewFindManyMock,
     },
     user: {
       count: userCountMock,
@@ -115,6 +141,11 @@ vi.mock('../src/courseRatings.js', () => ({
   getCourseRatings: getCourseRatingsMock,
   getProviderClubCourseRatings: getProviderClubCourseRatingsMock,
   searchCourseProviderClubs: searchCourseProviderClubsMock,
+}))
+
+vi.mock('../src/courseScorecards.js', () => ({
+  getProviderTeeScorecard: getProviderTeeScorecardMock,
+  isCompleteScorecard: (holes: unknown[]) => holes.length === 18,
 }))
 
 vi.mock('../src/auth.js', () => ({
@@ -156,9 +187,19 @@ beforeEach(() => {
   clubUpdateMock.mockReset()
   courseCountMock.mockReset()
   courseFindManyMock.mockReset()
+  courseUpdateMock.mockReset()
   getCourseRatingsMock.mockReset()
   getProviderClubCourseRatingsMock.mockReset()
   searchCourseProviderClubsMock.mockReset()
+  getProviderTeeScorecardMock.mockReset()
+  teeFindUniqueMock.mockReset()
+  teeUpdateMock.mockReset()
+  teeHoleCreateManyMock.mockReset()
+  teeHoleDeleteManyMock.mockReset()
+  scorecardReviewFindManyMock.mockReset()
+  scorecardReviewFindManyMock.mockResolvedValue([])
+  teeHoleCreateManyMock.mockResolvedValue({ count: 0 })
+  teeHoleDeleteManyMock.mockResolvedValue({ count: 0 })
   logRoundMock.mockReset()
   parseLogRoundInputMock.mockReset()
   roundCountMock.mockReset()
@@ -703,6 +744,30 @@ describe('GET /api/admin/submissions', () => {
     expect(response.status).toBe(400)
     expect(response.body).toEqual({ error: 'Invalid submission filters' })
     expect(submissionCountMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/admin/scorecard-reviews', () => {
+  it('returns the pending manual scorecard queue to the administrator', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: '33333333-3333-4333-8333-333333333333',
+      name: 'Jack Humphreys',
+      email: 'jackhumphreys.dev@gmail.com',
+      role: 'ADMIN',
+    })
+
+    const response = await request(app).get('/api/admin/scorecard-reviews')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ reviews: [] })
+    expect(scorecardReviewFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          reviewedAt: null,
+          submission: { status: { in: ['NEW', 'IN_PROGRESS'] } },
+        },
+      }),
+    )
   })
 })
 
@@ -1549,6 +1614,144 @@ describe('GET /api/courses', () => {
 
     expect(response.status).toBe(200)
     expect(response.body).toEqual([])
+  })
+})
+
+describe('GET /api/tees/:teeId/scorecard', () => {
+  const teeId = '22222222-2222-4222-8222-222222222222'
+  const courseExternalId = '33333333-3333-4333-8333-333333333333'
+  const holes = Array.from({ length: 18 }, (_, index) => ({
+    holeNumber: index + 1,
+    par: 4,
+    strokeIndex: index + 1,
+    yardage: index === 0 ? 410 : null,
+  }))
+
+  it('returns an already saved complete scorecard without using the provider', async () => {
+    teeFindUniqueMock.mockResolvedValueOnce({
+      id: teeId,
+      externalId: null,
+      teeName: 'White',
+      courseRating: 72,
+      slopeRating: 113,
+      course: { externalId: courseExternalId },
+      holes,
+    })
+
+    const response = await request(app).get(`/api/tees/${teeId}/scorecard`)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      status: 'available',
+      source: 'saved',
+      holes,
+    })
+    expect(getProviderTeeScorecardMock).not.toHaveBeenCalled()
+  })
+
+  it('fetches and saves a provider scorecard once when local holes are absent', async () => {
+    teeFindUniqueMock.mockResolvedValueOnce({
+      id: teeId,
+      externalId: '44444444-4444-4444-8444-444444444444',
+      teeName: 'White',
+      courseRating: 72,
+      slopeRating: 113,
+      course: { externalId: courseExternalId },
+      holes: [],
+    })
+    getProviderTeeScorecardMock.mockResolvedValueOnce({ holes })
+
+    const response = await request(app).get(`/api/tees/${teeId}/scorecard`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.status).toBe('available')
+    expect(response.body.source).toBe('provider')
+    expect(teeHoleDeleteManyMock).toHaveBeenCalledWith({ where: { teeId } })
+    expect(teeHoleCreateManyMock).toHaveBeenCalledWith({
+      data: holes.map((hole) => ({
+        teeId,
+        ...hole,
+        source: 'API',
+      })),
+    })
+  })
+
+  it('recovers provider IDs for a legacy saved tee before fetching its scorecard', async () => {
+    const clubId = '55555555-5555-4555-8555-555555555555'
+    const providerClubId = '66666666-6666-4666-8666-666666666666'
+    const providerTeeId = '77777777-7777-4777-8777-777777777777'
+
+    teeFindUniqueMock.mockResolvedValueOnce({
+      id: teeId,
+      externalId: null,
+      teeName: 'White',
+      courseRating: 72,
+      slopeRating: 113,
+      course: {
+        id: '88888888-8888-4888-8888-888888888888',
+        externalId: null,
+        name: 'Hallamshire',
+        club: {
+          id: clubId,
+          externalId: null,
+          name: 'Hallamshire Golf Club',
+        },
+      },
+      holes: [],
+    })
+    searchCourseProviderClubsMock.mockResolvedValueOnce([
+      { id: providerClubId, name: 'Hallamshire Golf Club' },
+    ])
+    getProviderClubCourseRatingsMock.mockResolvedValueOnce({
+      clubExternalId: providerClubId,
+      clubName: 'Hallamshire Golf Club',
+      source: 'api',
+      tees: [
+        {
+          courseExternalId,
+          teeExternalId: providerTeeId,
+          courseName: 'Hallamshire',
+          teeName: 'White',
+          courseRating: 72,
+          slopeRating: 113,
+          par: 71,
+        },
+      ],
+    })
+    getProviderTeeScorecardMock.mockResolvedValueOnce({ holes })
+
+    const response = await request(app).get(`/api/tees/${teeId}/scorecard`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.source).toBe('provider')
+    expect(searchCourseProviderClubsMock).toHaveBeenCalledWith(
+      'Hallamshire Golf Club',
+    )
+    expect(getProviderClubCourseRatingsMock).toHaveBeenCalledWith({
+      id: providerClubId,
+      name: 'Hallamshire Golf Club',
+    })
+    expect(courseUpdateMock).toHaveBeenCalledWith({
+      where: { id: '88888888-8888-4888-8888-888888888888' },
+      data: { externalId: courseExternalId },
+    })
+    expect(clubUpdateMock).toHaveBeenCalledWith({
+      where: { id: clubId },
+      data: { externalId: providerClubId },
+    })
+    expect(teeUpdateMock).toHaveBeenCalledWith({
+      where: { id: teeId },
+      data: { externalId: providerTeeId },
+    })
+    expect(getProviderTeeScorecardMock).toHaveBeenCalledWith(
+      courseExternalId,
+      {
+        externalId: providerTeeId,
+        teeName: 'White',
+        courseRating: 72,
+        slopeRating: 113,
+      },
+    )
   })
 })
 

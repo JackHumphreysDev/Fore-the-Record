@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
 import {
   buildCatalogueCoursesPath,
@@ -29,8 +29,33 @@ type RoundForm = {
 }
 
 type RoundFormErrors = Partial<
-  Record<'teeId' | 'datePlayed' | 'grossScore', string>
+  Record<'teeId' | 'datePlayed' | 'grossScore' | 'scorecard', string>
 >
+
+type ScorecardStatus = 'idle' | 'loading' | 'available' | 'manual_required'
+
+type ScorecardHole = {
+  holeNumber: number
+  par: number
+  strokeIndex: number
+  yardage: number | null
+}
+
+type HoleEntry = {
+  holeNumber: number
+  par: string
+  strokeIndex: string
+  yardage: string
+  strokesTaken: string
+}
+
+type ScorecardResponse =
+  | {
+      status: 'available'
+      source: 'saved' | 'provider'
+      holes: ScorecardHole[]
+    }
+  | { status: 'manual_required'; holes: [] }
 
 type RoundResult = {
   round: {
@@ -40,6 +65,7 @@ type RoundResult = {
     adjustedGrossScore: number
     isCapped: boolean
     scoreDifferential: number
+    scorecardStatus: 'VERIFIED' | 'PENDING_REVIEW'
   }
   handicapIndex: number | null
 }
@@ -84,6 +110,55 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+function isScorecardHole(value: unknown): value is ScorecardHole {
+  return (
+    isRecord(value) &&
+    Number.isInteger(value.holeNumber) &&
+    Number(value.holeNumber) >= 1 &&
+    Number(value.holeNumber) <= 18 &&
+    Number.isInteger(value.par) &&
+    Number.isInteger(value.strokeIndex) &&
+    (value.yardage === null || Number.isInteger(value.yardage))
+  )
+}
+
+function isScorecardResponse(value: unknown): value is ScorecardResponse {
+  if (!isRecord(value) || !Array.isArray(value.holes)) {
+    return false
+  }
+
+  if (value.status === 'manual_required') {
+    return value.holes.length === 0
+  }
+
+  return (
+    value.status === 'available' &&
+    (value.source === 'saved' || value.source === 'provider') &&
+    value.holes.length === 18 &&
+    value.holes.every(isScorecardHole)
+  )
+}
+
+function getEmptyManualCard(): HoleEntry[] {
+  return Array.from({ length: 18 }, (_, index) => ({
+    holeNumber: index + 1,
+    par: '',
+    strokeIndex: '',
+    yardage: '',
+    strokesTaken: '',
+  }))
+}
+
+function getHoleEntries(holes: ScorecardHole[]): HoleEntry[] {
+  return holes.map((hole) => ({
+    holeNumber: hole.holeNumber,
+    par: String(hole.par),
+    strokeIndex: String(hole.strokeIndex),
+    yardage: hole.yardage === null ? '' : String(hole.yardage),
+    strokesTaken: '',
+  }))
+}
+
 function isRoundResult(value: unknown): value is RoundResult {
   if (
     !isRecord(value) ||
@@ -100,7 +175,9 @@ function isRoundResult(value: unknown): value is RoundResult {
     typeof value.round.grossScore === 'number' &&
     typeof value.round.adjustedGrossScore === 'number' &&
     typeof value.round.isCapped === 'boolean' &&
-    typeof value.round.scoreDifferential === 'number'
+    typeof value.round.scoreDifferential === 'number' &&
+    (value.round.scorecardStatus === 'VERIFIED' ||
+      value.round.scorecardStatus === 'PENDING_REVIEW')
   )
 }
 
@@ -160,9 +237,95 @@ function RoundEntry({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [confirmation, setConfirmation] =
     useState<RoundConfirmation | null>(null)
+  const [scorecardStatus, setScorecardStatus] =
+    useState<ScorecardStatus>('idle')
+  const [scorecardSource, setScorecardSource] = useState<
+    'saved' | 'provider' | null
+  >(null)
+  const [holeEntries, setHoleEntries] = useState<HoleEntry[]>([])
+  const [scorecardLoadError, setScorecardLoadError] = useState('')
 
   const teeOptions = getTeeOptions(catalogueResponse)
   const selectedTee = teeOptions.find((option) => option.id === form.teeId)
+  const completedStrokeCount = holeEntries.filter(({ strokesTaken }) => {
+    const strokes = Number(strokesTaken)
+    return strokesTaken.trim() !== '' && Number.isInteger(strokes) && strokes > 0
+  }).length
+  const holeScoreTotal = holeEntries.reduce((total, hole) => {
+    const strokes = Number(hole.strokesTaken)
+    return total + (Number.isInteger(strokes) && strokes > 0 ? strokes : 0)
+  }, 0)
+  const declaredGrossScore = Number(form.grossScore)
+  const scoreDifference =
+    completedStrokeCount === 18 &&
+    Number.isInteger(declaredGrossScore) &&
+    declaredGrossScore > 0
+      ? holeScoreTotal - declaredGrossScore
+      : 0
+
+  useEffect(() => {
+    if (!form.teeId) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function loadScorecard() {
+      setScorecardStatus('loading')
+      setScorecardSource(null)
+      setHoleEntries([])
+      setScorecardLoadError('')
+
+      try {
+        const response = await authenticatedFetch(
+          `/api/tees/${encodeURIComponent(form.teeId)}/scorecard`,
+          { signal: controller.signal },
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            await readApiError(
+              response,
+              'We could not load this tee’s scorecard. Please try again.',
+            ),
+          )
+        }
+
+        const body: unknown = await response.json()
+
+        if (!isScorecardResponse(body)) {
+          throw new Error('The scorecard returned was incomplete.')
+        }
+
+        if (body.status === 'available') {
+          setScorecardStatus('available')
+          setScorecardSource(body.source)
+          setHoleEntries(getHoleEntries(body.holes))
+        } else {
+          setScorecardStatus('manual_required')
+          setHoleEntries(getEmptyManualCard())
+        }
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return
+        }
+
+        setScorecardStatus('idle')
+        setHoleEntries([])
+        setScorecardLoadError(
+          error instanceof TypeError
+            ? 'We could not reach the server. Check your connection and try again.'
+            : error instanceof Error
+              ? error.message
+              : 'We could not load this tee’s scorecard. Please try again.',
+        )
+      }
+    }
+
+    void loadScorecard()
+
+    return () => controller.abort()
+  }, [form.teeId])
 
   async function handleCourseSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -231,6 +394,20 @@ function RoundEntry({
     setSubmitError('')
   }
 
+  function updateHoleEntry(
+    holeNumber: number,
+    field: keyof Omit<HoleEntry, 'holeNumber'>,
+    value: string,
+  ) {
+    setHoleEntries((current) =>
+      current.map((hole) =>
+        hole.holeNumber === holeNumber ? { ...hole, [field]: value } : hole,
+      ),
+    )
+    setErrors((current) => ({ ...current, scorecard: undefined }))
+    setSubmitError('')
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -259,6 +436,47 @@ function RoundEntry({
       nextErrors.grossScore = 'Enter a whole-number total score'
     }
 
+    if (scorecardStatus === 'loading') {
+      nextErrors.scorecard = 'Wait for the scorecard to finish loading'
+    } else if (holeEntries.length !== 18) {
+      nextErrors.scorecard = 'Load a complete 18-hole scorecard'
+    } else if (completedStrokeCount !== 18) {
+      nextErrors.scorecard = 'Enter a whole-number stroke score for every hole'
+    } else if (scorecardStatus === 'manual_required') {
+      const hasInvalidDefinition = holeEntries.some((hole) => {
+        const par = Number(hole.par)
+        const strokeIndex = Number(hole.strokeIndex)
+        const yardage = Number(hole.yardage)
+
+        return (
+          !Number.isInteger(par) ||
+          par < 2 ||
+          par > 7 ||
+          !Number.isInteger(strokeIndex) ||
+          strokeIndex < 1 ||
+          strokeIndex > 18 ||
+          (hole.yardage.trim() !== '' &&
+            (!Number.isInteger(yardage) || yardage <= 0))
+        )
+      })
+      const strokeIndexes = new Set(
+        holeEntries.map(({ strokeIndex }) => Number(strokeIndex)),
+      )
+
+      if (hasInvalidDefinition || strokeIndexes.size !== 18) {
+        nextErrors.scorecard =
+          'Enter par 2–7 and each stroke index from 1–18 once. Yardage is optional.'
+      }
+    }
+
+    if (
+      !nextErrors.grossScore &&
+      completedStrokeCount === 18 &&
+      scoreDifference !== 0
+    ) {
+      nextErrors.scorecard = `Your hole-by-hole scores total ${holeScoreTotal}, but your total score is ${grossScore}—a difference of ${Math.abs(scoreDifference)} ${Math.abs(scoreDifference) === 1 ? 'stroke' : 'strokes'}. Review your scorecard before submitting.`
+    }
+
     if (Object.keys(nextErrors).length > 0 || !selectedTee) {
       setErrors(nextErrors)
       return
@@ -278,6 +496,15 @@ function RoundEntry({
           datePlayed: form.datePlayed,
           grossScore,
           weatherCondition: form.weatherCondition,
+          holeScores: holeEntries.map((hole) => ({
+            holeNumber: hole.holeNumber,
+            par: Number(hole.par),
+            strokeIndex: Number(hole.strokeIndex),
+            strokesTaken: Number(hole.strokesTaken),
+            ...(hole.yardage.trim() === ''
+              ? {}
+              : { yardage: Number(hole.yardage) }),
+          })),
         }),
       })
 
@@ -342,8 +569,16 @@ function RoundEntry({
           <div className="round-confirmation-mark" aria-hidden="true">
             ✓
           </div>
-          <p className="form-kicker">Round recorded</p>
-          <h1>That one counts.</h1>
+          <p className="form-kicker">
+            {confirmation.round.scorecardStatus === 'PENDING_REVIEW'
+              ? 'Round saved for review'
+              : 'Round recorded'}
+          </p>
+          <h1>
+            {confirmation.round.scorecardStatus === 'PENDING_REVIEW'
+              ? 'Your card is with the admin.'
+              : 'That one counts.'}
+          </h1>
           <p className="round-confirmation-course">{confirmation.teeLabel}</p>
 
           <div className="round-confirmation-grid">
@@ -374,9 +609,11 @@ function RoundEntry({
           </div>
 
           <p className="round-capping-note">
-            {confirmation.round.isCapped
+            {confirmation.round.scorecardStatus === 'PENDING_REVIEW'
+              ? 'Your strokes are saved. This round is provisionally calculated but will not affect your Handicap Index until the manually entered scorecard is approved.'
+              : confirmation.round.isCapped
               ? 'Net Double Bogey adjustments were applied.'
-              : 'No hole-by-hole card was supplied, so gross score was used as adjusted gross score.'}
+              : 'The submitted hole-by-hole card was used to calculate the adjusted gross score.'}
           </p>
 
           <div className="round-confirmation-actions">
@@ -393,6 +630,9 @@ function RoundEntry({
               onClick={() => {
                 setConfirmation(null)
                 setForm((current) => ({ ...current, grossScore: '' }))
+                setHoleEntries((current) =>
+                  current.map((hole) => ({ ...hole, strokesTaken: '' })),
+                )
               }}
             >
               Log another round
@@ -416,8 +656,8 @@ function RoundEntry({
           </h1>
         </div>
         <p>
-          Search for a rated tee, add your total score and conditions, and
-          we’ll calculate the differential.
+          Search for a rated tee, enter the signed total and all 18 hole
+          scores, and we’ll check the card before calculating the differential.
         </p>
       </header>
 
@@ -600,6 +840,147 @@ function RoundEntry({
               </div>
             </div>
 
+            <section className="round-scorecard" aria-labelledby="round-scorecard-title">
+              <div className="round-scorecard-heading">
+                <div>
+                  <p className="form-kicker">Hole-by-hole scorecard</p>
+                  <h3 id="round-scorecard-title">Check every hole.</h3>
+                </div>
+                <div className="round-scorecard-total" aria-live="polite">
+                  <small>Running total</small>
+                  <strong>{holeScoreTotal || '—'}</strong>
+                  <span>{completedStrokeCount}/18 holes</span>
+                </div>
+              </div>
+
+              {scorecardStatus === 'loading' ? (
+                <p className="round-scorecard-notice" role="status">
+                  Loading saved hole details…
+                </p>
+              ) : null}
+
+              {scorecardLoadError ? (
+                <p className="round-scorecard-notice round-scorecard-notice-error" role="alert">
+                  {scorecardLoadError}
+                </p>
+              ) : null}
+
+              {scorecardStatus === 'available' ? (
+                <p className="round-scorecard-notice">
+                  Par, stroke index and available yardages are locked to the {scorecardSource === 'provider' ? 'provider' : 'approved'} scorecard. Enter your strokes for all 18 holes.
+                </p>
+              ) : null}
+
+              {scorecardStatus === 'manual_required' ? (
+                <p className="round-scorecard-notice round-scorecard-notice-review">
+                  No complete scorecard is available for this tee. Enter par and stroke index; yardage is optional. Your round will be saved for administrator review and will not affect your Handicap Index until approval.
+                </p>
+              ) : null}
+
+              {holeEntries.length === 18 ? (
+                <div className="round-scorecard-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Hole</th>
+                        <th scope="col">Par</th>
+                        <th scope="col">SI</th>
+                        <th scope="col">Yards</th>
+                        <th scope="col">Strokes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {holeEntries.map((hole) => (
+                        <tr key={hole.holeNumber}>
+                          <th scope="row">{hole.holeNumber}</th>
+                          <td>
+                            {scorecardStatus === 'manual_required' ? (
+                              <input
+                                aria-label={`Hole ${hole.holeNumber} par`}
+                                type="number"
+                                min="2"
+                                max="7"
+                                step="1"
+                                inputMode="numeric"
+                                value={hole.par}
+                                onChange={(event) =>
+                                  updateHoleEntry(hole.holeNumber, 'par', event.target.value)
+                                }
+                              />
+                            ) : (
+                              hole.par
+                            )}
+                          </td>
+                          <td>
+                            {scorecardStatus === 'manual_required' ? (
+                              <input
+                                aria-label={`Hole ${hole.holeNumber} stroke index`}
+                                type="number"
+                                min="1"
+                                max="18"
+                                step="1"
+                                inputMode="numeric"
+                                value={hole.strokeIndex}
+                                onChange={(event) =>
+                                  updateHoleEntry(hole.holeNumber, 'strokeIndex', event.target.value)
+                                }
+                              />
+                            ) : (
+                              hole.strokeIndex
+                            )}
+                          </td>
+                          <td>
+                            {scorecardStatus === 'manual_required' ? (
+                              <input
+                                aria-label={`Hole ${hole.holeNumber} yardage optional`}
+                                type="number"
+                                min="1"
+                                step="1"
+                                inputMode="numeric"
+                                placeholder="—"
+                                value={hole.yardage}
+                                onChange={(event) =>
+                                  updateHoleEntry(hole.holeNumber, 'yardage', event.target.value)
+                                }
+                              />
+                            ) : (
+                              hole.yardage || '—'
+                            )}
+                          </td>
+                          <td>
+                            <input
+                              className="round-strokes-input"
+                              aria-label={`Hole ${hole.holeNumber} strokes`}
+                              type="number"
+                              min="1"
+                              step="1"
+                              inputMode="numeric"
+                              value={hole.strokesTaken}
+                              onChange={(event) =>
+                                updateHoleEntry(hole.holeNumber, 'strokesTaken', event.target.value)
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {scoreDifference !== 0 ? (
+                <p className="round-score-mismatch" role="alert">
+                  Your hole-by-hole scores total {holeScoreTotal}, but your total score is {declaredGrossScore}—a difference of {Math.abs(scoreDifference)} {Math.abs(scoreDifference) === 1 ? 'stroke' : 'strokes'}. Review your scorecard before submitting.
+                </p>
+              ) : null}
+
+              {errors.scorecard && scoreDifference === 0 ? (
+                <p className="round-field-error" role="alert">
+                  {errors.scorecard}
+                </p>
+              ) : null}
+            </section>
+
             <fieldset className="weather-fieldset">
               <legend>Playing conditions</legend>
               <div className="weather-options">
@@ -682,8 +1063,8 @@ function RoundEntry({
             </div>
 
             <p className="round-summary-note">
-              Total-score entry does not include hole-by-hole Net Double Bogey
-              capping. PCC defaults to 0 for this round.
+              Hole-by-hole scores must match the signed total. Net Double Bogey
+              capping uses the approved card; PCC defaults to 0 for this round.
             </p>
           </aside>
         </div>

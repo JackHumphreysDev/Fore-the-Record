@@ -14,6 +14,26 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.7.0 - 2026-09-01
+
+### User-facing changes
+
+- Added required 18-hole scorecard entry alongside the signed total gross score when recording a round.
+- Added a running hole total and a clear difference warning that prevents submission until the hole scores match the declared total.
+- Loaded saved or provider hole data for the selected tee, showing par, stroke index, and available yardage while the player enters only their strokes.
+- Allowed players to enter missing par and stroke-index details themselves, with yardage remaining optional.
+- Marked player-entered scorecards as awaiting review and kept their provisional rounds out of the Handicap Index until approval.
+- Added scorecard-review status to round history so players can see when a card is pending or rejected.
+
+### Developer and admin changes
+
+- Added tee-specific canonical hole definitions, manual scorecard review records, review-hole data, and round scorecard statuses.
+- Added a quota-conscious `GET /courses/{course_id}/scorecard` provider integration that validates complete 18-hole cards and saves successful results for reuse.
+- Preserved provider club, course, and tee identifiers during on-demand catalogue saves so the correct tee scorecard can be retrieved.
+- Added a protected administrator scorecard queue with editable par, stroke index, and optional yardage fields while keeping player strokes read-only.
+- Added audited approve/amend/reject actions. Approval replaces only the scorecard definition, recalculates the saved round and player Handicap Index, and never changes entered strokes.
+- Added migration, provider-normalisation, validation, caching, scorecard persistence, pending-review, and administrator-queue regression coverage.
+
 ## 0.6.0 - 2026-09-01
 
 ### User-facing changes

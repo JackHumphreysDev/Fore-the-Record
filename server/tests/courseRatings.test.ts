@@ -126,6 +126,7 @@ describe('getCourseRatings', () => {
         name: 'Hallamshire Golf Club',
       }),
     ).resolves.toEqual({
+      clubExternalId: '11111111-1111-4111-8111-111111111111',
       clubName: 'Hallamshire Golf Club',
       source: 'api',
       tees: [
@@ -192,14 +193,17 @@ describe('getCourseRatings', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(getCourseRatings('example golf club')).resolves.toEqual({
+      clubExternalId: '00000000-0000-0000-0000-000000000000',
       clubName: 'Example Golf Club',
       source: 'api',
       tees: [
         {
+          courseExternalId: '33333333-3333-4333-8333-333333333333',
           courseName: 'Old Course',
           teeName: 'Championship',
           courseRating: 73.1,
           slopeRating: 137,
+          teeExternalId: '44444444-4444-4444-8444-444444444444',
           par: 70,
         },
       ],
@@ -251,6 +255,7 @@ describe('getCourseRatings', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(getCourseRatings('Sickleholme')).resolves.toEqual({
+      clubExternalId: '00000000-0000-0000-0000-000000000000',
       clubName: 'Sickleholme Golf Club',
       source: 'api',
       tees: [

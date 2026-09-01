@@ -4,6 +4,8 @@ import {
 } from './clubNameMatch.js'
 
 export type CourseTeeData = {
+  courseExternalId?: string
+  teeExternalId?: string
   courseName?: string
   teeName: string
   courseRating: number
@@ -12,6 +14,7 @@ export type CourseTeeData = {
 }
 
 export type CourseData = {
+  clubExternalId?: string
   clubName: string
   source: 'api' | 'fallback_scrape' | 'manual'
   tees: CourseTeeData[]
@@ -75,6 +78,12 @@ function getApiTees(responseBody: unknown): CourseTeeData[] {
       }
 
       tees.push({
+        ...(typeof course.id === 'string'
+          ? { courseExternalId: course.id }
+          : {}),
+        ...(typeof teeSet.id === 'string'
+          ? { teeExternalId: teeSet.id }
+          : {}),
         courseName: course.name,
         teeName: teeSet.name,
         courseRating: teeSet.course_rating,
@@ -246,6 +255,7 @@ export async function getProviderClubCourseRatings(
     }
 
     const result: CourseData = {
+      clubExternalId: club.id,
       clubName: club.name,
       source: 'api',
       tees,

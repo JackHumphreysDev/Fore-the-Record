@@ -1,6 +1,6 @@
 # Administration
 
-Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, and version `0.5.0` adds audited replies and status controls. User and round management remains read-only.
+Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, and version `0.7.0` adds manual scorecard review. General user and round management remains read-only.
 
 ## Security model
 
@@ -53,8 +53,10 @@ Before running it, the owner must already have registered, confirmed their email
 
 `PATCH /api/admin/submissions/:submissionId/status` accepts `NEW`, `IN_PROGRESS`, `RESOLVED`, or `CLOSED`. A changed status and its before/after audit record are written in one database transaction. Repeating the current status is safe and does not create duplicate audit noise.
 
+`GET /api/admin/scorecard-reviews` returns unresolved player-entered scorecard definitions with the associated player, tee, round, and locked hole strokes. `PATCH /api/admin/scorecard-reviews/:reviewId` accepts an approval with all 18 corrected hole definitions or a rejection. Approval stores the canonical tee scorecard, recalculates the adjusted gross score, differential, counting rounds, and Handicap Index, and writes an audit record. The player's submitted strokes are never editable or replaced.
+
 Players use the corresponding `/api/submissions/:submissionId/messages` routes. Those routes resolve ownership from the verified authentication account and return `404` for requests belonging to another player. Closed requests cannot receive player or administrator replies until the administrator reopens them.
 
-The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. Submission replies and status changes are the portal's only mutation controls. It exposes no password, token, authentication-secret, user-management, or round-management mutation fields.
+The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. Submission replies, status changes, and structured scorecard review are the portal's only mutation controls. It exposes no password, token, authentication-secret, user-management, or unrestricted round-management fields.
 
 Every future `/api/admin/...` route must remain behind this server guard. Hiding a client navigation item is useful presentation, but it is not authorization.

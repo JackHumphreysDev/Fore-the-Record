@@ -174,12 +174,15 @@ describe('catalogue response validation', () => {
     ).toBe(false)
   })
 
-  it('should validate provider results and build an all-unsaved import body', () => {
+  it('should keep provider IDs for both new and previously saved tees', () => {
     const result = {
+      clubExternalId: '11111111-1111-4111-8111-111111111111',
       clubName: 'Example Golf Club',
       source: 'api' as const,
       tees: [
         {
+          courseExternalId: '22222222-2222-4222-8222-222222222222',
+          teeExternalId: '33333333-3333-4333-8333-333333333333',
           courseName: 'Old Course',
           teeName: 'Championship',
           courseRating: 73.1,
@@ -188,6 +191,8 @@ describe('catalogue response validation', () => {
           isSaved: true,
         },
         {
+          courseExternalId: '22222222-2222-4222-8222-222222222222',
+          teeExternalId: '33333333-3333-4333-8333-333333333333',
           courseName: 'Old Course',
           teeName: 'Forward',
           courseRating: 69.2,
@@ -200,10 +205,22 @@ describe('catalogue response validation', () => {
 
     expect(isProviderCourseSearchResult(result)).toBe(true)
     expect(buildProviderCourseImportBody(result)).toEqual({
+      clubExternalId: '11111111-1111-4111-8111-111111111111',
       clubName: 'Example Golf Club',
       source: 'api',
       tees: [
         {
+          courseExternalId: '22222222-2222-4222-8222-222222222222',
+          teeExternalId: '33333333-3333-4333-8333-333333333333',
+          courseName: 'Old Course',
+          teeName: 'Championship',
+          courseRating: 73.1,
+          slopeRating: 137,
+          par: 70,
+        },
+        {
+          courseExternalId: '22222222-2222-4222-8222-222222222222',
+          teeExternalId: '33333333-3333-4333-8333-333333333333',
           courseName: 'Old Course',
           teeName: 'Forward',
           courseRating: 69.2,

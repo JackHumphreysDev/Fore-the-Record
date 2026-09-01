@@ -1,0 +1,30 @@
+.admin-scorecard-reviews { margin-top: 28px; }
+.admin-scorecard-intro { max-width: 760px; margin: 18px 0 0; color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
+.admin-scorecard-feedback { margin: 18px 0 0; padding: 12px 14px; border-radius: 8px; color: var(--forest-deep); background: rgba(49, 88, 68, 0.08); font-size: 12px; font-weight: 700; }
+.admin-scorecard-error { color: #7e3026; background: rgba(164, 63, 50, 0.08); }
+.admin-scorecard-list { margin-top: 24px; display: grid; gap: 20px; }
+.admin-scorecard-card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: rgba(255, 253, 247, 0.72); }
+.admin-scorecard-card > header { padding: 22px; display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+.admin-scorecard-card header small { color: var(--forest-soft); font-size: 9px; font-weight: 850; letter-spacing: 1px; text-transform: uppercase; }
+.admin-scorecard-card h3 { margin: 6px 0; color: var(--forest-deep); font-family: Georgia, "Times New Roman", serif; font-size: 25px; font-weight: 400; }
+.admin-scorecard-card header p { margin: 0; color: var(--ink-muted); font-size: 11px; }
+.admin-scorecard-card dl { margin: 0; display: flex; gap: 24px; }
+.admin-scorecard-card dl div { display: grid; gap: 5px; }
+.admin-scorecard-card dt { color: var(--ink-muted); font-size: 8px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+.admin-scorecard-card dd { margin: 0; color: var(--forest-deep); font-weight: 800; }
+.admin-scorecard-table-scroll { overflow-x: auto; border-block: 1px solid var(--line); }
+.admin-scorecard-card table { width: 100%; min-width: 600px; border-collapse: collapse; text-align: center; }
+.admin-scorecard-card th, .admin-scorecard-card td { padding: 8px; border-bottom: 1px solid var(--line); color: var(--forest-deep); font-size: 11px; }
+.admin-scorecard-card thead th { color: var(--ink-muted); background: rgba(23, 56, 42, .04); font-size: 8px; letter-spacing: .8px; text-transform: uppercase; }
+.admin-scorecard-card tbody tr:last-child > * { border-bottom: 0; }
+.admin-scorecard-card input { width: 76px; min-height: 36px; padding: 0 6px; border: 1px solid rgba(23, 56, 42, .2); border-radius: 6px; color: var(--forest-deep); background: white; text-align: center; }
+.admin-scorecard-card input:focus { outline: 3px solid rgba(215, 255, 79, .7); }
+.admin-scorecard-card > footer { padding: 18px 22px; display: flex; justify-content: flex-end; gap: 10px; }
+.admin-scorecard-card footer button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 7px; color: white; background: var(--forest); font-weight: 800; }
+.admin-scorecard-card footer .admin-scorecard-reject { border: 1px solid rgba(164, 63, 50, .3); color: #7e3026; background: transparent; }
+.admin-scorecard-card footer button:disabled { opacity: .55; }
+@media (max-width: 720px) {
+  .admin-scorecard-card > header { align-items: start; flex-direction: column; }
+  .admin-scorecard-card dl { width: 100%; justify-content: space-between; }
+  .admin-scorecard-card > footer { flex-direction: column-reverse; }
+}

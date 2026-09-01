@@ -6,7 +6,7 @@ import {
   isSubmissionsResponse,
   SUBMISSION_STATUS_LABELS,
   SUBMISSION_TYPE_LABELS,
-  SUBMISSION_TYPES,
+  PLAYER_SUBMISSION_TYPES,
   type SubmissionType,
   type SubmissionsResponse,
 } from './submissionApi.ts'
@@ -215,7 +215,7 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
                   setSubmitNotice('')
                 }}
               >
-                {SUBMISSION_TYPES.map((submissionType) => (
+                {PLAYER_SUBMISSION_TYPES.map((submissionType) => (
                   <option key={submissionType} value={submissionType}>
                     {SUBMISSION_TYPE_LABELS[submissionType]}
                   </option>

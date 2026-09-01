@@ -21,6 +21,7 @@ type HistoryRound = {
   scoreDifferential: number
   isAcceptable: boolean
   usedInHandicapCalc: boolean
+  scorecardStatus: 'VERIFIED' | 'PENDING_REVIEW' | 'REJECTED'
   tee: {
     id: string
     teeName: string
@@ -86,6 +87,9 @@ function isHistoryRound(value: unknown): value is HistoryRound {
     isFiniteNumber(value.scoreDifferential) &&
     typeof value.isAcceptable === 'boolean' &&
     typeof value.usedInHandicapCalc === 'boolean' &&
+    (value.scorecardStatus === 'VERIFIED' ||
+      value.scorecardStatus === 'PENDING_REVIEW' ||
+      value.scorecardStatus === 'REJECTED') &&
     typeof tee.id === 'string' &&
     typeof tee.teeName === 'string' &&
     isFiniteNumber(tee.courseRating) &&
@@ -118,6 +122,14 @@ function formatRoundDate(datePlayed: string): string {
 }
 
 function getRoundStatus(round: HistoryRound): string {
+  if (round.scorecardStatus === 'PENDING_REVIEW') {
+    return 'Scorecard review pending'
+  }
+
+  if (round.scorecardStatus === 'REJECTED') {
+    return 'Scorecard rejected'
+  }
+
   if (round.usedInHandicapCalc) {
     return 'Counting round'
   }
@@ -336,6 +348,8 @@ function RoundHistory({
                           className={
                             round.usedInHandicapCalc
                               ? 'history-status-badge history-status-counting'
+                              : round.scorecardStatus === 'PENDING_REVIEW'
+                                ? 'history-status-badge history-status-pending'
                               : 'history-status-badge'
                           }
                         >

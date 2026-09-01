@@ -9,8 +9,9 @@ This roadmap records agreed future work. Items are planned requirements, not com
 3. Admin portal. Read-only monitoring completed in `0.3.0`; management actions remain planned.
 4. User submissions and admin messaging. Submission foundation completed in `0.4.0`; private conversations and audited resolution controls completed in `0.5.0`.
 5. Course catalogue and database-backed search. Import tooling, search, and quota-safe on-demand additions completed in `0.6.0`; a full production data load requires a future RapidAPI plan change.
-6. Competition, casual, individual, and team round records.
-7. User-facing **What's New** section.
+6. Hole-by-hole scorecards and administrator approval. Completed in `0.7.0`.
+7. Competition, casual, individual, and team round records.
+8. User-facing **What's New** section.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
 
@@ -36,6 +37,12 @@ Version `0.6.0` adds the database fields, migration, resilient import command, p
 - Show all club candidates from the first provider page and retrieve courses only after the player chooses one.
 - Persist successful on-demand results so ordinary searches do not repeatedly spend provider requests.
 - Treat the production migration and full catalogue import as separate operations.
+
+## Hole-by-hole scorecards — completed in 0.7.0
+
+Players now submit a declared total gross score and all 18 hole scores. The running total must match before submission. Saved or provider scorecards supply read-only par, stroke index, and available yardage. If no complete card exists, the player supplies par and stroke index while yardage remains optional.
+
+Only player-defined scorecards enter review. Their rounds are stored with a provisional differential but remain outside the Handicap Index until an administrator approves the definition. The administrator can amend par, stroke index, and yardage, but cannot change the player's strokes. Approval saves the reusable tee scorecard and recalculates the round, counting flags, and Handicap Index; rejection leaves the round excluded.
 
 ## Versioned releases and What's New
 
