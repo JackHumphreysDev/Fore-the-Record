@@ -1,5 +1,9 @@
 import { prisma } from './database.js'
 import {
+  RoundCategory,
+  type RoundCategory as RoundCategoryValue,
+  RoundParticipation,
+  type RoundParticipation as RoundParticipationValue,
   RoundScorecardStatus,
   SubmissionType,
   WeatherCondition,
@@ -17,13 +21,16 @@ import {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/
 const HOLES_IN_ROUND = 18
 const INITIAL_HANDICAP_STROKES_PER_HOLE = 3
+const COMPETITION_NAME_MAX_LENGTH = 120
+const COMPETITION_FORMAT_MAX_LENGTH = 100
 
-// Product configuration: all user-entered rounds currently qualify for the
-// simplified handicap calculation. Future eligibility rules belong here.
+// Product configuration: scored individual rounds can qualify for the
+// simplified handicap calculation. Team entries are always record-only.
 export const ROUND_ACCEPTABILITY_RULES = {
-  loggedRoundIsAcceptable: true,
+  scoredIndividualRoundIsAcceptable: true,
 } as const
 
 export type RoundHoleInput = {
@@ -34,15 +41,38 @@ export type RoundHoleInput = {
   yardage?: number
 }
 
-export type LogRoundInput = {
+type LogRoundBase = {
   userId: string
   teeId: string
   datePlayed: Date
+  timePlayed: string | null
+  category: RoundCategoryValue
+  competitionName: string | null
+  competitionFormat: string | null
+  numberOfPlayers: number | null
+}
+
+export type LogIndividualRoundInput = LogRoundBase & {
+  participation: typeof RoundParticipation.INDIVIDUAL
   grossScore: number
   weatherCondition: WeatherConditionValue
   pccAdjustment: number
   holeScores: RoundHoleInput[]
 }
+
+export type LogTeamRoundInput = LogRoundBase & {
+  category: typeof RoundCategory.COMPETITION
+  participation: typeof RoundParticipation.TEAM
+  competitionName: string
+  competitionFormat: string
+  numberOfPlayers: number
+  grossScore: null
+  weatherCondition: null
+  pccAdjustment: 0
+  holeScores: []
+}
+
+export type LogRoundInput = LogIndividualRoundInput | LogTeamRoundInput
 
 export class RoundReferenceNotFoundError extends Error {
   constructor(readonly reference: 'user' | 'tee') {
@@ -85,6 +115,51 @@ function getDatePlayed(value: unknown): Date | null {
   }
 
   return datePlayed
+}
+
+function getTimePlayed(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  return typeof value === 'string' && TIME_PATTERN.test(value)
+    ? value
+    : null
+}
+
+function getRoundCategory(value: unknown): RoundCategoryValue | null {
+  if (value === undefined) {
+    return RoundCategory.CASUAL
+  }
+
+  return value === RoundCategory.CASUAL || value === RoundCategory.COMPETITION
+    ? value
+    : null
+}
+
+function getRoundParticipation(
+  value: unknown,
+): RoundParticipationValue | null {
+  if (value === undefined) {
+    return RoundParticipation.INDIVIDUAL
+  }
+
+  return value === RoundParticipation.INDIVIDUAL ||
+    value === RoundParticipation.TEAM
+    ? value
+    : null
+}
+
+function getRequiredText(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmedValue = value.trim()
+
+  return trimmedValue.length >= 2 && trimmedValue.length <= maxLength
+    ? trimmedValue
+    : null
 }
 
 function getHoleScores(value: unknown): RoundHoleInput[] | null {
@@ -152,9 +227,9 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   }
 
   const datePlayed = getDatePlayed(value.datePlayed)
-  const weatherCondition = getWeatherCondition(value.weatherCondition)
-  const holeScores = getHoleScores(value.holeScores)
-  const pccAdjustment = value.pccAdjustment ?? 0
+  const timePlayed = getTimePlayed(value.timePlayed)
+  const category = getRoundCategory(value.category)
+  const participation = getRoundParticipation(value.participation)
 
   if (
     typeof value.userId !== 'string' ||
@@ -162,6 +237,77 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     typeof value.teeId !== 'string' ||
     !UUID_PATTERN.test(value.teeId) ||
     !datePlayed ||
+    !category ||
+    !participation ||
+    (value.timePlayed !== undefined && timePlayed === null)
+  ) {
+    return null
+  }
+
+  const isCompetition = category === RoundCategory.COMPETITION
+  const competitionName = isCompetition
+    ? getRequiredText(value.competitionName, COMPETITION_NAME_MAX_LENGTH)
+    : null
+  const competitionFormat = isCompetition
+    ? getRequiredText(value.competitionFormat, COMPETITION_FORMAT_MAX_LENGTH)
+    : null
+  const numberOfPlayers = isCompetition ? value.numberOfPlayers : null
+
+  if (
+    (category === RoundCategory.CASUAL &&
+      (participation !== RoundParticipation.INDIVIDUAL ||
+        value.competitionName !== undefined ||
+        value.competitionFormat !== undefined ||
+        value.numberOfPlayers !== undefined)) ||
+    (isCompetition &&
+      (!competitionName ||
+        !competitionFormat ||
+        typeof numberOfPlayers !== 'number' ||
+        !Number.isInteger(numberOfPlayers) ||
+        numberOfPlayers <= 0 ||
+        numberOfPlayers > 10000))
+  ) {
+    return null
+  }
+
+  if (participation === RoundParticipation.TEAM) {
+    if (
+      category !== RoundCategory.COMPETITION ||
+      timePlayed === null ||
+      !competitionName ||
+      !competitionFormat ||
+      typeof numberOfPlayers !== 'number' ||
+      (value.grossScore !== undefined && value.grossScore !== null) ||
+      (value.weatherCondition !== undefined &&
+        value.weatherCondition !== null) ||
+      (value.holeScores !== undefined && value.holeScores !== null) ||
+      (value.pccAdjustment !== undefined && value.pccAdjustment !== 0)
+    ) {
+      return null
+    }
+
+    return {
+      userId: value.userId,
+      teeId: value.teeId,
+      datePlayed,
+      timePlayed,
+      category,
+      participation,
+      competitionName,
+      competitionFormat,
+      numberOfPlayers,
+      grossScore: null,
+      weatherCondition: null,
+      pccAdjustment: 0,
+      holeScores: [],
+    }
+  }
+
+  const weatherCondition = getWeatherCondition(value.weatherCondition)
+  const holeScores = getHoleScores(value.holeScores)
+  const pccAdjustment = value.pccAdjustment ?? 0
+
+  if (
     typeof value.grossScore !== 'number' ||
     !Number.isInteger(value.grossScore) ||
     value.grossScore <= 0 ||
@@ -188,6 +334,13 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     userId: value.userId,
     teeId: value.teeId,
     datePlayed,
+    timePlayed,
+    category,
+    participation,
+    competitionName,
+    competitionFormat,
+    numberOfPlayers:
+      typeof numberOfPlayers === 'number' ? numberOfPlayers : null,
     grossScore,
     weatherCondition,
     pccAdjustment,
@@ -239,6 +392,55 @@ export async function logRound(input: LogRoundInput) {
     const courseRating = Number(tee.courseRating)
     const currentHandicapIndex =
       user.handicapIndex === null ? null : Number(user.handicapIndex)
+
+    if (input.participation === RoundParticipation.TEAM) {
+      const createdRound = await transaction.round.create({
+        data: {
+          userId: input.userId,
+          teeId: input.teeId,
+          datePlayed: input.datePlayed,
+          timePlayed: input.timePlayed,
+          category: input.category,
+          participation: input.participation,
+          competitionName: input.competitionName,
+          competitionFormat: input.competitionFormat,
+          numberOfPlayers: input.numberOfPlayers,
+          grossScore: null,
+          adjustedGrossScore: null,
+          isCapped: false,
+          weatherCondition: null,
+          pccAdjustment: 0,
+          scoreDifferential: null,
+          isAcceptable: false,
+          usedInHandicapCalc: false,
+          scorecardStatus: RoundScorecardStatus.NOT_REQUIRED,
+        },
+        include: {
+          holeScores: {
+            orderBy: { holeNumber: 'asc' },
+          },
+        },
+      })
+      const countingRounds = await transaction.round.findMany({
+        where: {
+          userId: input.userId,
+          usedInHandicapCalc: true,
+        },
+        select: { id: true },
+      })
+
+      return {
+        round: {
+          ...createdRound,
+          pccAdjustment: Number(createdRound.pccAdjustment),
+          scoreDifferential: null,
+          usedInHandicapCalc: false,
+        },
+        handicapIndex: currentHandicapIndex,
+        usedRoundIds: countingRounds.map(({ id }) => id),
+      }
+    }
+
     const hasSavedScorecard = isCompleteScorecard(tee.holes ?? [])
     const effectiveHoleScores = input.holeScores.map((submittedHole) => {
       const savedHole = hasSavedScorecard
@@ -293,7 +495,7 @@ export async function logRound(input: LogRoundInput) {
       pccAdjustment: input.pccAdjustment,
     })
     const isAcceptable =
-      ROUND_ACCEPTABILITY_RULES.loggedRoundIsAcceptable &&
+      ROUND_ACCEPTABILITY_RULES.scoredIndividualRoundIsAcceptable &&
       !manualReviewRequired
 
     const createdRound = await transaction.round.create({
@@ -301,6 +503,12 @@ export async function logRound(input: LogRoundInput) {
         userId: input.userId,
         teeId: input.teeId,
         datePlayed: input.datePlayed,
+        timePlayed: input.timePlayed,
+        category: input.category,
+        participation: input.participation,
+        competitionName: input.competitionName,
+        competitionFormat: input.competitionFormat,
+        numberOfPlayers: input.numberOfPlayers,
         grossScore: input.grossScore,
         adjustedGrossScore,
         isCapped,
@@ -354,6 +562,8 @@ export async function logRound(input: LogRoundInput) {
       where: {
         userId: input.userId,
         isAcceptable: true,
+        participation: RoundParticipation.INDIVIDUAL,
+        scoreDifferential: { not: null },
       },
       orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
       take: 20,
@@ -365,10 +575,16 @@ export async function logRound(input: LogRoundInput) {
       },
     })
     const handicapCalculation = calculateHandicap(
-      recentRounds.map((round) => ({
-        ...round,
-        scoreDifferential: Number(round.scoreDifferential),
-      })),
+      recentRounds.flatMap((round) =>
+        round.scoreDifferential === null
+          ? []
+          : [
+              {
+                ...round,
+                scoreDifferential: Number(round.scoreDifferential),
+              },
+            ],
+      ),
     )
 
     await transaction.round.updateMany({
@@ -397,7 +613,10 @@ export async function logRound(input: LogRoundInput) {
       round: {
         ...createdRound,
         pccAdjustment: Number(createdRound.pccAdjustment),
-        scoreDifferential: Number(createdRound.scoreDifferential),
+        scoreDifferential:
+          createdRound.scoreDifferential === null
+            ? null
+            : Number(createdRound.scoreDifferential),
         usedInHandicapCalc: handicapCalculation.usedRoundIds.includes(
           createdRound.id,
         ),

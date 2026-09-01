@@ -1252,6 +1252,12 @@ describe('GET /api/users/me/rounds', () => {
           userId,
           teeId: '44444444-4444-4444-8444-444444444444',
           datePlayed: new Date('2026-08-30T00:00:00.000Z'),
+          timePlayed: '08:15',
+          category: 'COMPETITION',
+          participation: 'INDIVIDUAL',
+          competitionName: 'Captain’s Day',
+          competitionFormat: 'Medal',
+          numberOfPlayers: 84,
           grossScore: 90,
           adjustedGrossScore: 88,
           isCapped: true,
@@ -1260,6 +1266,7 @@ describe('GET /api/users/me/rounds', () => {
           scoreDifferential: '12.3',
           isAcceptable: true,
           usedInHandicapCalc: true,
+          scorecardStatus: 'VERIFIED',
           createdAt: new Date('2026-08-30T12:00:00.000Z'),
           tee: {
             id: '44444444-4444-4444-8444-444444444444',
@@ -1289,6 +1296,12 @@ describe('GET /api/users/me/rounds', () => {
         userId,
         teeId: '44444444-4444-4444-8444-444444444444',
         datePlayed: '2026-08-30T00:00:00.000Z',
+        timePlayed: '08:15',
+        category: 'COMPETITION',
+        participation: 'INDIVIDUAL',
+        competitionName: 'Captain’s Day',
+        competitionFormat: 'Medal',
+        numberOfPlayers: 84,
         grossScore: 90,
         adjustedGrossScore: 88,
         isCapped: true,
@@ -1297,6 +1310,7 @@ describe('GET /api/users/me/rounds', () => {
         scoreDifferential: 12.3,
         isAcceptable: true,
         usedInHandicapCalc: true,
+        scorecardStatus: 'VERIFIED',
         createdAt: '2026-08-30T12:00:00.000Z',
         tee: {
           id: '44444444-4444-4444-8444-444444444444',
@@ -1325,6 +1339,65 @@ describe('GET /api/users/me/rounds', () => {
         }),
       }),
     )
+  })
+
+  it('should preserve null score fields for a record-only team competition', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          userId,
+          teeId: '44444444-4444-4444-8444-444444444444',
+          datePlayed: new Date('2026-09-01T00:00:00.000Z'),
+          timePlayed: '13:30',
+          category: 'COMPETITION',
+          participation: 'TEAM',
+          competitionName: 'Invitation Day',
+          competitionFormat: 'Texas Scramble',
+          numberOfPlayers: 64,
+          grossScore: null,
+          adjustedGrossScore: null,
+          isCapped: false,
+          weatherCondition: null,
+          pccAdjustment: '0.0',
+          scoreDifferential: null,
+          isAcceptable: false,
+          usedInHandicapCalc: false,
+          scorecardStatus: 'NOT_REQUIRED',
+          createdAt: new Date('2026-09-01T15:00:00.000Z'),
+          holeScores: [],
+          tee: {
+            id: '44444444-4444-4444-8444-444444444444',
+            teeName: 'White',
+            courseRating: '72.0',
+            slopeRating: 113,
+            par: 72,
+            course: {
+              id: '55555555-5555-4555-8555-555555555555',
+              name: 'Main Course',
+              club: {
+                id: '66666666-6666-4666-8666-666666666666',
+                name: 'Example Golf Club',
+              },
+            },
+          },
+        },
+      ],
+    })
+
+    const response = await request(app).get('/api/users/me/rounds')
+
+    expect(response.status).toBe(200)
+    expect(response.body[0]).toMatchObject({
+      participation: 'TEAM',
+      grossScore: null,
+      adjustedGrossScore: null,
+      weatherCondition: null,
+      scoreDifferential: null,
+      isAcceptable: false,
+      usedInHandicapCalc: false,
+      scorecardStatus: 'NOT_REQUIRED',
+    })
   })
 
   it('should return an empty list when the user has no rounds', async () => {

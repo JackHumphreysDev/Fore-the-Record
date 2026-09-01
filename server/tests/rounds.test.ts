@@ -162,6 +162,12 @@ describe('POST /api/rounds', () => {
         userId,
         teeId,
         datePlayed,
+        timePlayed: null,
+        category: 'CASUAL',
+        participation: 'INDIVIDUAL',
+        competitionName: null,
+        competitionFormat: null,
+        numberOfPlayers: null,
         grossScore: 90,
         adjustedGrossScore: 90,
         isCapped: false,
@@ -239,6 +245,12 @@ describe('POST /api/rounds', () => {
       userId,
       teeId,
       datePlayed: '2026-08-30',
+      timePlayed: '08:45',
+      category: 'COMPETITION',
+      participation: 'INDIVIDUAL',
+      competitionName: 'Captain’s Day',
+      competitionFormat: 'Medal',
+      numberOfPlayers: 84,
       grossScore: 77,
       weatherCondition: 'WET',
       holeScores,
@@ -254,6 +266,12 @@ describe('POST /api/rounds', () => {
     expect(roundCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          timePlayed: '08:45',
+          category: 'COMPETITION',
+          participation: 'INDIVIDUAL',
+          competitionName: 'Captain’s Day',
+          competitionFormat: 'Medal',
+          numberOfPlayers: 84,
           adjustedGrossScore: 75,
           isCapped: true,
           scoreDifferential: 3,
@@ -261,6 +279,118 @@ describe('POST /api/rounds', () => {
         }),
       }),
     )
+  })
+
+  it('stores a team competition as record-only without changing handicap', async () => {
+    const existingCountingRoundId =
+      '44444444-4444-4444-8444-444444444444'
+
+    userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: 11.7 })
+    teeFindUniqueMock.mockResolvedValueOnce({
+      teeName: 'White',
+      courseRating: 72,
+      slopeRating: 113,
+      par: 72,
+      holes: [],
+      course: {
+        name: 'Main Course',
+        club: { name: 'Example Golf Club' },
+      },
+    })
+    const createdRound = {
+      id: roundId,
+      userId,
+      teeId,
+      datePlayed,
+      timePlayed: '13:30',
+      category: 'COMPETITION',
+      participation: 'TEAM',
+      competitionName: 'Invitation Day',
+      competitionFormat: 'Texas Scramble',
+      numberOfPlayers: 64,
+      grossScore: null,
+      adjustedGrossScore: null,
+      isCapped: false,
+      weatherCondition: null,
+      pccAdjustment: 0,
+      scoreDifferential: null,
+      isAcceptable: false,
+      scorecardStatus: 'NOT_REQUIRED',
+      usedInHandicapCalc: false,
+      createdAt,
+      holeScores: [],
+    }
+    roundCreateMock.mockResolvedValueOnce(createdRound)
+    roundFindManyMock.mockResolvedValueOnce([
+      { id: existingCountingRoundId },
+    ])
+
+    const response = await request(app).post('/api/rounds').send({
+      teeId,
+      datePlayed: '2026-08-30',
+      timePlayed: '13:30',
+      category: 'COMPETITION',
+      participation: 'TEAM',
+      competitionName: '  Invitation Day  ',
+      competitionFormat: ' Texas Scramble ',
+      numberOfPlayers: 64,
+    })
+
+    expect(response.status).toBe(201)
+    expect(response.body).toEqual({
+      round: {
+        ...createdRound,
+        datePlayed: datePlayed.toISOString(),
+        createdAt: createdAt.toISOString(),
+      },
+      handicapIndex: 11.7,
+      usedRoundIds: [existingCountingRoundId],
+    })
+    expect(roundCreateMock).toHaveBeenCalledWith({
+      data: {
+        userId,
+        teeId,
+        datePlayed,
+        timePlayed: '13:30',
+        category: 'COMPETITION',
+        participation: 'TEAM',
+        competitionName: 'Invitation Day',
+        competitionFormat: 'Texas Scramble',
+        numberOfPlayers: 64,
+        grossScore: null,
+        adjustedGrossScore: null,
+        isCapped: false,
+        weatherCondition: null,
+        pccAdjustment: 0,
+        scoreDifferential: null,
+        isAcceptable: false,
+        usedInHandicapCalc: false,
+        scorecardStatus: 'NOT_REQUIRED',
+      },
+      include: {
+        holeScores: { orderBy: { holeNumber: 'asc' } },
+      },
+    })
+    expect(roundUpdateManyMock).not.toHaveBeenCalled()
+    expect(userUpdateMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a team competition that attempts to submit a gross score', async () => {
+    const response = await request(app).post('/api/rounds').send({
+      teeId,
+      datePlayed: '2026-08-30',
+      timePlayed: '13:30',
+      category: 'COMPETITION',
+      participation: 'TEAM',
+      competitionName: 'Invitation Day',
+      competitionFormat: 'Texas Scramble',
+      numberOfPlayers: 64,
+      grossScore: 70,
+    })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Invalid round data' })
+    expect(transactionMock).not.toHaveBeenCalled()
   })
 
   it('saves a manually defined scorecard for review without changing handicap', async () => {

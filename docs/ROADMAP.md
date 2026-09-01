@@ -10,7 +10,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 4. User submissions and admin messaging. Submission foundation completed in `0.4.0`; private conversations and audited resolution controls completed in `0.5.0`.
 5. Course catalogue and database-backed search. Import tooling, search, and quota-safe on-demand additions completed in `0.6.0`; a full production data load requires a future RapidAPI plan change.
 6. Hole-by-hole scorecards and administrator approval. Completed in `0.7.0`.
-7. Competition, casual, individual, and team round records.
+7. Competition, casual, individual, and team round records. Completed in `0.8.0`.
 8. User-facing **What's New** section.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
@@ -131,13 +131,21 @@ Version `0.4.0` added player submission creation, private player history, struct
 - Ask for club name, town/county, website, course name, and known tee details on missing-course submissions.
 - Add server-side length limits, validation, and rate limiting to reduce spam and unsafe content.
 
-## Round classification
+## Round classification — completed in 0.8.0
 
 ### Goal
 
 Record casual rounds, individual competitions, and team competitions accurately while keeping handicap calculations correct.
 
-### Proposed round fields
+### Delivery status
+
+Version `0.8.0` records the round category, participation type, competition
+details, player count, date, and time. Casual and individual competition
+rounds retain the complete scorecard and handicap workflow. Team competitions
+are stored without score fields as history-only records and cannot affect the
+Handicap Index.
+
+### Round fields
 
 - Round category: `CASUAL` or `COMPETITION`.
 - Participation: `INDIVIDUAL` or `TEAM`.
@@ -147,8 +155,6 @@ Record casual rounds, individual competitions, and team competitions accurately 
 - Date and time played.
 - Whether the round is acceptable for handicap purposes.
 - Whether the entry is record-only and therefore has no score differential.
-
-The exact database names should be decided when this feature is designed; these fields describe product behavior rather than a final schema.
 
 ### Handicap rules
 

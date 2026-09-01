@@ -6,9 +6,14 @@ import {
   type CatalogueCoursesResponse,
   type CatalogueTee,
 } from './courseCatalogueApi.ts'
+import {
+  isRoundResult,
+  type RoundCategory,
+  type RoundParticipation,
+  type RoundResult,
+  type WeatherCondition,
+} from './roundRecordValidation.ts'
 import './RoundEntry.css'
-
-type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
 
 type RoundEntryProfile = {
   id: string
@@ -24,12 +29,28 @@ type TeeOption = CatalogueTee & {
 type RoundForm = {
   teeId: string
   datePlayed: string
+  timePlayed: string
+  category: RoundCategory
+  participation: RoundParticipation
+  competitionName: string
+  competitionFormat: string
+  numberOfPlayers: string
   grossScore: string
   weatherCondition: WeatherCondition
 }
 
 type RoundFormErrors = Partial<
-  Record<'teeId' | 'datePlayed' | 'grossScore' | 'scorecard', string>
+  Record<
+    | 'teeId'
+    | 'datePlayed'
+    | 'timePlayed'
+    | 'competitionName'
+    | 'competitionFormat'
+    | 'numberOfPlayers'
+    | 'grossScore'
+    | 'scorecard',
+    string
+  >
 >
 
 type ScorecardStatus = 'idle' | 'loading' | 'available' | 'manual_required'
@@ -56,19 +77,6 @@ type ScorecardResponse =
       holes: ScorecardHole[]
     }
   | { status: 'manual_required'; holes: [] }
-
-type RoundResult = {
-  round: {
-    id: string
-    datePlayed: string
-    grossScore: number
-    adjustedGrossScore: number
-    isCapped: boolean
-    scoreDifferential: number
-    scorecardStatus: 'VERIFIED' | 'PENDING_REVIEW'
-  }
-  handicapIndex: number | null
-}
 
 type RoundConfirmation = RoundResult & {
   teeLabel: string
@@ -104,6 +112,12 @@ function getToday(): string {
   const day = String(today.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
+}
+
+function getCurrentTime(): string {
+  const now = new Date()
+
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -159,28 +173,6 @@ function getHoleEntries(holes: ScorecardHole[]): HoleEntry[] {
   }))
 }
 
-function isRoundResult(value: unknown): value is RoundResult {
-  if (
-    !isRecord(value) ||
-    !isRecord(value.round) ||
-    (value.handicapIndex !== null &&
-      typeof value.handicapIndex !== 'number')
-  ) {
-    return false
-  }
-
-  return (
-    typeof value.round.id === 'string' &&
-    typeof value.round.datePlayed === 'string' &&
-    typeof value.round.grossScore === 'number' &&
-    typeof value.round.adjustedGrossScore === 'number' &&
-    typeof value.round.isCapped === 'boolean' &&
-    typeof value.round.scoreDifferential === 'number' &&
-    (value.round.scorecardStatus === 'VERIFIED' ||
-      value.round.scorecardStatus === 'PENDING_REVIEW')
-  )
-}
-
 function getTeeOptions(response: CatalogueCoursesResponse | null): TeeOption[] {
   return (response?.courses ?? []).flatMap((course) =>
     course.tees.map((tee) => ({
@@ -227,6 +219,12 @@ function RoundEntry({
   const [form, setForm] = useState<RoundForm>({
     teeId: '',
     datePlayed: getToday(),
+    timePlayed: getCurrentTime(),
+    category: 'CASUAL',
+    participation: 'INDIVIDUAL',
+    competitionName: '',
+    competitionFormat: '',
+    numberOfPlayers: '',
     grossScore: '',
     weatherCondition: 'DRY',
   })
@@ -247,6 +245,9 @@ function RoundEntry({
 
   const teeOptions = getTeeOptions(catalogueResponse)
   const selectedTee = teeOptions.find((option) => option.id === form.teeId)
+  const isCompetition = form.category === 'COMPETITION'
+  const isTeamRound =
+    isCompetition && form.participation === 'TEAM'
   const completedStrokeCount = holeEntries.filter(({ strokesTaken }) => {
     const strokes = Number(strokesTaken)
     return strokesTaken.trim() !== '' && Number.isInteger(strokes) && strokes > 0
@@ -264,7 +265,7 @@ function RoundEntry({
       : 0
 
   useEffect(() => {
-    if (!form.teeId) {
+    if (!form.teeId || isTeamRound) {
       return
     }
 
@@ -325,7 +326,7 @@ function RoundEntry({
     void loadScorecard()
 
     return () => controller.abort()
-  }, [form.teeId])
+  }, [form.teeId, isTeamRound])
 
   async function handleCourseSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -394,6 +395,47 @@ function RoundEntry({
     setSubmitError('')
   }
 
+  function updateCategory(category: RoundCategory) {
+    setForm((current) => ({
+      ...current,
+      category,
+      participation:
+        category === 'CASUAL' ? 'INDIVIDUAL' : current.participation,
+      competitionName:
+        category === 'CASUAL' ? '' : current.competitionName,
+      competitionFormat:
+        category === 'CASUAL' ? '' : current.competitionFormat,
+      numberOfPlayers:
+        category === 'CASUAL' ? '' : current.numberOfPlayers,
+    }))
+    setErrors((current) => ({
+      ...current,
+      competitionName: undefined,
+      competitionFormat: undefined,
+      numberOfPlayers: undefined,
+      grossScore: undefined,
+      scorecard: undefined,
+    }))
+    setSubmitError('')
+  }
+
+  function updateParticipation(participation: RoundParticipation) {
+    setForm((current) => ({ ...current, participation }))
+    setErrors((current) => ({
+      ...current,
+      grossScore: undefined,
+      scorecard: undefined,
+    }))
+    setSubmitError('')
+
+    if (participation === 'TEAM') {
+      setScorecardStatus('idle')
+      setScorecardSource(null)
+      setHoleEntries([])
+      setScorecardLoadError('')
+    }
+  }
+
   function updateHoleEntry(
     holeNumber: number,
     field: keyof Omit<HoleEntry, 'holeNumber'>,
@@ -428,53 +470,90 @@ function RoundEntry({
       nextErrors.datePlayed = 'The round date cannot be in the future'
     }
 
-    if (
-      form.grossScore.trim() === '' ||
-      !Number.isInteger(grossScore) ||
-      grossScore <= 0
-    ) {
-      nextErrors.grossScore = 'Enter a whole-number total score'
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(form.timePlayed)) {
+      nextErrors.timePlayed = 'Choose the time played'
     }
 
-    if (scorecardStatus === 'loading') {
-      nextErrors.scorecard = 'Wait for the scorecard to finish loading'
-    } else if (holeEntries.length !== 18) {
-      nextErrors.scorecard = 'Load a complete 18-hole scorecard'
-    } else if (completedStrokeCount !== 18) {
-      nextErrors.scorecard = 'Enter a whole-number stroke score for every hole'
-    } else if (scorecardStatus === 'manual_required') {
-      const hasInvalidDefinition = holeEntries.some((hole) => {
-        const par = Number(hole.par)
-        const strokeIndex = Number(hole.strokeIndex)
-        const yardage = Number(hole.yardage)
+    const numberOfPlayers = Number(form.numberOfPlayers)
 
-        return (
-          !Number.isInteger(par) ||
-          par < 2 ||
-          par > 7 ||
-          !Number.isInteger(strokeIndex) ||
-          strokeIndex < 1 ||
-          strokeIndex > 18 ||
-          (hole.yardage.trim() !== '' &&
-            (!Number.isInteger(yardage) || yardage <= 0))
-        )
-      })
-      const strokeIndexes = new Set(
-        holeEntries.map(({ strokeIndex }) => Number(strokeIndex)),
-      )
+    if (isCompetition) {
+      if (
+        form.competitionName.trim().length < 2 ||
+        form.competitionName.trim().length > 120
+      ) {
+        nextErrors.competitionName =
+          'Enter the competition name (2–120 characters)'
+      }
 
-      if (hasInvalidDefinition || strokeIndexes.size !== 18) {
-        nextErrors.scorecard =
-          'Enter par 2–7 and each stroke index from 1–18 once. Yardage is optional.'
+      if (
+        form.competitionFormat.trim().length < 2 ||
+        form.competitionFormat.trim().length > 100
+      ) {
+        nextErrors.competitionFormat =
+          'Enter the competition format (2–100 characters)'
+      }
+
+      if (
+        form.numberOfPlayers.trim() === '' ||
+        !Number.isInteger(numberOfPlayers) ||
+        numberOfPlayers <= 0 ||
+        numberOfPlayers > 10000
+      ) {
+        nextErrors.numberOfPlayers =
+          'Enter the number of players as a positive whole number'
       }
     }
 
-    if (
-      !nextErrors.grossScore &&
-      completedStrokeCount === 18 &&
-      scoreDifference !== 0
-    ) {
-      nextErrors.scorecard = `Your hole-by-hole scores total ${holeScoreTotal}, but your total score is ${grossScore}—a difference of ${Math.abs(scoreDifference)} ${Math.abs(scoreDifference) === 1 ? 'stroke' : 'strokes'}. Review your scorecard before submitting.`
+    if (!isTeamRound) {
+      if (
+        form.grossScore.trim() === '' ||
+        !Number.isInteger(grossScore) ||
+        grossScore <= 0
+      ) {
+        nextErrors.grossScore = 'Enter a whole-number total score'
+      }
+
+      if (scorecardStatus === 'loading') {
+        nextErrors.scorecard = 'Wait for the scorecard to finish loading'
+      } else if (holeEntries.length !== 18) {
+        nextErrors.scorecard = 'Load a complete 18-hole scorecard'
+      } else if (completedStrokeCount !== 18) {
+        nextErrors.scorecard =
+          'Enter a whole-number stroke score for every hole'
+      } else if (scorecardStatus === 'manual_required') {
+        const hasInvalidDefinition = holeEntries.some((hole) => {
+          const par = Number(hole.par)
+          const strokeIndex = Number(hole.strokeIndex)
+          const yardage = Number(hole.yardage)
+
+          return (
+            !Number.isInteger(par) ||
+            par < 2 ||
+            par > 7 ||
+            !Number.isInteger(strokeIndex) ||
+            strokeIndex < 1 ||
+            strokeIndex > 18 ||
+            (hole.yardage.trim() !== '' &&
+              (!Number.isInteger(yardage) || yardage <= 0))
+          )
+        })
+        const strokeIndexes = new Set(
+          holeEntries.map(({ strokeIndex }) => Number(strokeIndex)),
+        )
+
+        if (hasInvalidDefinition || strokeIndexes.size !== 18) {
+          nextErrors.scorecard =
+            'Enter par 2–7 and each stroke index from 1–18 once. Yardage is optional.'
+        }
+      }
+
+      if (
+        !nextErrors.grossScore &&
+        completedStrokeCount === 18 &&
+        scoreDifference !== 0
+      ) {
+        nextErrors.scorecard = `Your hole-by-hole scores total ${holeScoreTotal}, but your total score is ${grossScore}—a difference of ${Math.abs(scoreDifference)} ${Math.abs(scoreDifference) === 1 ? 'stroke' : 'strokes'}. Review your scorecard before submitting.`
+      }
     }
 
     if (Object.keys(nextErrors).length > 0 || !selectedTee) {
@@ -494,17 +573,31 @@ function RoundEntry({
         body: JSON.stringify({
           teeId: selectedTee.id,
           datePlayed: form.datePlayed,
-          grossScore,
-          weatherCondition: form.weatherCondition,
-          holeScores: holeEntries.map((hole) => ({
-            holeNumber: hole.holeNumber,
-            par: Number(hole.par),
-            strokeIndex: Number(hole.strokeIndex),
-            strokesTaken: Number(hole.strokesTaken),
-            ...(hole.yardage.trim() === ''
-              ? {}
-              : { yardage: Number(hole.yardage) }),
-          })),
+          timePlayed: form.timePlayed,
+          category: form.category,
+          participation: form.participation,
+          ...(isCompetition
+            ? {
+                competitionName: form.competitionName.trim(),
+                competitionFormat: form.competitionFormat.trim(),
+                numberOfPlayers,
+              }
+            : {}),
+          ...(!isTeamRound
+            ? {
+                grossScore,
+                weatherCondition: form.weatherCondition,
+                holeScores: holeEntries.map((hole) => ({
+                  holeNumber: hole.holeNumber,
+                  par: Number(hole.par),
+                  strokeIndex: Number(hole.strokeIndex),
+                  strokesTaken: Number(hole.strokesTaken),
+                  ...(hole.yardage.trim() === ''
+                    ? {}
+                    : { yardage: Number(hole.yardage) }),
+                })),
+              }
+            : {}),
         }),
       })
 
@@ -563,6 +656,9 @@ function RoundEntry({
   }
 
   if (confirmation) {
+    const isTeamConfirmation =
+      confirmation.round.participation === 'TEAM'
+
     return (
       <section className="rounds-page" id="rounds">
         <div className="round-confirmation" aria-live="polite">
@@ -570,16 +666,25 @@ function RoundEntry({
             ✓
           </div>
           <p className="form-kicker">
-            {confirmation.round.scorecardStatus === 'PENDING_REVIEW'
+            {isTeamConfirmation
+              ? 'Team competition recorded'
+              : confirmation.round.scorecardStatus === 'PENDING_REVIEW'
               ? 'Round saved for review'
               : 'Round recorded'}
           </p>
           <h1>
-            {confirmation.round.scorecardStatus === 'PENDING_REVIEW'
+            {isTeamConfirmation
+              ? 'Added to your golf record.'
+              : confirmation.round.scorecardStatus === 'PENDING_REVIEW'
               ? 'Your card is with the admin.'
               : 'That one counts.'}
           </h1>
           <p className="round-confirmation-course">{confirmation.teeLabel}</p>
+          {confirmation.round.competitionName ? (
+            <p className="round-confirmation-competition">
+              {confirmation.round.competitionName}
+            </p>
+          ) : null}
 
           <div className="round-confirmation-grid">
             <div>
@@ -587,17 +692,42 @@ function RoundEntry({
               <strong>{formatRoundDate(confirmation.round.datePlayed)}</strong>
             </div>
             <div>
-              <small>Gross score</small>
-              <strong>{confirmation.round.grossScore}</strong>
+              <small>Time played</small>
+              <strong>{confirmation.round.timePlayed ?? '—'}</strong>
             </div>
-            <div>
-              <small>Adjusted</small>
-              <strong>{confirmation.round.adjustedGrossScore}</strong>
-            </div>
-            <div>
-              <small>Differential</small>
-              <strong>{confirmation.round.scoreDifferential.toFixed(1)}</strong>
-            </div>
+            {isTeamConfirmation ? (
+              <>
+                <div>
+                  <small>Format</small>
+                  <strong>{confirmation.round.competitionFormat}</strong>
+                </div>
+                <div>
+                  <small>Players</small>
+                  <strong>{confirmation.round.numberOfPlayers}</strong>
+                </div>
+                <div>
+                  <small>Entry</small>
+                  <strong>Team record</strong>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <small>Gross score</small>
+                  <strong>{confirmation.round.grossScore}</strong>
+                </div>
+                <div>
+                  <small>Adjusted</small>
+                  <strong>{confirmation.round.adjustedGrossScore}</strong>
+                </div>
+                <div>
+                  <small>Differential</small>
+                  <strong>
+                    {confirmation.round.scoreDifferential?.toFixed(1) ?? '—'}
+                  </strong>
+                </div>
+              </>
+            )}
             <div className="round-confirmation-handicap">
               <small>New Handicap Index</small>
               <strong>
@@ -609,7 +739,9 @@ function RoundEntry({
           </div>
 
           <p className="round-capping-note">
-            {confirmation.round.scorecardStatus === 'PENDING_REVIEW'
+            {isTeamConfirmation
+              ? 'Team competition entries are saved for your playing history only. They do not affect your Handicap Index.'
+              : confirmation.round.scorecardStatus === 'PENDING_REVIEW'
               ? 'Your strokes are saved. This round is provisionally calculated but will not affect your Handicap Index until the manually entered scorecard is approved.'
               : confirmation.round.isCapped
               ? 'Net Double Bogey adjustments were applied.'
@@ -629,7 +761,16 @@ function RoundEntry({
               type="button"
               onClick={() => {
                 setConfirmation(null)
-                setForm((current) => ({ ...current, grossScore: '' }))
+                setForm((current) => ({
+                  ...current,
+                  category: 'CASUAL',
+                  participation: 'INDIVIDUAL',
+                  competitionName: '',
+                  competitionFormat: '',
+                  numberOfPlayers: '',
+                  grossScore: '',
+                  timePlayed: getCurrentTime(),
+                }))
                 setHoleEntries((current) =>
                   current.map((hole) => ({ ...hole, strokesTaken: '' })),
                 )
@@ -656,8 +797,8 @@ function RoundEntry({
           </h1>
         </div>
         <p>
-          Search for a rated tee, enter the signed total and all 18 hole
-          scores, and we’ll check the card before calculating the differential.
+          Record a casual score, an individual competition, or a team event.
+          Only complete individual cards can affect your Handicap Index.
         </p>
       </header>
 
@@ -787,6 +928,166 @@ function RoundEntry({
               ) : null}
             </div>
 
+            <fieldset className="round-choice-fieldset">
+              <legend>Round type</legend>
+              <div className="round-choice-options">
+                <label
+                  className={
+                    form.category === 'CASUAL'
+                      ? 'round-choice-option round-choice-option-selected'
+                      : 'round-choice-option'
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="round-category"
+                    value="CASUAL"
+                    checked={form.category === 'CASUAL'}
+                    onChange={() => updateCategory('CASUAL')}
+                  />
+                  <span>
+                    <strong>Casual round</strong>
+                    <small>Individual score that may count</small>
+                  </span>
+                </label>
+                <label
+                  className={
+                    form.category === 'COMPETITION'
+                      ? 'round-choice-option round-choice-option-selected'
+                      : 'round-choice-option'
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="round-category"
+                    value="COMPETITION"
+                    checked={form.category === 'COMPETITION'}
+                    onChange={() => updateCategory('COMPETITION')}
+                  />
+                  <span>
+                    <strong>Competition round</strong>
+                    <small>Individual or team competition</small>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+
+            {isCompetition ? (
+              <>
+                <fieldset className="round-choice-fieldset">
+                  <legend>Participation</legend>
+                  <div className="round-choice-options">
+                    <label
+                      className={
+                        form.participation === 'INDIVIDUAL'
+                          ? 'round-choice-option round-choice-option-selected'
+                          : 'round-choice-option'
+                      }
+                    >
+                      <input
+                        type="radio"
+                        name="round-participation"
+                        value="INDIVIDUAL"
+                        checked={form.participation === 'INDIVIDUAL'}
+                        onChange={() => updateParticipation('INDIVIDUAL')}
+                      />
+                      <span>
+                        <strong>Individual</strong>
+                        <small>Submit your own complete score</small>
+                      </span>
+                    </label>
+                    <label
+                      className={
+                        form.participation === 'TEAM'
+                          ? 'round-choice-option round-choice-option-selected'
+                          : 'round-choice-option'
+                      }
+                    >
+                      <input
+                        type="radio"
+                        name="round-participation"
+                        value="TEAM"
+                        checked={form.participation === 'TEAM'}
+                        onChange={() => updateParticipation('TEAM')}
+                      />
+                      <span>
+                        <strong>Team / record only</strong>
+                        <small>No gross score or handicap effect</small>
+                      </span>
+                    </label>
+                  </div>
+                </fieldset>
+
+                <div className="round-field-row">
+                  <div className="round-field">
+                    <label htmlFor="round-competition-name">
+                      Competition name
+                    </label>
+                    <input
+                      id="round-competition-name"
+                      type="text"
+                      maxLength={120}
+                      placeholder="e.g. Captain’s Day"
+                      value={form.competitionName}
+                      aria-invalid={Boolean(errors.competitionName)}
+                      onChange={(event) =>
+                        updateField('competitionName', event.target.value)
+                      }
+                    />
+                    {errors.competitionName ? (
+                      <span className="round-field-error">
+                        {errors.competitionName}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="round-field">
+                    <label htmlFor="round-competition-format">
+                      Competition format
+                    </label>
+                    <input
+                      id="round-competition-format"
+                      type="text"
+                      maxLength={100}
+                      placeholder="e.g. Medal or Texas Scramble"
+                      value={form.competitionFormat}
+                      aria-invalid={Boolean(errors.competitionFormat)}
+                      onChange={(event) =>
+                        updateField('competitionFormat', event.target.value)
+                      }
+                    />
+                    {errors.competitionFormat ? (
+                      <span className="round-field-error">
+                        {errors.competitionFormat}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="round-field round-player-count-field">
+                  <label htmlFor="round-player-count">Number of players</label>
+                  <input
+                    id="round-player-count"
+                    type="number"
+                    min="1"
+                    max="10000"
+                    step="1"
+                    inputMode="numeric"
+                    placeholder="e.g. 64"
+                    value={form.numberOfPlayers}
+                    aria-invalid={Boolean(errors.numberOfPlayers)}
+                    onChange={(event) =>
+                      updateField('numberOfPlayers', event.target.value)
+                    }
+                  />
+                  {errors.numberOfPlayers ? (
+                    <span className="round-field-error">
+                      {errors.numberOfPlayers}
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+
             <div className="round-field-row">
               <div className="round-field">
                 <label htmlFor="round-date">Date played</label>
@@ -811,6 +1112,27 @@ function RoundEntry({
               </div>
 
               <div className="round-field">
+                <label htmlFor="round-time">Time played</label>
+                <input
+                  id="round-time"
+                  type="time"
+                  value={form.timePlayed}
+                  aria-invalid={Boolean(errors.timePlayed)}
+                  onChange={(event) =>
+                    updateField('timePlayed', event.target.value)
+                  }
+                />
+                {errors.timePlayed ? (
+                  <span className="round-field-error">
+                    {errors.timePlayed}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            {!isTeamRound ? (
+              <>
+              <div className="round-field round-gross-score-field">
                 <label htmlFor="round-score">Total gross score</label>
                 <input
                   id="round-score"
@@ -838,7 +1160,6 @@ function RoundEntry({
                   </small>
                 )}
               </div>
-            </div>
 
             <section className="round-scorecard" aria-labelledby="round-scorecard-title">
               <div className="round-scorecard-heading">
@@ -1010,6 +1331,17 @@ function RoundEntry({
                 ))}
               </div>
             </fieldset>
+              </>
+            ) : (
+              <div className="round-team-record-notice">
+                <strong>No scorecard is required.</strong>
+                <p>
+                  This team competition will appear in your history with its
+                  course, date, time and competition details. It will not
+                  change your Handicap Index.
+                </p>
+              </div>
+            )}
 
             {submitError ? (
               <div className="round-submit-error" role="alert">
@@ -1023,7 +1355,13 @@ function RoundEntry({
               type="submit"
               disabled={isSubmitting}
             >
-              <span>{isSubmitting ? 'Saving round…' : 'Record this round'}</span>
+              <span>
+                {isSubmitting
+                  ? 'Saving round…'
+                  : isTeamRound
+                    ? 'Add team round to history'
+                    : 'Record this round'}
+              </span>
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M5 12h14m-5-5 5 5-5 5" />
               </svg>
@@ -1059,12 +1397,17 @@ function RoundEntry({
                   ? '—'
                   : profile.handicapIndex.toFixed(1)}
               </strong>
-              <span>Recalculated when this round is saved</span>
+              <span>
+                {isTeamRound
+                  ? 'Unaffected by this team entry'
+                  : 'Recalculated when this round is saved'}
+              </span>
             </div>
 
             <p className="round-summary-note">
-              Hole-by-hole scores must match the signed total. Net Double Bogey
-              capping uses the approved card; PCC defaults to 0 for this round.
+              {isTeamRound
+                ? 'Team competitions are preserved in your golf history as record-only entries, without a score differential or counting-round status.'
+                : 'Hole-by-hole scores must match the signed total. Net Double Bogey capping uses the approved card; PCC defaults to 0 for this round.'}
             </p>
           </aside>
         </div>

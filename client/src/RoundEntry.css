@@ -169,7 +169,8 @@
 }
 
 .round-field,
-.weather-fieldset {
+.weather-fieldset,
+.round-choice-fieldset {
   display: grid;
   gap: 9px;
 }
@@ -182,12 +183,96 @@
 }
 
 .round-field label,
-.weather-fieldset legend {
+.weather-fieldset legend,
+.round-choice-fieldset legend {
   color: var(--forest-deep);
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 0.7px;
   text-transform: uppercase;
+}
+
+.round-choice-fieldset {
+  margin: 24px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.round-choice-fieldset legend {
+  margin-bottom: 10px;
+}
+
+.round-choice-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.round-choice-option {
+  position: relative;
+  min-height: 78px;
+  padding: 15px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(23, 56, 42, 0.14);
+  border-radius: 10px;
+  background: rgba(23, 56, 42, 0.025);
+  cursor: pointer;
+}
+
+.round-choice-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.round-choice-option::before {
+  content: "";
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(23, 56, 42, 0.35);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 3px white;
+}
+
+.round-choice-option-selected {
+  border-color: var(--forest);
+  background: rgba(215, 255, 79, 0.18);
+}
+
+.round-choice-option-selected::before {
+  border-color: var(--forest);
+  background: var(--lime);
+}
+
+.round-choice-option:has(input:focus-visible) {
+  outline: 3px solid var(--lime);
+  outline-offset: 2px;
+}
+
+.round-choice-option span {
+  display: grid;
+  gap: 4px;
+}
+
+.round-choice-option strong {
+  color: var(--forest-deep);
+  font-size: 12px;
+}
+
+.round-choice-option small {
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.round-player-count-field,
+.round-gross-score-field {
+  max-width: calc(50% - 9px);
+  margin-top: 22px;
 }
 
 .round-field input,
@@ -379,6 +464,26 @@
   border-color: rgba(128, 151, 0, 0.55);
   background: rgba(215, 255, 79, 0.09);
   font-weight: 800;
+}
+
+.round-team-record-notice {
+  margin-top: 30px;
+  padding: 22px;
+  border: 1px solid rgba(128, 151, 0, 0.35);
+  border-radius: 10px;
+  color: var(--forest-deep);
+  background: rgba(215, 255, 79, 0.14);
+}
+
+.round-team-record-notice strong {
+  font-size: 14px;
+}
+
+.round-team-record-notice p {
+  margin: 8px 0 0;
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .weather-fieldset {
@@ -763,9 +868,18 @@
   width: 100%;
   margin-top: 38px;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+}
+
+.round-confirmation-competition {
+  margin: 8px 0 0;
+  color: var(--forest-soft);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
 }
 
 .round-confirmation-grid > div {
@@ -882,7 +996,8 @@
   }
 
   .round-field-row,
-  .weather-options {
+  .weather-options,
+  .round-choice-options {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -912,8 +1027,14 @@
 @media (max-width: 460px) {
   .round-field-row,
   .weather-options,
+  .round-choice-options,
   .round-rating-grid {
     grid-template-columns: 1fr;
+  }
+
+  .round-player-count-field,
+  .round-gross-score-field {
+    max-width: none;
   }
 
   .round-rating-grid div + div {

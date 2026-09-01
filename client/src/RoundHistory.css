@@ -226,13 +226,19 @@
 }
 
 .history-status-badge,
-.history-capped-badge {
+.history-capped-badge,
+.history-type-badge {
   padding: 7px 10px;
   border-radius: 999px;
   font-size: 8px;
   font-weight: 850;
   letter-spacing: 0.8px;
   text-transform: uppercase;
+}
+
+.history-type-badge {
+  color: var(--forest);
+  border: 1px solid rgba(23, 56, 42, 0.16);
 }
 
 .history-status-badge {
@@ -248,6 +254,11 @@
 .history-status-pending {
   color: #5f4a00;
   background: rgba(235, 193, 78, 0.28);
+}
+
+.history-status-record-only {
+  color: white;
+  background: var(--forest-soft);
 }
 
 .history-capped-badge {
@@ -269,6 +280,15 @@
   margin: 9px 0 0;
   color: var(--ink-muted);
   font-size: 12px;
+}
+
+.history-competition-name {
+  margin: 8px 0 0;
+  color: var(--forest-soft);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
 }
 
 .history-round-metrics {
