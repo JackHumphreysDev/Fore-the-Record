@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import './App.css'
-import AdminPortal from './AdminPortal.tsx'
 import { fetchWithAccessToken } from './api.ts'
 import {
   isAdminIdentity,
@@ -17,6 +16,8 @@ import RoundHistory from './RoundHistory.tsx'
 import Support from './Support.tsx'
 import type { SubmissionType } from './submissionApi.ts'
 import { getSupabaseClient } from './supabase.ts'
+
+const AdminPortal = lazy(() => import('./AdminPortal.tsx'))
 
 type ActiveView =
   | 'profile'
@@ -571,7 +572,15 @@ function App() {
         ) : activeView === 'support' ? (
           <Support initialType={supportInitialType} />
         ) : adminIdentity ? (
-          <AdminPortal administratorName={adminIdentity.name} />
+          <Suspense
+            fallback={
+              <section className="admin-page" aria-live="polite">
+                <div className="admin-state">Loading administrator portal…</div>
+              </section>
+            }
+          >
+            <AdminPortal administratorName={adminIdentity.name} />
+          </Suspense>
         ) : null}
       </main>
 

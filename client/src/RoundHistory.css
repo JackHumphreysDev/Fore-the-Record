@@ -245,6 +245,11 @@
   background: var(--lime);
 }
 
+.history-status-pending {
+  color: #5f4a00;
+  background: rgba(235, 193, 78, 0.28);
+}
+
 .history-capped-badge {
   color: var(--forest);
   border: 1px solid rgba(23, 56, 42, 0.16);

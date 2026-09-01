@@ -4,6 +4,20 @@ Version `0.6.0` adds database-backed catalogue search, an on-demand provider
 lookup, and a resumable command for a possible future bulk import of the UK
 Golf Course Data API catalogue.
 
+Version `0.7.0` adds tee-specific hole scorecards. Round Entry requests a
+selected tee's saved scorecard first. If one is not stored and the course has
+a provider ID, the server makes one `GET /courses/{course_id}/scorecard`
+request, validates a complete set of 18 holes, selects the matching tee, and
+saves its par, stroke index, and available yardage. Later rounds reuse the
+saved data and spend no provider requests. An incomplete or missing provider
+card falls back to manual player entry and administrator review.
+
+Clubs and tees saved before provider identifiers were introduced are upgraded
+on their first scorecard lookup. The server matches the legacy club, course,
+and tee by name and rating, stores the recovered identifiers, and then fetches
+the card. That one-time recovery can use up to three provider requests; later
+rounds use the saved scorecard and use none.
+
 The reference snapshot supplied during development contains:
 
 - 2,668 clubs;

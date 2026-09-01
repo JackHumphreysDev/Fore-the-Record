@@ -240,14 +240,6 @@ function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
 
     const importBody = buildProviderCourseImportBody(providerResult)
 
-    if (importBody.tees.length === 0) {
-      setProviderResult(null)
-      setCourse('')
-      await searchCatalogue({ club: providerResult.clubName, course: '' }, 1)
-      setProviderNotice('This club was already in the saved catalogue.')
-      return
-    }
-
     setIsImporting(true)
     setProviderError('')
 
@@ -267,7 +259,9 @@ function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
         )
       }
 
-      const importedTeeCount = importBody.tees.length
+      const importedTeeCount = providerResult.tees.filter(
+        (tee) => !tee.isSaved,
+      ).length
       const filters = { club: providerResult.clubName, course: '' }
 
       setClub(providerResult.clubName)
@@ -276,7 +270,9 @@ function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
       setProviderResult(null)
       await searchCatalogue(filters, 1)
       setProviderNotice(
-        `${importedTeeCount} ${importedTeeCount === 1 ? 'tee was' : 'tees were'} added to the catalogue. Future searches will use the saved data.`,
+        importedTeeCount > 0
+          ? `${importedTeeCount} ${importedTeeCount === 1 ? 'tee was' : 'tees were'} added to the catalogue. Future searches will use the saved data.`
+          : 'The saved club was refreshed with its provider details and is ready for scorecard lookup.',
       )
     } catch (error: unknown) {
       setProviderError(

@@ -90,35 +90,46 @@ beforeEach(() => {
 })
 
 describe('POST /api/rounds', () => {
-  it('logs a total score and updates the current handicap atomically', async () => {
+  it('logs a matching total and hole-by-hole card atomically', async () => {
+    const holeScores = Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1,
+      par: 4,
+      strokeIndex: index + 1,
+      strokesTaken: 5,
+    }))
     userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: 12.4 })
     teeFindUniqueMock.mockResolvedValueOnce({
       courseRating: 73.1,
       slopeRating: 137,
       par: 70,
+      holes: holeScores.map(({ strokesTaken: _strokesTaken, ...hole }) => ({
+        ...hole,
+        yardage: null,
+      })),
     })
     const createdRound = {
       id: roundId,
       userId,
       teeId,
       datePlayed,
-      grossScore: 95,
-      adjustedGrossScore: 95,
+      grossScore: 90,
+      adjustedGrossScore: 90,
       isCapped: false,
       weatherCondition: 'DRY',
       pccAdjustment: '0',
-      scoreDifferential: '18.1',
+      scoreDifferential: '13.9',
       isAcceptable: true,
+      scorecardStatus: 'VERIFIED',
       usedInHandicapCalc: false,
       createdAt,
-      holeScores: [],
+      holeScores,
     }
     roundCreateMock.mockResolvedValueOnce(createdRound)
     roundFindManyMock.mockResolvedValueOnce([
       {
         id: roundId,
         datePlayed,
-        scoreDifferential: 18.1,
+        scoreDifferential: 13.9,
         isAcceptable: true,
       },
     ])
@@ -127,8 +138,9 @@ describe('POST /api/rounds', () => {
       userId,
       teeId,
       datePlayed: '2026-08-30',
-      grossScore: 95,
+      grossScore: 90,
       weatherCondition: 'DRY',
+      holeScores,
     })
 
     expect(response.status).toBe(201)
@@ -136,12 +148,12 @@ describe('POST /api/rounds', () => {
       round: {
         ...createdRound,
         pccAdjustment: 0,
-        scoreDifferential: 18.1,
+        scoreDifferential: 13.9,
         datePlayed: datePlayed.toISOString(),
         createdAt: createdAt.toISOString(),
         usedInHandicapCalc: true,
       },
-      handicapIndex: 18.1,
+      handicapIndex: 13.9,
       usedRoundIds: [roundId],
     })
     expect(transactionMock).toHaveBeenCalledOnce()
@@ -150,13 +162,15 @@ describe('POST /api/rounds', () => {
         userId,
         teeId,
         datePlayed,
-        grossScore: 95,
-        adjustedGrossScore: 95,
+        grossScore: 90,
+        adjustedGrossScore: 90,
         isCapped: false,
         weatherCondition: 'DRY',
         pccAdjustment: 0,
-        scoreDifferential: 18.1,
+        scoreDifferential: 13.9,
         isAcceptable: true,
+        scorecardStatus: 'VERIFIED',
+        holeScores: { create: holeScores },
       },
       include: {
         holeScores: {
@@ -174,7 +188,7 @@ describe('POST /api/rounds', () => {
     })
     expect(userUpdateMock).toHaveBeenCalledWith({
       where: { id: userId },
-      data: { handicapIndex: 18.1 },
+      data: { handicapIndex: 13.9 },
     })
   })
 
@@ -191,6 +205,10 @@ describe('POST /api/rounds', () => {
       courseRating: 72,
       slopeRating: 113,
       par: 72,
+      holes: holeScores.map(({ strokesTaken: _strokesTaken, ...hole }) => ({
+        ...hole,
+        yardage: null,
+      })),
     })
     roundCreateMock.mockResolvedValueOnce({
       id: roundId,
@@ -245,6 +263,79 @@ describe('POST /api/rounds', () => {
     )
   })
 
+  it('saves a manually defined scorecard for review without changing handicap', async () => {
+    const holeScores = Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1,
+      par: 4,
+      strokeIndex: index + 1,
+      strokesTaken: 4,
+      ...(index === 0 ? { yardage: 410 } : {}),
+    }))
+    userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: 10.2 })
+    teeFindUniqueMock.mockResolvedValueOnce({
+      teeName: 'White',
+      courseRating: 72,
+      slopeRating: 113,
+      par: 72,
+      holes: [],
+      course: {
+        name: 'Main Course',
+        club: { name: 'Example Golf Club' },
+      },
+    })
+    roundCreateMock.mockResolvedValueOnce({
+      id: roundId,
+      userId,
+      teeId,
+      datePlayed,
+      grossScore: 72,
+      adjustedGrossScore: 72,
+      isCapped: false,
+      weatherCondition: 'DRY',
+      pccAdjustment: 0,
+      scoreDifferential: 0,
+      isAcceptable: false,
+      scorecardStatus: 'PENDING_REVIEW',
+      usedInHandicapCalc: false,
+      createdAt,
+      holeScores,
+    })
+    roundFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).post('/api/rounds').send({
+      teeId,
+      datePlayed: '2026-08-30',
+      grossScore: 72,
+      weatherCondition: 'DRY',
+      holeScores,
+    })
+
+    expect(response.status).toBe(201)
+    expect(response.body.round.scorecardStatus).toBe('PENDING_REVIEW')
+    expect(response.body.handicapIndex).toBeNull()
+    expect(roundCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          isAcceptable: false,
+          scorecardStatus: 'PENDING_REVIEW',
+          scorecardReview: {
+            create: expect.objectContaining({
+              tee: { connect: { id: teeId } },
+              submission: {
+                create: expect.objectContaining({
+                  type: 'SCORECARD_REVIEW',
+                  clubName: 'Example Golf Club',
+                  courseName: 'Main Course',
+                  teeDetails: 'White',
+                }),
+              },
+            }),
+          },
+        }),
+      }),
+    )
+  })
+
   it('rejects an incomplete scorecard before opening a transaction', async () => {
     const response = await request(app)
       .post('/api/rounds')
@@ -270,6 +361,12 @@ describe('POST /api/rounds', () => {
   })
 
   it('returns 404 without writing when the user does not exist', async () => {
+    const holeScores = Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1,
+      par: 4,
+      strokeIndex: index + 1,
+      strokesTaken: 5,
+    }))
     userFindUniqueMock.mockResolvedValueOnce(null)
     teeFindUniqueMock.mockResolvedValueOnce({
       courseRating: 72,
@@ -283,6 +380,7 @@ describe('POST /api/rounds', () => {
       datePlayed: '2026-08-30',
       grossScore: 90,
       weatherCondition: 'SUPER_WET',
+      holeScores,
     })
 
     expect(response.status).toBe(404)

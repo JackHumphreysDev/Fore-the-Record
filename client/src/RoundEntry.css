@@ -242,6 +242,145 @@
   font-weight: 750;
 }
 
+.round-scorecard {
+  margin-top: 30px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+
+.round-scorecard-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.round-scorecard-heading .form-kicker {
+  margin-bottom: 8px;
+}
+
+.round-scorecard-heading h3 {
+  margin: 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 400;
+  letter-spacing: -1px;
+}
+
+.round-scorecard-total {
+  min-width: 112px;
+  display: grid;
+  justify-items: end;
+}
+
+.round-scorecard-total small,
+.round-scorecard-total span {
+  color: var(--ink-muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.round-scorecard-total strong {
+  margin: 3px 0;
+  color: var(--forest-soft);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 34px;
+  font-weight: 400;
+}
+
+.round-scorecard-notice,
+.round-score-mismatch {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  color: var(--forest-deep);
+  background: rgba(49, 88, 68, 0.07);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.round-scorecard-notice-review {
+  border: 1px solid rgba(128, 151, 0, 0.35);
+  background: rgba(215, 255, 79, 0.14);
+}
+
+.round-scorecard-notice-error,
+.round-score-mismatch {
+  border: 1px solid rgba(164, 63, 50, 0.3);
+  color: #7e3026;
+  background: rgba(164, 63, 50, 0.07);
+  font-weight: 700;
+}
+
+.round-scorecard-scroll {
+  margin-top: 18px;
+  overflow-x: auto;
+  border: 1px solid rgba(23, 56, 42, 0.12);
+  border-radius: 10px;
+}
+
+.round-scorecard table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.round-scorecard th,
+.round-scorecard td {
+  padding: 8px;
+  border-bottom: 1px solid rgba(23, 56, 42, 0.08);
+  color: var(--forest-deep);
+  font-size: 12px;
+}
+
+.round-scorecard thead th {
+  padding-block: 11px;
+  color: var(--ink-muted);
+  background: rgba(23, 56, 42, 0.04);
+  font-size: 8px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.round-scorecard tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.round-scorecard tbody th {
+  width: 52px;
+  color: var(--forest-soft);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+}
+
+.round-scorecard input {
+  width: 70px;
+  min-height: 38px;
+  padding: 0 7px;
+  border: 1px solid rgba(23, 56, 42, 0.18);
+  border-radius: 6px;
+  outline: 0;
+  color: var(--forest-deep);
+  background: white;
+  font: inherit;
+  text-align: center;
+}
+
+.round-scorecard input:focus {
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(49, 88, 68, 0.12);
+}
+
+.round-scorecard .round-strokes-input {
+  border-color: rgba(128, 151, 0, 0.55);
+  background: rgba(215, 255, 79, 0.09);
+  font-weight: 800;
+}
+
 .weather-fieldset {
   margin: 28px 0 0;
   padding: 0;
@@ -732,6 +871,10 @@
 
   .round-form-heading {
     display: grid;
+  }
+
+  .round-scorecard-heading {
+    align-items: start;
   }
 
   .round-form-heading > span {

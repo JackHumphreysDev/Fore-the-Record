@@ -1,8 +1,11 @@
 import { prisma } from './database.js'
 import {
+  RoundScorecardStatus,
+  SubmissionType,
   WeatherCondition,
   type WeatherCondition as WeatherConditionValue,
 } from './generated/prisma/enums.js'
+import { isCompleteScorecard } from './courseScorecards.js'
 import {
   calculateAdjustedGrossScore,
   calculateCourseHandicap,
@@ -28,6 +31,7 @@ export type RoundHoleInput = {
   par: number
   strokeIndex: number
   strokesTaken: number
+  yardage?: number
 }
 
 export type LogRoundInput = {
@@ -37,7 +41,7 @@ export type LogRoundInput = {
   grossScore: number
   weatherCondition: WeatherConditionValue
   pccAdjustment: number
-  holeScores?: RoundHoleInput[]
+  holeScores: RoundHoleInput[]
 }
 
 export class RoundReferenceNotFoundError extends Error {
@@ -83,11 +87,7 @@ function getDatePlayed(value: unknown): Date | null {
   return datePlayed
 }
 
-function getHoleScores(value: unknown): RoundHoleInput[] | null | undefined {
-  if (value === undefined || (Array.isArray(value) && value.length === 0)) {
-    return undefined
-  }
-
+function getHoleScores(value: unknown): RoundHoleInput[] | null {
   if (!Array.isArray(value) || value.length !== HOLES_IN_ROUND) {
     return null
   }
@@ -103,14 +103,19 @@ function getHoleScores(value: unknown): RoundHoleInput[] | null | undefined {
       score.holeNumber > HOLES_IN_ROUND ||
       typeof score.par !== 'number' ||
       !Number.isInteger(score.par) ||
-      score.par <= 0 ||
+      score.par < 2 ||
+      score.par > 7 ||
       typeof score.strokeIndex !== 'number' ||
       !Number.isInteger(score.strokeIndex) ||
       score.strokeIndex < 1 ||
       score.strokeIndex > HOLES_IN_ROUND ||
       typeof score.strokesTaken !== 'number' ||
       !Number.isInteger(score.strokesTaken) ||
-      score.strokesTaken <= 0
+      score.strokesTaken <= 0 ||
+      (score.yardage !== undefined &&
+        (typeof score.yardage !== 'number' ||
+          !Number.isInteger(score.yardage) ||
+          score.yardage <= 0))
     ) {
       return null
     }
@@ -120,6 +125,9 @@ function getHoleScores(value: unknown): RoundHoleInput[] | null | undefined {
       par: score.par,
       strokeIndex: score.strokeIndex,
       strokesTaken: score.strokesTaken,
+      ...(typeof score.yardage === 'number'
+        ? { yardage: score.yardage }
+        : {}),
     })
   }
 
@@ -170,7 +178,6 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   const grossScore = value.grossScore
 
   if (
-    holeScores &&
     holeScores.reduce((total, hole) => total + hole.strokesTaken, 0) !==
       grossScore
   ) {
@@ -184,7 +191,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     grossScore,
     weatherCondition,
     pccAdjustment,
-    ...(holeScores ? { holeScores } : {}),
+    holeScores,
   }
 }
 
@@ -198,9 +205,25 @@ export async function logRound(input: LogRoundInput) {
       transaction.tee.findUnique({
         where: { id: input.teeId },
         select: {
+          teeName: true,
           courseRating: true,
           slopeRating: true,
           par: true,
+          holes: {
+            orderBy: { holeNumber: 'asc' },
+            select: {
+              holeNumber: true,
+              par: true,
+              strokeIndex: true,
+              yardage: true,
+            },
+          },
+          course: {
+            select: {
+              name: true,
+              club: { select: { name: true } },
+            },
+          },
         },
       }),
     ])
@@ -216,9 +239,28 @@ export async function logRound(input: LogRoundInput) {
     const courseRating = Number(tee.courseRating)
     const currentHandicapIndex =
       user.handicapIndex === null ? null : Number(user.handicapIndex)
+    const hasSavedScorecard = isCompleteScorecard(tee.holes ?? [])
+    const effectiveHoleScores = input.holeScores.map((submittedHole) => {
+      const savedHole = hasSavedScorecard
+        ? tee.holes?.find(
+            (hole) => hole.holeNumber === submittedHole.holeNumber,
+          )
+        : undefined
+
+      return {
+        holeNumber: submittedHole.holeNumber,
+        par: savedHole?.par ?? submittedHole.par,
+        strokeIndex: savedHole?.strokeIndex ?? submittedHole.strokeIndex,
+        strokesTaken: submittedHole.strokesTaken,
+        ...(savedHole?.yardage ?? submittedHole.yardage
+          ? { yardage: savedHole?.yardage ?? submittedHole.yardage }
+          : {}),
+      }
+    })
+    const manualReviewRequired = !hasSavedScorecard
     const coursePar =
       tee.par ??
-      input.holeScores?.reduce((total, hole) => total + hole.par, 0)
+      effectiveHoleScores.reduce((total, hole) => total + hole.par, 0)
     const courseHandicap =
       currentHandicapIndex === null || coursePar === undefined
         ? null
@@ -228,7 +270,7 @@ export async function logRound(input: LogRoundInput) {
             courseRating,
             par: coursePar,
           })
-    const adjustedHoleScores = input.holeScores?.map((hole) => ({
+    const adjustedHoleScores = effectiveHoleScores.map((hole) => ({
       par: hole.par,
       strokesTaken: hole.strokesTaken,
       handicapStrokesReceived:
@@ -250,7 +292,9 @@ export async function logRound(input: LogRoundInput) {
       slopeRating: tee.slopeRating,
       pccAdjustment: input.pccAdjustment,
     })
-    const isAcceptable = ROUND_ACCEPTABILITY_RULES.loggedRoundIsAcceptable
+    const isAcceptable =
+      ROUND_ACCEPTABILITY_RULES.loggedRoundIsAcceptable &&
+      !manualReviewRequired
 
     const createdRound = await transaction.round.create({
       data: {
@@ -264,10 +308,37 @@ export async function logRound(input: LogRoundInput) {
         pccAdjustment: input.pccAdjustment,
         scoreDifferential,
         isAcceptable,
-        ...(input.holeScores
+        scorecardStatus: manualReviewRequired
+          ? RoundScorecardStatus.PENDING_REVIEW
+          : RoundScorecardStatus.VERIFIED,
+        holeScores: {
+          create: effectiveHoleScores.map(
+            ({ yardage: _yardage, ...hole }) => hole,
+          ),
+        },
+        ...(manualReviewRequired
           ? {
-              holeScores: {
-                create: input.holeScores,
+              scorecardReview: {
+                create: {
+                  tee: { connect: { id: input.teeId } },
+                  submission: {
+                    create: {
+                      userId: input.userId,
+                      type: SubmissionType.SCORECARD_REVIEW,
+                      subject: `Scorecard review: ${tee.course?.name ?? tee.teeName}`,
+                      message:
+                        'Player-entered hole pars and stroke indexes require administrator approval before this round can count towards the Handicap Index.',
+                      clubName: tee.course?.club.name,
+                      courseName: tee.course?.name,
+                      teeDetails: tee.teeName,
+                    },
+                  },
+                  holes: {
+                    create: effectiveHoleScores.map(
+                      ({ strokesTaken: _strokesTaken, ...hole }) => hole,
+                    ),
+                  },
+                },
               },
             }
           : {}),

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
 import AdminSubmissionQueue from './AdminSubmissionQueue.tsx'
+import AdminScorecardReviews from './AdminScorecardReviews.tsx'
 import {
   buildAdminUsersPath,
   isAdminOverview,
@@ -272,6 +273,8 @@ function AdminPortal({ administratorName }: AdminPortalProps) {
       ) : null}
 
       <AdminSubmissionQueue />
+
+      <AdminScorecardReviews />
 
       <section className="admin-panel admin-directory" aria-labelledby="player-directory-title">
         <div className="admin-panel-heading admin-directory-heading">

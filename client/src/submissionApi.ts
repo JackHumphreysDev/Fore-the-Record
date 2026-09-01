@@ -3,7 +3,12 @@ export const SUBMISSION_TYPES = [
   'ISSUE',
   'DATA_CORRECTION',
   'MISSING_COURSE',
+  'SCORECARD_REVIEW',
 ] as const
+
+export const PLAYER_SUBMISSION_TYPES = SUBMISSION_TYPES.filter(
+  (type) => type !== 'SCORECARD_REVIEW',
+)
 
 export const SUBMISSION_STATUSES = [
   'NEW',
@@ -20,6 +25,7 @@ export const SUBMISSION_TYPE_LABELS: Record<SubmissionType, string> = {
   ISSUE: 'Problem with the site',
   DATA_CORRECTION: 'Incorrect information',
   MISSING_COURSE: 'Missing golf course',
+  SCORECARD_REVIEW: 'Scorecard review',
 }
 
 export const SUBMISSION_STATUS_LABELS: Record<SubmissionStatus, string> = {

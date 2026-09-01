@@ -13,6 +13,10 @@ import {
   searchCourseProviderClubs,
   type CourseData,
 } from './courseRatings.js'
+import {
+  getProviderTeeScorecard,
+  isCompleteScorecard,
+} from './courseScorecards.js'
 import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
 import {
@@ -23,12 +27,26 @@ import {
   TeeSource,
   type TeeSource as TeeSourceValue,
   UserRole,
+  ScorecardSource,
+  RoundScorecardStatus,
 } from './generated/prisma/enums.js'
 import {
   logRound,
   parseLogRoundInput,
   RoundReferenceNotFoundError,
 } from './rounds.js'
+import {
+  calculateAdjustedGrossScore,
+  calculateCourseHandicap,
+  calculateHandicap,
+  calculateHandicapStrokesReceived,
+  calculateScoreDifferential,
+} from './handicap.js'
+import {
+  parseScorecardReviewDecision,
+  scorecardWasAmended,
+  ScorecardReviewValidationError,
+} from './scorecardReviews.js'
 import {
   parseSubmissionInput,
   SubmissionValidationError,
@@ -185,11 +203,17 @@ type AdminProfile = {
 }
 
 type TeePersistenceData = {
+  externalId?: string
   teeName: string
   courseRating: number
   slopeRating: number
   par?: number
   source: TeeSourceValue
+}
+
+type CoursePersistenceData = {
+  externalId?: string
+  tees: TeePersistenceData[]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -528,6 +552,370 @@ app.get('/api/admin/submissions', async (request, response) => {
     },
   })
 })
+
+app.get('/api/admin/scorecard-reviews', async (_request, response) => {
+  const reviews = await prisma.scorecardReview.findMany({
+    where: {
+      reviewedAt: null,
+      submission: {
+        status: { in: [SubmissionStatus.NEW, SubmissionStatus.IN_PROGRESS] },
+      },
+    },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: {
+      id: true,
+      createdAt: true,
+      submission: {
+        select: {
+          id: true,
+          status: true,
+          user: { select: { id: true, name: true, email: true } },
+        },
+      },
+      tee: {
+        select: {
+          id: true,
+          teeName: true,
+          courseRating: true,
+          slopeRating: true,
+          course: {
+            select: {
+              name: true,
+              club: { select: { name: true } },
+            },
+          },
+        },
+      },
+      round: {
+        select: {
+          id: true,
+          datePlayed: true,
+          grossScore: true,
+          scoreDifferential: true,
+          holeScores: {
+            orderBy: { holeNumber: 'asc' },
+            select: { holeNumber: true, strokesTaken: true },
+          },
+        },
+      },
+      holes: {
+        orderBy: { holeNumber: 'asc' },
+        select: {
+          holeNumber: true,
+          par: true,
+          strokeIndex: true,
+          yardage: true,
+        },
+      },
+    },
+  })
+
+  response.status(200).json({
+    reviews: reviews.map((review) => ({
+      ...review,
+      tee: {
+        ...review.tee,
+        courseRating: Number(review.tee.courseRating),
+      },
+      round: {
+        ...review.round,
+        scoreDifferential: Number(review.round.scoreDifferential),
+      },
+    })),
+  })
+})
+
+app.patch(
+  '/api/admin/scorecard-reviews/:reviewId',
+  async (request, response) => {
+    const reviewId = request.params.reviewId
+
+    if (typeof reviewId !== 'string' || !UUID_PATTERN.test(reviewId)) {
+      response.status(400).json({ error: 'Invalid scorecard review ID' })
+      return
+    }
+
+    let decision
+
+    try {
+      decision = parseScorecardReviewDecision(request.body)
+    } catch (error: unknown) {
+      if (error instanceof ScorecardReviewValidationError) {
+        response.status(400).json({ error: error.message })
+        return
+      }
+
+      throw error
+    }
+
+    const review = await prisma.scorecardReview.findUnique({
+      where: { id: reviewId },
+      select: {
+        id: true,
+        submissionId: true,
+        teeId: true,
+        reviewedAt: true,
+        holes: {
+          orderBy: { holeNumber: 'asc' },
+          select: {
+            holeNumber: true,
+            par: true,
+            strokeIndex: true,
+            yardage: true,
+          },
+        },
+        round: {
+          select: {
+            id: true,
+            userId: true,
+            datePlayed: true,
+            grossScore: true,
+            pccAdjustment: true,
+            user: { select: { handicapIndex: true } },
+            tee: {
+              select: {
+                courseRating: true,
+                slopeRating: true,
+              },
+            },
+            holeScores: {
+              orderBy: { holeNumber: 'asc' },
+              select: { holeNumber: true, strokesTaken: true },
+            },
+          },
+        },
+      },
+    })
+
+    if (!review) {
+      response.status(404).json({ error: 'Scorecard review not found' })
+      return
+    }
+
+    if (review.reviewedAt) {
+      response.status(409).json({ error: 'This scorecard has already been reviewed' })
+      return
+    }
+
+    const administrator = getAdminProfile(response.locals)
+
+    if (decision.action === 'REJECT') {
+      await prisma.$transaction([
+        prisma.round.update({
+          where: { id: review.round.id },
+          data: { scorecardStatus: RoundScorecardStatus.REJECTED },
+        }),
+        prisma.submission.update({
+          where: { id: review.submissionId },
+          data: { status: SubmissionStatus.CLOSED },
+        }),
+        prisma.scorecardReview.update({
+          where: { id: review.id },
+          data: {
+            reviewedById: administrator.id,
+            reviewedAt: new Date(),
+          },
+        }),
+        prisma.adminAuditLog.create({
+          data: {
+            actorUserId: administrator.id,
+            action: 'SCORECARD_REVIEW_REJECTED',
+            targetType: 'ScorecardReview',
+            targetId: review.id,
+          },
+        }),
+      ])
+
+      response.status(200).json({ status: 'rejected' })
+      return
+    }
+
+    if (review.round.holeScores.length !== 18) {
+      response.status(409).json({
+        error: 'The player round does not contain 18 hole scores',
+      })
+      return
+    }
+
+    const currentHandicapIndex =
+      review.round.user.handicapIndex === null
+        ? null
+        : Number(review.round.user.handicapIndex)
+    const approvedPar = decision.holes.reduce(
+      (total, hole) => total + hole.par,
+      0,
+    )
+    const courseRating = Number(review.round.tee.courseRating)
+    const courseHandicap =
+      currentHandicapIndex === null
+        ? null
+        : calculateCourseHandicap({
+            handicapIndex: currentHandicapIndex,
+            slopeRating: review.round.tee.slopeRating,
+            courseRating,
+            par: approvedPar,
+          })
+    const approvedHoleScores = decision.holes.map((hole) => {
+      const playerScore = review.round.holeScores.find(
+        (score) => score.holeNumber === hole.holeNumber,
+      )
+
+      return {
+        ...hole,
+        strokesTaken: playerScore?.strokesTaken ?? 0,
+      }
+    })
+    const { adjustedGrossScore, isCapped } = calculateAdjustedGrossScore({
+      grossScore: review.round.grossScore,
+      holeScores: approvedHoleScores.map((hole) => ({
+        par: hole.par,
+        strokesTaken: hole.strokesTaken,
+        handicapStrokesReceived:
+          courseHandicap === null
+            ? 3
+            : calculateHandicapStrokesReceived(
+                courseHandicap,
+                hole.strokeIndex,
+              ),
+      })),
+    })
+    const scoreDifferential = calculateScoreDifferential({
+      adjustedGrossScore,
+      courseRating,
+      slopeRating: review.round.tee.slopeRating,
+      pccAdjustment: Number(review.round.pccAdjustment),
+    })
+    const recentRounds = await prisma.round.findMany({
+      where: {
+        userId: review.round.userId,
+        OR: [{ isAcceptable: true }, { id: review.round.id }],
+      },
+      orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+      take: 20,
+      select: {
+        id: true,
+        datePlayed: true,
+        scoreDifferential: true,
+        isAcceptable: true,
+      },
+    })
+    const handicapCalculation = calculateHandicap(
+      recentRounds.map((round) =>
+        round.id === review.round.id
+          ? {
+              ...round,
+              scoreDifferential,
+              isAcceptable: true,
+            }
+          : {
+              ...round,
+              scoreDifferential: Number(round.scoreDifferential),
+            },
+      ),
+    )
+    const amended = scorecardWasAmended(review.holes, decision.holes)
+    const allYardages = decision.holes.map((hole) => hole.yardage)
+    const totalYardage = allYardages.every(
+      (yardage): yardage is number => typeof yardage === 'number',
+    )
+      ? allYardages.reduce((total, yardage) => total + yardage, 0)
+      : null
+
+    await prisma.$transaction([
+      prisma.teeHole.deleteMany({ where: { teeId: review.teeId } }),
+      prisma.teeHole.createMany({
+        data: decision.holes.map((hole) => ({
+          teeId: review.teeId,
+          ...hole,
+          source: amended
+            ? ScorecardSource.ADMIN
+            : ScorecardSource.PLAYER_APPROVED,
+        })),
+      }),
+      prisma.tee.update({
+        where: { id: review.teeId },
+        data: {
+          par: approvedPar,
+          ...(totalYardage === null ? {} : { totalYardage }),
+        },
+      }),
+      prisma.holeScore.deleteMany({ where: { roundId: review.round.id } }),
+      prisma.holeScore.createMany({
+        data: approvedHoleScores.map((hole) => ({
+          roundId: review.round.id,
+          holeNumber: hole.holeNumber,
+          par: hole.par,
+          strokeIndex: hole.strokeIndex,
+          strokesTaken: hole.strokesTaken,
+        })),
+      }),
+      prisma.round.update({
+        where: { id: review.round.id },
+        data: {
+          adjustedGrossScore,
+          isCapped,
+          scoreDifferential,
+          isAcceptable: true,
+          scorecardStatus: RoundScorecardStatus.VERIFIED,
+        },
+      }),
+      prisma.round.updateMany({
+        where: {
+          userId: review.round.userId,
+          usedInHandicapCalc: true,
+        },
+        data: { usedInHandicapCalc: false },
+      }),
+      ...(handicapCalculation.usedRoundIds.length > 0
+        ? [
+            prisma.round.updateMany({
+              where: { id: { in: handicapCalculation.usedRoundIds } },
+              data: { usedInHandicapCalc: true },
+            }),
+          ]
+        : []),
+      prisma.user.update({
+        where: { id: review.round.userId },
+        data: { handicapIndex: handicapCalculation.handicapIndex },
+      }),
+      prisma.submission.update({
+        where: { id: review.submissionId },
+        data: { status: SubmissionStatus.RESOLVED },
+      }),
+      prisma.scorecardReview.update({
+        where: { id: review.id },
+        data: {
+          reviewedById: administrator.id,
+          reviewedAt: new Date(),
+        },
+      }),
+      prisma.adminAuditLog.create({
+        data: {
+          actorUserId: administrator.id,
+          action: amended
+            ? 'SCORECARD_REVIEW_AMENDED_AND_APPROVED'
+            : 'SCORECARD_REVIEW_APPROVED',
+          targetType: 'ScorecardReview',
+          targetId: review.id,
+          before: { scorecardStatus: RoundScorecardStatus.PENDING_REVIEW },
+          after: {
+            scorecardStatus: RoundScorecardStatus.VERIFIED,
+            adjustedGrossScore,
+            scoreDifferential,
+          },
+        },
+      }),
+    ])
+
+    response.status(200).json({
+      status: 'approved',
+      amended,
+      handicapIndex: handicapCalculation.handicapIndex,
+      adjustedGrossScore,
+      scoreDifferential,
+    })
+  },
+)
 
 app.get(
   '/api/admin/submissions/:submissionId/messages',
@@ -891,7 +1279,17 @@ app.get('/api/users/me/rounds', async (_request, response) => {
           scoreDifferential: true,
           isAcceptable: true,
           usedInHandicapCalc: true,
+          scorecardStatus: true,
           createdAt: true,
+          holeScores: {
+            orderBy: { holeNumber: 'asc' },
+            select: {
+              holeNumber: true,
+              par: true,
+              strokeIndex: true,
+              strokesTaken: true,
+            },
+          },
           tee: {
             select: {
               id: true,
@@ -1195,6 +1593,162 @@ app.get('/api/courses', async (_request, response) => {
   )
 })
 
+app.get('/api/tees/:teeId/scorecard', async (request, response) => {
+  const teeId = request.params.teeId
+
+  if (typeof teeId !== 'string' || !UUID_PATTERN.test(teeId)) {
+    response.status(400).json({ error: 'Invalid tee ID' })
+    return
+  }
+
+  const tee = await prisma.tee.findUnique({
+    where: { id: teeId },
+    select: {
+      id: true,
+      externalId: true,
+      teeName: true,
+      courseRating: true,
+      slopeRating: true,
+      course: {
+        select: {
+          id: true,
+          externalId: true,
+          name: true,
+          club: {
+            select: {
+              id: true,
+              externalId: true,
+              name: true,
+            },
+          },
+        },
+      },
+      holes: {
+        orderBy: { holeNumber: 'asc' },
+        select: {
+          holeNumber: true,
+          par: true,
+          strokeIndex: true,
+          yardage: true,
+        },
+      },
+    },
+  })
+
+  if (!tee) {
+    response.status(404).json({ error: 'Tee not found' })
+    return
+  }
+
+  if (isCompleteScorecard(tee.holes)) {
+    response.status(200).json({
+      status: 'available',
+      source: 'saved',
+      holes: tee.holes,
+    })
+    return
+  }
+
+  let courseExternalId = tee.course.externalId
+  let teeExternalId = tee.externalId
+
+  if (!courseExternalId) {
+    const providerClub = tee.course.club.externalId
+      ? {
+          id: tee.course.club.externalId,
+          name: tee.course.club.name,
+        }
+      : findBestClubNameMatch(
+          await searchCourseProviderClubs(tee.course.club.name),
+          tee.course.club.name,
+        )
+    const providerCourseData = providerClub
+      ? await getProviderClubCourseRatings(providerClub)
+      : null
+    const providerTee = providerCourseData?.tees.find((candidate) => {
+      const candidateCourseName =
+        candidate.courseName ?? providerCourseData.clubName
+
+      return (
+        typeof candidate.courseExternalId === 'string' &&
+        normalizeLabel(candidateCourseName) ===
+          normalizeLabel(tee.course.name) &&
+        normalizeLabel(candidate.teeName) === normalizeLabel(tee.teeName) &&
+        Math.abs(candidate.courseRating - Number(tee.courseRating)) < 0.001 &&
+        candidate.slopeRating === tee.slopeRating
+      )
+    })
+
+    if (providerClub && providerTee?.courseExternalId) {
+      courseExternalId = providerTee.courseExternalId
+      teeExternalId = providerTee.teeExternalId ?? teeExternalId
+
+      await prisma.$transaction([
+        prisma.course.update({
+          where: { id: tee.course.id },
+          data: { externalId: courseExternalId },
+        }),
+        ...(!tee.course.club.externalId
+          ? [
+              prisma.club.update({
+                where: { id: tee.course.club.id },
+                data: { externalId: providerClub.id },
+              }),
+            ]
+          : []),
+        ...(!tee.externalId && teeExternalId
+          ? [
+              prisma.tee.update({
+                where: { id: tee.id },
+                data: { externalId: teeExternalId },
+              }),
+            ]
+          : []),
+      ])
+    }
+  }
+
+  if (!courseExternalId) {
+    response.status(200).json({ status: 'manual_required', holes: [] })
+    return
+  }
+
+  const providerScorecard = await getProviderTeeScorecard(
+    courseExternalId,
+    {
+      externalId: teeExternalId,
+      teeName: tee.teeName,
+      courseRating: Number(tee.courseRating),
+      slopeRating: tee.slopeRating,
+    },
+  )
+
+  if (!providerScorecard) {
+    response.status(200).json({ status: 'manual_required', holes: [] })
+    return
+  }
+
+  await prisma.$transaction([
+    prisma.teeHole.deleteMany({ where: { teeId } }),
+    prisma.teeHole.createMany({
+      data: providerScorecard.holes.map((hole) => ({
+        teeId,
+        ...hole,
+        source: ScorecardSource.API,
+      })),
+    }),
+  ])
+
+  response.status(200).json({
+    status: 'available',
+    source: 'provider',
+    holes: providerScorecard.holes.map((hole) => ({
+      ...hole,
+      yardage: hole.yardage ?? null,
+    })),
+  })
+})
+
 app.get('/api/courses/provider/clubs', async (request, response) => {
   const query = request.query.q
 
@@ -1279,10 +1833,17 @@ app.get('/api/courses/search', async (request, response) => {
   const savedCourseData: CourseData | null =
     localClub && firstLocalTee
       ? {
+          ...(localClub.externalId
+            ? { clubExternalId: localClub.externalId }
+            : {}),
           clubName: localClub.name,
           source: COURSE_DATA_SOURCE_BY_TEE_SOURCE[firstLocalTee.source],
           tees: localClub.courses.flatMap((course) =>
             course.tees.map((tee) => ({
+              ...(course.externalId
+                ? { courseExternalId: course.externalId }
+                : {}),
+              ...(tee.externalId ? { teeExternalId: tee.externalId } : {}),
               courseName: course.name,
               teeName: tee.teeName,
               courseRating: Number(tee.courseRating),
@@ -1314,6 +1875,7 @@ app.post('/api/courses', async (request, response) => {
   }
 
   const clubName = body.clubName
+  const clubExternalId = body.clubExternalId
   const source = getTeeSource(body.source)
   const tees = body.tees
 
@@ -1321,6 +1883,9 @@ app.post('/api/courses', async (request, response) => {
     typeof clubName !== 'string' ||
     clubName.trim() === '' ||
     !source ||
+    (clubExternalId !== undefined &&
+      (typeof clubExternalId !== 'string' ||
+        !UUID_PATTERN.test(clubExternalId))) ||
     !Array.isArray(tees) ||
     tees.length === 0
   ) {
@@ -1328,7 +1893,7 @@ app.post('/api/courses', async (request, response) => {
     return
   }
 
-  const coursesByName = new Map<string, TeePersistenceData[]>()
+  const coursesByName = new Map<string, CoursePersistenceData>()
 
   for (const tee of tees) {
     if (
@@ -1337,6 +1902,12 @@ app.post('/api/courses', async (request, response) => {
       tee.courseName.trim() === '' ||
       typeof tee.teeName !== 'string' ||
       tee.teeName.trim() === '' ||
+      (tee.courseExternalId !== undefined &&
+        (typeof tee.courseExternalId !== 'string' ||
+          !UUID_PATTERN.test(tee.courseExternalId))) ||
+      (tee.teeExternalId !== undefined &&
+        (typeof tee.teeExternalId !== 'string' ||
+          !UUID_PATTERN.test(tee.teeExternalId))) ||
       typeof tee.courseRating !== 'number' ||
       !Number.isFinite(tee.courseRating) ||
       typeof tee.slopeRating !== 'number' ||
@@ -1349,16 +1920,22 @@ app.post('/api/courses', async (request, response) => {
     }
 
     const courseName = tee.courseName.trim()
-    const courseTees = coursesByName.get(courseName) ?? []
+    const courseData = coursesByName.get(courseName) ?? { tees: [] }
 
-    courseTees.push({
+    courseData.tees.push({
+      ...(typeof tee.teeExternalId === 'string'
+        ? { externalId: tee.teeExternalId }
+        : {}),
       teeName: tee.teeName.trim(),
       courseRating: tee.courseRating,
       slopeRating: tee.slopeRating,
       ...(typeof tee.par === 'number' ? { par: tee.par } : {}),
       source,
     })
-    coursesByName.set(courseName, courseTees)
+    if (typeof tee.courseExternalId === 'string') {
+      courseData.externalId = tee.courseExternalId
+    }
+    coursesByName.set(courseName, courseData)
   }
 
   const normalizedClubName = clubName.trim()
@@ -1381,18 +1958,24 @@ app.post('/api/courses', async (request, response) => {
   if (existingClub) {
     const coursesToCreate: Array<{
       name: string
+      externalId?: string
       tees: { create: TeePersistenceData[] }
     }> = []
     const coursesToUpdate: Array<{
       where: { id: string }
       data: {
+        externalId?: string
         tees: {
           create: TeePersistenceData[]
+          update?: Array<{
+            where: { id: string }
+            data: { externalId: string }
+          }>
         }
       }
     }> = []
 
-    for (const [courseName, courseTees] of coursesByName) {
+    for (const [courseName, courseData] of coursesByName) {
       const existingCourse = existingClub.courses.find(
         (course) => normalizeLabel(course.name) === normalizeLabel(courseName),
       )
@@ -1400,7 +1983,10 @@ app.post('/api/courses', async (request, response) => {
       if (!existingCourse) {
         coursesToCreate.push({
           name: courseName,
-          tees: { create: courseTees },
+          ...(courseData.externalId
+            ? { externalId: courseData.externalId }
+            : {}),
+          tees: { create: courseData.tees },
         })
         continue
       }
@@ -1408,21 +1994,57 @@ app.post('/api/courses', async (request, response) => {
       const savedTeeKeys = new Set(
         existingCourse.tees.map((tee) => getTeePersistenceKey(tee)),
       )
-      const newTees = courseTees.filter(
+      const newTees = courseData.tees.filter(
         (tee) => !savedTeeKeys.has(getTeePersistenceKey(tee)),
       )
+      const teesToUpdate = courseData.tees.flatMap((tee) => {
+        if (!tee.externalId) {
+          return []
+        }
 
-      if (newTees.length > 0) {
+        const savedTee = existingCourse.tees.find(
+          (candidate) =>
+            getTeePersistenceKey(candidate) === getTeePersistenceKey(tee),
+        )
+
+        return savedTee && !savedTee.externalId
+          ? [
+              {
+                where: { id: savedTee.id },
+                data: { externalId: tee.externalId },
+              },
+            ]
+          : []
+      })
+
+      if (
+        newTees.length > 0 ||
+        teesToUpdate.length > 0 ||
+        (courseData.externalId && !existingCourse.externalId)
+      ) {
         coursesToUpdate.push({
           where: { id: existingCourse.id },
           data: {
-            tees: { create: newTees },
+            ...(courseData.externalId && !existingCourse.externalId
+              ? { externalId: courseData.externalId }
+              : {}),
+            tees: {
+              create: newTees,
+              ...(teesToUpdate.length > 0 ? { update: teesToUpdate } : {}),
+            },
           },
         })
       }
     }
 
-    if (coursesToCreate.length === 0 && coursesToUpdate.length === 0) {
+    const shouldAddClubExternalId =
+      typeof clubExternalId === 'string' && !existingClub.externalId
+
+    if (
+      coursesToCreate.length === 0 &&
+      coursesToUpdate.length === 0 &&
+      !shouldAddClubExternalId
+    ) {
       response.status(200).json(existingClub)
       return
     }
@@ -1430,6 +2052,7 @@ app.post('/api/courses', async (request, response) => {
     const updatedClub = await prisma.club.update({
       where: { id: existingClub.id },
       data: {
+        ...(shouldAddClubExternalId ? { externalId: clubExternalId } : {}),
         courses: {
           create: coursesToCreate,
           update: coursesToUpdate,
@@ -1450,12 +2073,18 @@ app.post('/api/courses', async (request, response) => {
 
   const club = await prisma.club.create({
     data: {
+      ...(typeof clubExternalId === 'string'
+        ? { externalId: clubExternalId }
+        : {}),
       name: normalizedClubName,
       courses: {
-        create: [...coursesByName].map(([courseName, courseTees]) => ({
+        create: [...coursesByName].map(([courseName, courseData]) => ({
           name: courseName,
+          ...(courseData.externalId
+            ? { externalId: courseData.externalId }
+            : {}),
           tees: {
-            create: courseTees,
+            create: courseData.tees,
           },
         })),
       },

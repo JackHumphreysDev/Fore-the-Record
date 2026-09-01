@@ -69,6 +69,8 @@ export type ProviderClubSearchResponse = {
 }
 
 export type ProviderCourseTee = {
+  courseExternalId?: string
+  teeExternalId?: string
   courseName?: string
   teeName: string
   courseRating: number
@@ -78,15 +80,19 @@ export type ProviderCourseTee = {
 }
 
 export type ProviderCourseSearchResult = {
+  clubExternalId?: string
   clubName: string
   source: ProviderCourseSource
   tees: ProviderCourseTee[]
 }
 
 export type ProviderCourseImportBody = {
+  clubExternalId?: string
   clubName: string
   source: ProviderCourseSource
   tees: Array<{
+    courseExternalId?: string
+    teeExternalId?: string
     courseName: string
     teeName: string
     courseRating: number
@@ -192,6 +198,10 @@ function isProviderClubCandidate(
 function isProviderCourseTee(value: unknown): value is ProviderCourseTee {
   return (
     isRecord(value) &&
+    (value.courseExternalId === undefined ||
+      typeof value.courseExternalId === 'string') &&
+    (value.teeExternalId === undefined ||
+      typeof value.teeExternalId === 'string') &&
     (value.courseName === undefined || typeof value.courseName === 'string') &&
     typeof value.teeName === 'string' &&
     typeof value.courseRating === 'number' &&
@@ -229,6 +239,8 @@ export function isProviderCourseSearchResult(
 ): value is ProviderCourseSearchResult {
   return (
     isRecord(value) &&
+    (value.clubExternalId === undefined ||
+      typeof value.clubExternalId === 'string') &&
     typeof value.clubName === 'string' &&
     value.clubName.trim() !== '' &&
     isProviderCourseSource(value.source) &&
@@ -317,11 +329,17 @@ export function buildProviderCourseImportBody(
   result: ProviderCourseSearchResult,
 ): ProviderCourseImportBody {
   return {
+    ...(result.clubExternalId
+      ? { clubExternalId: result.clubExternalId }
+      : {}),
     clubName: result.clubName,
     source: result.source,
     tees: result.tees
-      .filter((tee) => !tee.isSaved)
       .map((tee) => ({
+        ...(tee.courseExternalId
+          ? { courseExternalId: tee.courseExternalId }
+          : {}),
+        ...(tee.teeExternalId ? { teeExternalId: tee.teeExternalId } : {}),
         courseName: tee.courseName?.trim() || result.clubName,
         teeName: tee.teeName,
         courseRating: tee.courseRating,
