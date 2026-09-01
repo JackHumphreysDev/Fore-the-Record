@@ -1,59 +1,34 @@
 import { useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
+import {
+  buildCatalogueCoursesPath,
+  buildProviderClubCoursesPath,
+  buildProviderClubsSearchPath,
+  buildProviderCourseImportBody,
+  getProviderCourseSearchQuery,
+  isCatalogueCoursesResponse,
+  isProviderClubSearchResponse,
+  isProviderCourseSearchResult,
+  type CatalogueCourse,
+  type CatalogueCoursesResponse,
+  type ProviderClubCandidate,
+  type ProviderCourseSearchResult,
+} from './courseCatalogueApi.ts'
 import './CourseSearch.css'
 
-type CourseSource = 'api' | 'fallback_scrape' | 'manual'
-
-type CourseTee = {
-  courseName?: string
-  teeName: string
-  courseRating: number
-  slopeRating: number
-  par?: number
-  isSaved: boolean
+type CourseSearchProps = {
+  onReportMissingCourse: () => void
 }
 
-type CourseSearchResult = {
-  clubName: string
-  source: CourseSource
-  tees: CourseTee[]
+type SearchFilters = {
+  club: string
+  course: string
 }
 
-type CourseGroup = {
-  courseName: string
-  tees: Array<{ index: number; tee: CourseTee }>
-}
-
-const SOURCE_LABELS: Record<CourseSource, string> = {
-  api: 'UK Golf API',
-  fallback_scrape: 'Club website',
-  manual: 'Saved manually',
-}
+const PAGE_SIZE = 10
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
-}
-
-function isCourseSearchResult(value: unknown): value is CourseSearchResult {
-  if (
-    !isRecord(value) ||
-    typeof value.clubName !== 'string' ||
-    !['api', 'fallback_scrape', 'manual'].includes(String(value.source)) ||
-    !Array.isArray(value.tees)
-  ) {
-    return false
-  }
-
-  return value.tees.every(
-    (tee) =>
-      isRecord(tee) &&
-      (tee.courseName === undefined || typeof tee.courseName === 'string') &&
-      typeof tee.teeName === 'string' &&
-      typeof tee.courseRating === 'number' &&
-      typeof tee.slopeRating === 'number' &&
-      (tee.par === undefined || typeof tee.par === 'number') &&
-      typeof tee.isSaved === 'boolean',
-  )
 }
 
 async function readApiError(
@@ -62,204 +37,267 @@ async function readApiError(
 ): Promise<string> {
   const body: unknown = await response.json().catch(() => null)
 
-  if (isRecord(body) && 'error' in body && typeof body.error === 'string') {
-    return body.error
+  return isRecord(body) && typeof body.error === 'string'
+    ? body.error
+    : fallbackMessage
+}
+
+function formatLocation(course: CatalogueCourse): string {
+  return [course.club.city, course.club.county].filter(Boolean).join(', ')
+}
+
+function summarizeProviderCourses(result: ProviderCourseSearchResult) {
+  const courses = new Map<string, number>()
+
+  for (const tee of result.tees) {
+    const courseName = tee.courseName?.trim() || result.clubName
+    courses.set(courseName, (courses.get(courseName) ?? 0) + 1)
   }
 
-  return fallbackMessage
+  return [...courses].map(([name, teeCount]) => ({ name, teeCount }))
 }
 
-function getCourseGroups(result: CourseSearchResult): CourseGroup[] {
-  const groups = new Map<string, CourseGroup['tees']>()
-
-  result.tees.forEach((tee, index) => {
-    // Fallback sources do not always identify a separate course name. The
-    // displayed club name is also the confirmed persistence label in that case.
-    const courseName = tee.courseName?.trim() || result.clubName
-    const courseTees = groups.get(courseName) ?? []
-
-    courseTees.push({ index, tee })
-    groups.set(courseName, courseTees)
-  })
-
-  return [...groups].map(([courseName, tees]) => ({ courseName, tees }))
-}
-
-function CourseSearch() {
-  const [query, setQuery] = useState('')
-  const [queryError, setQueryError] = useState('')
-  const [result, setResult] = useState<CourseSearchResult | null>(null)
-  const [selectedTeeIndexes, setSelectedTeeIndexes] = useState<Set<number>>(
-    new Set(),
+function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
+  const [club, setClub] = useState('')
+  const [course, setCourse] = useState('')
+  const [appliedFilters, setAppliedFilters] = useState<SearchFilters | null>(
+    null,
   )
-  const [searchMessage, setSearchMessage] = useState('')
+  const [response, setResponse] = useState<CatalogueCoursesResponse | null>(
+    null,
+  )
+  const [fieldError, setFieldError] = useState('')
+  const [searchError, setSearchError] = useState('')
   const [isSearching, setIsSearching] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
+  const [providerResult, setProviderResult] =
+    useState<ProviderCourseSearchResult | null>(null)
+  const [providerClubs, setProviderClubs] = useState<ProviderClubCandidate[]>(
+    [],
+  )
+  const [providerError, setProviderError] = useState('')
+  const [providerNotice, setProviderNotice] = useState('')
+  const [isProviderSearching, setIsProviderSearching] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
 
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    const clubName = query.trim()
-
-    if (clubName === '') {
-      setQueryError('Enter a golf club name')
-      return
-    }
-
-    setQueryError('')
-    setSearchMessage('')
-    setSaveError('')
-    setResult(null)
+  async function searchCatalogue(
+    filters: SearchFilters,
+    page: number,
+    checkProviderOnMiss = false,
+  ) {
     setIsSearching(true)
+    setSearchError('')
 
     try {
-      const response = await authenticatedFetch(
-        `/api/courses/search?q=${encodeURIComponent(clubName)}`,
+      const apiResponse = await authenticatedFetch(
+        buildCatalogueCoursesPath({ ...filters, page, pageSize: PAGE_SIZE }),
       )
 
-      if (response.status === 404) {
-        setSearchMessage(
-          `We could not find rated tees for “${clubName}”. Try a different spelling or a longer name.`,
-        )
-        return
-      }
-
-      if (!response.ok) {
+      if (!apiResponse.ok) {
         throw new Error(
           await readApiError(
-            response,
-            'We could not search for courses. Please try again.',
+            apiResponse,
+            'We could not search the course catalogue. Please try again.',
           ),
         )
       }
 
-      const body: unknown = await response.json()
+      const body: unknown = await apiResponse.json()
 
-      if (!isCourseSearchResult(body) || body.tees.length === 0) {
-        throw new Error('The course data returned was incomplete. Try again.')
+      if (!isCatalogueCoursesResponse(body)) {
+        throw new Error('The course search results returned were incomplete.')
       }
 
-      setResult(body)
-      setSelectedTeeIndexes(
-        new Set(
-          body.tees.flatMap((tee, index) => (tee.isSaved ? [] : [index])),
-        ),
-      )
+      setAppliedFilters(filters)
+      setResponse(body)
+
+      if (checkProviderOnMiss && body.courses.length === 0) {
+        await searchProvider(getProviderCourseSearchQuery(filters))
+      }
     } catch (error: unknown) {
-      setSearchMessage(
+      setResponse(null)
+      setSearchError(
         error instanceof TypeError
           ? 'We could not reach the server. Check your connection and try again.'
           : error instanceof Error
             ? error.message
-            : 'We could not search for courses. Please try again.',
+            : 'We could not search the course catalogue. Please try again.',
       )
     } finally {
       setIsSearching(false)
     }
   }
 
-  function toggleTee(index: number) {
-    setSelectedTeeIndexes((current) => {
-      const next = new Set(current)
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const filters = { club: club.trim(), course: course.trim() }
 
-      if (next.has(index)) {
-        next.delete(index)
-      } else {
-        next.add(index)
-      }
+    if (!filters.club && !filters.course) {
+      setFieldError('Enter a club name, a course name, or both')
+      return
+    }
 
-      return next
-    })
-    setSaveError('')
+    setFieldError('')
+    setProviderClubs([])
+    setProviderResult(null)
+    setProviderError('')
+    setProviderNotice('')
+    void searchCatalogue(filters, 1, true)
   }
 
-  async function saveSelectedTees() {
-    if (!result) {
-      return
-    }
-
-    const teeIndexesToSave = new Set(selectedTeeIndexes)
-    const selectedTees = result.tees.filter(
-      (tee, index) => teeIndexesToSave.has(index) && !tee.isSaved,
-    )
-
-    if (selectedTees.length === 0) {
-      setSaveError('Select at least one tee to save')
-      return
-    }
-
-    setIsSaving(true)
-    setSaveError('')
+  async function searchProvider(providerQuery: string) {
+    setIsProviderSearching(true)
+    setProviderError('')
+    setProviderNotice('')
 
     try {
-      const response = await authenticatedFetch('/api/courses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clubName: result.clubName,
-          source: result.source,
-          tees: selectedTees.map((tee) => ({
-            courseName: tee.courseName?.trim() || result.clubName,
-            teeName: tee.teeName,
-            courseRating: tee.courseRating,
-            slopeRating: tee.slopeRating,
-            ...(tee.par === undefined ? {} : { par: tee.par }),
-          })),
-        }),
-      })
+      const apiResponse = await authenticatedFetch(
+        buildProviderClubsSearchPath(providerQuery),
+      )
 
-      if (!response.ok) {
+      if (!apiResponse.ok) {
         throw new Error(
           await readApiError(
-            response,
-            'We could not save this course. Please try again.',
+            apiResponse,
+            'The provider club search could not be completed.',
           ),
         )
       }
 
-      setResult((currentResult) =>
-        currentResult
-          ? {
-              ...currentResult,
-              tees: currentResult.tees.map((tee, index) =>
-                teeIndexesToSave.has(index)
-                  ? { ...tee, isSaved: true }
-                  : tee,
-              ),
-            }
-          : currentResult,
+      const body: unknown = await apiResponse.json()
+
+      if (!isProviderClubSearchResponse(body)) {
+        throw new Error('The provider returned incomplete club details.')
+      }
+
+      if (body.clubs.length === 0) {
+        throw new Error('The provider did not return a matching club.')
+      }
+
+      if (body.clubs.length === 1) {
+        await loadProviderClub(body.clubs[0])
+      } else {
+        setProviderClubs(body.clubs)
+      }
+    } catch (error: unknown) {
+      setProviderClubs([])
+      setProviderResult(null)
+      setProviderError(
+        error instanceof TypeError
+          ? 'We could not reach the provider. Check your connection and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'The provider club search could not be completed.',
       )
-      setSelectedTeeIndexes(
-        (currentIndexes) =>
-          new Set(
-            [...currentIndexes].filter(
-              (index) => !teeIndexesToSave.has(index),
-            ),
+    } finally {
+      setIsProviderSearching(false)
+    }
+  }
+
+  async function loadProviderClub(providerClub: ProviderClubCandidate) {
+    setIsProviderSearching(true)
+    setProviderError('')
+
+    try {
+      const apiResponse = await authenticatedFetch(
+        buildProviderClubCoursesPath(providerClub),
+      )
+
+      if (!apiResponse.ok) {
+        throw new Error(
+          await readApiError(
+            apiResponse,
+            'The provider could not find rated tees for that club.',
           ),
+        )
+      }
+
+      const body: unknown = await apiResponse.json()
+
+      if (!isProviderCourseSearchResult(body)) {
+        throw new Error('The provider returned incomplete course details.')
+      }
+
+      setProviderClubs([])
+      setProviderResult(body)
+    } catch (error: unknown) {
+      setProviderResult(null)
+      setProviderError(
+        error instanceof TypeError
+          ? 'We could not reach the provider. Check your connection and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'The provider could not find rated tees for that club.',
+      )
+    } finally {
+      setIsProviderSearching(false)
+    }
+  }
+
+  async function importProviderClub() {
+    if (!providerResult) {
+      return
+    }
+
+    const importBody = buildProviderCourseImportBody(providerResult)
+
+    if (importBody.tees.length === 0) {
+      setProviderResult(null)
+      setCourse('')
+      await searchCatalogue({ club: providerResult.clubName, course: '' }, 1)
+      setProviderNotice('This club was already in the saved catalogue.')
+      return
+    }
+
+    setIsImporting(true)
+    setProviderError('')
+
+    try {
+      const apiResponse = await authenticatedFetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(importBody),
+      })
+
+      if (!apiResponse.ok) {
+        throw new Error(
+          await readApiError(
+            apiResponse,
+            'We found the club but could not add it to the catalogue.',
+          ),
+        )
+      }
+
+      const importedTeeCount = importBody.tees.length
+      const filters = { club: providerResult.clubName, course: '' }
+
+      setClub(providerResult.clubName)
+      setCourse('')
+      setProviderClubs([])
+      setProviderResult(null)
+      await searchCatalogue(filters, 1)
+      setProviderNotice(
+        `${importedTeeCount} ${importedTeeCount === 1 ? 'tee was' : 'tees were'} added to the catalogue. Future searches will use the saved data.`,
       )
     } catch (error: unknown) {
-      setSaveError(
+      setProviderError(
         error instanceof TypeError
           ? 'We could not reach the server. Check your connection and try again.'
           : error instanceof Error
             ? error.message
-            : 'We could not save this course. Please try again.',
+            : 'We found the club but could not add it to the catalogue.',
       )
     } finally {
-      setIsSaving(false)
+      setIsImporting(false)
     }
   }
 
-  const courseGroups = result ? getCourseGroups(result) : []
-  const selectedTeeCount = selectedTeeIndexes.size
-  const savedTeeCount = result?.tees.filter((tee) => tee.isSaved).length ?? 0
-  const allTeesSaved =
-    result !== null &&
-    result.tees.length > 0 &&
-    savedTeeCount === result.tees.length
+  const pagination = response?.pagination
+  const pageCount = Math.max(pagination?.totalPages ?? 0, 1)
+  const providerCourses = providerResult
+    ? summarizeProviderCourses(providerResult)
+    : []
+  const unsavedProviderTeeCount =
+    providerResult?.tees.filter((tee) => !tee.isSaved).length ?? 0
 
   return (
     <section className="courses-page" id="courses">
@@ -274,43 +312,63 @@ function CourseSearch() {
           </h1>
         </div>
         <p>
-          Search UK clubs for official Course Rating and Slope Rating data,
-          then save the tees you play.
+          Search the saved UK catalogue by club, course, or both. If a club is
+          missing, a one-off provider check can add its available rated tees.
         </p>
       </header>
 
       <form className="course-search-form" onSubmit={handleSearch} noValidate>
-        <label htmlFor="course-query">Golf club name</label>
-        <div className="course-search-control">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="11" cy="11" r="6.5" />
-            <path d="m16 16 4 4" />
-          </svg>
-          <input
-            id="course-query"
-            name="course-query"
-            type="search"
-            autoComplete="off"
-            placeholder="e.g. Sickleholme Golf Club"
-            value={query}
-            aria-invalid={Boolean(queryError)}
-            aria-describedby={queryError ? 'course-query-error' : 'search-tip'}
-            onChange={(event) => {
-              setQuery(event.target.value)
-              setQueryError('')
-            }}
-          />
-          <button type="submit" disabled={isSearching}>
-            {isSearching ? 'Searching…' : 'Search courses'}
+        <div className="course-search-fields">
+          <label>
+            Club search
+            <input
+              type="search"
+              maxLength={100}
+              autoComplete="off"
+              placeholder="e.g. Sickleholme"
+              value={club}
+              aria-invalid={Boolean(fieldError)}
+              onChange={(event) => {
+                setClub(event.target.value)
+                setFieldError('')
+              }}
+            />
+          </label>
+          <label>
+            Course search
+            <input
+              type="search"
+              maxLength={100}
+              autoComplete="off"
+              placeholder="e.g. Old Course"
+              value={course}
+              aria-invalid={Boolean(fieldError)}
+              onChange={(event) => {
+                setCourse(event.target.value)
+                setFieldError('')
+              }}
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={isSearching || isProviderSearching}
+          >
+            {isProviderSearching
+              ? 'Checking provider…'
+              : isSearching
+                ? 'Searching…'
+                : 'Search catalogue'}
           </button>
         </div>
-        {queryError ? (
-          <span className="course-field-error" id="course-query-error">
-            {queryError}
+        {fieldError ? (
+          <span className="course-field-error" role="alert">
+            {fieldError}
           </span>
         ) : (
-          <span className="course-search-tip" id="search-tip">
-            Enter a full or partial club name. The closest match will be shown.
+          <span className="course-search-tip">
+            Partial names work. Saved data is searched first; an unsuccessful
+            search automatically checks provider club names and may use up to
+            two of the site’s 200 monthly requests.
           </span>
         )}
       </form>
@@ -324,19 +382,51 @@ function CourseSearch() {
           </div>
         ) : null}
 
-        {!isSearching && searchMessage ? (
+        {!isSearching && searchError ? (
           <div className="course-state-card course-state-error" role="alert">
             <div className="course-state-icon" aria-hidden="true">
               !
             </div>
             <div>
-              <h2>No course to show yet</h2>
-              <p>{searchMessage}</p>
+              <h2>We couldn’t complete that search.</h2>
+              <p>{searchError}</p>
             </div>
           </div>
         ) : null}
 
-        {!isSearching && !searchMessage && !result ? (
+        {!isSearching &&
+        !searchError &&
+        response?.courses.length === 0 &&
+        providerClubs.length === 0 &&
+        !providerResult ? (
+          <div className="course-state-card course-state-error">
+            <div className="course-state-icon" aria-hidden="true">
+              ?
+            </div>
+            <div>
+              <h2>No matching course found.</h2>
+              <p>
+                We searched saved data and then checked the provider using your
+                entry as a possible club name. Try fewer words or submit the
+                missing details for review.
+              </p>
+              <button
+                className="course-secondary-action"
+                type="button"
+                onClick={onReportMissingCourse}
+              >
+                Submit a missing course
+              </button>
+              {providerError ? (
+                <p className="provider-error" role="alert">
+                  {providerError}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {!isSearching && !searchError && !response ? (
           <div className="course-state-card course-state-idle">
             <div className="course-map-mark" aria-hidden="true">
               <span />
@@ -345,121 +435,272 @@ function CourseSearch() {
               <p className="form-kicker">Ready when you are</p>
               <h2>Your next tee starts here.</h2>
               <p>
-                Results will show every available course and tee, with the
-                numbers needed for an accurate differential.
+                Search by a full or partial club or course name to see matching
+                courses and all of their rated tees.
               </p>
             </div>
           </div>
         ) : null}
 
-        {!isSearching && result ? (
-          <div className="course-results">
-            <header className="course-results-header">
+        {!isSearching && !searchError && response?.courses.length ? (
+          <section
+            className="catalogue-results"
+            aria-labelledby="catalogue-results-title"
+          >
+            <header>
               <div>
-                <div className="course-source">
-                  <span>{SOURCE_LABELS[result.source]}</span>
-                  <span aria-hidden="true">•</span>
-                  <span>
-                    {result.tees.length}{' '}
-                    {result.tees.length === 1 ? 'tee' : 'tees'}
-                  </span>
-                </div>
-                <h2>{result.clubName}</h2>
+                <p className="form-kicker">Catalogue results</p>
+                <h2 id="catalogue-results-title">
+                  {pagination?.total}{' '}
+                  {pagination?.total === 1 ? 'course' : 'courses'} found
+                </h2>
               </div>
-              <span
-                className={allTeesSaved ? 'saved-badge' : 'lookup-badge'}
-              >
-                {allTeesSaved
-                  ? 'Saved'
-                  : savedTeeCount > 0
-                    ? `${savedTeeCount} saved`
-                    : 'Ready to confirm'}
+              <span>
+                Page {pagination?.page} of {pageCount}
               </span>
             </header>
 
-            <div className="course-groups">
-              {courseGroups.map((group) => (
-                <section className="course-group" key={group.courseName}>
-                  <header>
-                    <span aria-hidden="true">18</span>
-                    <div>
-                      <small>Course</small>
-                      <h3>{group.courseName}</h3>
-                    </div>
-                  </header>
+            <div className="catalogue-course-list">
+              {response.courses.map((result) => {
+                const location = formatLocation(result)
 
-                  <div className="tee-list">
-                    {group.tees.map(({ index, tee }) => (
-                      <div className="tee-row" key={`${tee.teeName}-${index}`}>
-                        {!tee.isSaved ? (
-                          <input
-                            type="checkbox"
-                            checked={selectedTeeIndexes.has(index)}
-                            disabled={isSaving}
-                            aria-label={`Select ${tee.teeName} tee`}
-                            onChange={() => toggleTee(index)}
-                          />
-                        ) : (
-                          <span className="saved-check" aria-hidden="true">
-                            ✓
-                          </span>
-                        )}
-                        <span className="tee-name">
-                          <small>Tee</small>
-                          <strong>{tee.teeName}</strong>
-                        </span>
-                        <span className="tee-metric">
-                          <small>Rating</small>
-                          <strong>{tee.courseRating.toFixed(1)}</strong>
-                        </span>
-                        <span className="tee-metric">
-                          <small>Slope</small>
-                          <strong>{tee.slopeRating}</strong>
-                        </span>
-                        <span className="tee-metric">
-                          <small>Par</small>
-                          <strong>{tee.par ?? '—'}</strong>
-                        </span>
+                return (
+                  <article className="catalogue-course" key={result.id}>
+                    <header>
+                      <div>
+                        <p>
+                          {result.club.name}
+                          {location ? ` · ${location}` : ''}
+                        </p>
+                        <h3>{result.name}</h3>
                       </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
+                      <dl>
+                        <div>
+                          <dt>Holes</dt>
+                          <dd>{result.holes ?? '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>Par</dt>
+                          <dd>{result.par ?? '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>Tees</dt>
+                          <dd>{result.tees.length}</dd>
+                        </div>
+                      </dl>
+                    </header>
+
+                    {result.designedBy || result.yearOpened ? (
+                      <p className="catalogue-course-history">
+                        {result.designedBy
+                          ? `Designed by ${result.designedBy}`
+                          : 'Designer not supplied'}
+                        {result.yearOpened
+                          ? ` · Opened ${result.yearOpened}`
+                          : ''}
+                      </p>
+                    ) : null}
+
+                    <div className="catalogue-tee-list">
+                      {result.tees.map((tee) => (
+                        <div className="catalogue-tee" key={tee.id}>
+                          <span>
+                            <small>Tee</small>
+                            <strong>{tee.teeName}</strong>
+                            <em>
+                              {[tee.gender, tee.colour]
+                                .filter(Boolean)
+                                .join(' · ') || 'Details not supplied'}
+                            </em>
+                          </span>
+                          <span>
+                            <small>Rating</small>
+                            <strong>{tee.courseRating.toFixed(1)}</strong>
+                          </span>
+                          <span>
+                            <small>Slope</small>
+                            <strong>{tee.slopeRating}</strong>
+                          </span>
+                          <span>
+                            <small>Par</small>
+                            <strong>{tee.par ?? result.par ?? '—'}</strong>
+                          </span>
+                          <span>
+                            <small>Length</small>
+                            <strong>
+                              {tee.totalYardage
+                                ? `${tee.totalYardage.toLocaleString('en-GB')} yd`
+                                : tee.totalMetres
+                                  ? `${tee.totalMetres.toLocaleString('en-GB')} m`
+                                  : '—'}
+                            </strong>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                )
+              })}
             </div>
 
-            {allTeesSaved ? (
-              <div className="course-saved-message" role="status">
-                <span aria-hidden="true">✓</span>
-                <div>
-                  <strong>All shown tees are in your course library.</strong>
-                  <small>They are ready for round entry.</small>
-                </div>
-              </div>
-            ) : (
-              <div className="course-save-bar">
-                <div>
-                  <strong>
-                    {selectedTeeCount}{' '}
-                    {selectedTeeCount === 1 ? 'tee' : 'tees'} selected
-                  </strong>
-                  <small>Only selected tees will be saved.</small>
-                  {saveError ? <span role="alert">{saveError}</span> : null}
-                </div>
+            {pagination && pagination.totalPages > 1 && appliedFilters ? (
+              <nav
+                className="catalogue-pagination"
+                aria-label="Course result pages"
+              >
                 <button
                   type="button"
-                  disabled={isSaving || selectedTeeCount === 0}
-                  onClick={saveSelectedTees}
+                  disabled={pagination.page <= 1 || isSearching}
+                  onClick={() =>
+                    void searchCatalogue(appliedFilters, pagination.page - 1)
+                  }
                 >
-                  {isSaving ? 'Saving…' : 'Save selected tees'}
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 12h14m-5-5 5 5-5 5" />
-                  </svg>
+                  Previous
                 </button>
+                <span>
+                  Showing {(pagination.page - 1) * pagination.pageSize + 1}–
+                  {Math.min(
+                    pagination.page * pagination.pageSize,
+                    pagination.total,
+                  )}{' '}
+                  of {pagination.total}
+                </span>
+                <button
+                  type="button"
+                  disabled={
+                    pagination.page >= pagination.totalPages || isSearching
+                  }
+                  onClick={() =>
+                    void searchCatalogue(appliedFilters, pagination.page + 1)
+                  }
+                >
+                  Next
+                </button>
+              </nav>
+            ) : null}
+          </section>
+        ) : null}
+
+        {!isSearching && providerClubs.length > 0 ? (
+          <section className="provider-club-results" aria-live="polite">
+            <header>
+              <div>
+                <p className="form-kicker">Provider club matches</p>
+                <h2>Choose the right club.</h2>
               </div>
-            )}
-          </div>
+              <span>
+                {providerClubs.length}{' '}
+                {providerClubs.length === 1 ? 'club' : 'clubs'} found
+              </span>
+            </header>
+            <div className="provider-club-list">
+              {providerClubs.map((providerClub) => {
+                const location = [providerClub.city, providerClub.county]
+                  .filter(Boolean)
+                  .join(', ')
+
+                return (
+                  <button
+                    type="button"
+                    key={providerClub.id}
+                    disabled={isProviderSearching}
+                    onClick={() => void loadProviderClub(providerClub)}
+                  >
+                    <span>
+                      <strong>{providerClub.name}</strong>
+                      <small>
+                        {location ||
+                          providerClub.postcode ||
+                          'Location not supplied'}
+                      </small>
+                    </span>
+                    <em>View courses and tees →</em>
+                  </button>
+                )
+              })}
+            </div>
+            <footer>
+              Choose one club to load its courses and rated tees. This uses the
+              second provider request.
+            </footer>
+            {providerError ? (
+              <p className="provider-result-error" role="alert">
+                {providerError}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {!isSearching && providerResult ? (
+          <section className="provider-result" aria-live="polite">
+            <header>
+              <div>
+                <p className="form-kicker">Provider match</p>
+                <h2>{providerResult.clubName}</h2>
+              </div>
+              <span>
+                {providerResult.tees.length}{' '}
+                {providerResult.tees.length === 1
+                  ? 'rated tee'
+                  : 'rated tees'}
+              </span>
+            </header>
+            <div className="provider-course-list">
+              {providerCourses.map((providerCourse) => (
+                <div key={providerCourse.name}>
+                  <strong>{providerCourse.name}</strong>
+                  <span>
+                    {providerCourse.teeCount}{' '}
+                    {providerCourse.teeCount === 1 ? 'tee' : 'tees'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <footer>
+              <p>
+                {unsavedProviderTeeCount > 0
+                  ? 'Add all new tees now. They will be saved for everyone and will not need another provider request next time.'
+                  : 'Every tee returned by the provider is already saved. Show the club without the course filter to see it.'}
+              </p>
+              <button
+                type="button"
+                disabled={isImporting}
+                onClick={() => void importProviderClub()}
+              >
+                {isImporting
+                  ? 'Adding tees…'
+                  : unsavedProviderTeeCount > 0
+                    ? `Add ${unsavedProviderTeeCount} ${unsavedProviderTeeCount === 1 ? 'tee' : 'tees'} to catalogue`
+                    : 'Show saved club'}
+              </button>
+            </footer>
+            {providerError ? (
+              <p className="provider-result-error" role="alert">
+                {providerError}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {providerNotice ? (
+          <p className="provider-notice" role="status">
+            {providerNotice}
+          </p>
         ) : null}
       </div>
+
+      <aside className="missing-course-callout">
+        <div>
+          <strong>Can’t find a club or course?</strong>
+          <span>
+            Submit the details to the administrator and we’ll investigate
+            adding it to the catalogue.
+          </span>
+        </div>
+        <button type="button" onClick={onReportMissingCourse}>
+          Submit club or course
+        </button>
+      </aside>
     </section>
   )
 }

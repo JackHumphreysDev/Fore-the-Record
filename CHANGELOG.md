@@ -14,6 +14,31 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.6.0 - 2026-09-01
+
+### User-facing changes
+
+- Replaced the home-club dropdown with a partial-name search across the imported club catalogue.
+- Added separate club and course search fields with paginated results and complete tee rating details.
+- Made **Search catalogue** automatically check provider club names after an unsuccessful database search, with a clear request-allowance warning and a preview before saving.
+- Allowed a course-field-only entry to be retried as a possible provider club name, helping misplaced partial names such as `Halla` find Hallamshire Golf Club.
+- Added a provider club-choice list so broad partial searches such as `Hall` show every returned candidate instead of silently selecting one club.
+- Removed the empty reserved results height that placed provider matches far below the search form.
+- Saved all newly found rated tees so later home-club, course, and round-entry searches can reuse them without another provider lookup.
+- Added a direct route from an unsuccessful course search to the missing-course support form.
+- Added a bounded course-and-tee search to round entry so players do not have to scroll through the complete catalogue.
+
+### Developer and admin changes
+
+- Added normalized provider identifiers and catalogue metadata for clubs, courses, and tee sets while preserving existing round and home-club relationships.
+- Added an idempotent, resumable RapidAPI catalogue importer with response validation, retry handling, dry-run-by-default behaviour, bounded runs, and safe progress output.
+- Added protected paginated database search endpoints for clubs and courses rather than exposing RapidAPI credentials or spending API calls during ordinary player searches.
+- Added a database-first, on-demand import path for the current 200-request monthly plan; provider calls occur only after a saved catalogue miss.
+- Split provider lookup into one cached club-candidate request and one selected-club course request, avoiding a course request for every partial match.
+- Strengthened tee identity and persistence so same-name tees with different course and slope ratings remain separate.
+- Added importer, retry, command-option, normalization, pagination, filtering, and client response-contract tests.
+- Kept the full production import disabled while the current plan cannot support the approximately 2,802 required requests.
+
 ## 0.5.0 - 2026-08-31
 
 ### User-facing changes

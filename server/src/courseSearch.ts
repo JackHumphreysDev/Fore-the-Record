@@ -15,7 +15,12 @@ function normalizeLabel(value: string): string {
 function getTeeKey(tee: CourseTeeData, clubName: string): string {
   const courseName = tee.courseName?.trim() || clubName
 
-  return `${normalizeLabel(courseName)}::${normalizeLabel(tee.teeName)}`
+  return [
+    normalizeLabel(courseName),
+    normalizeLabel(tee.teeName),
+    tee.courseRating,
+    tee.slopeRating,
+  ].join('::')
 }
 
 export function mergeCourseSearchData(

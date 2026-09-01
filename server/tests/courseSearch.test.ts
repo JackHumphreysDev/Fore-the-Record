@@ -80,4 +80,48 @@ describe('mergeCourseSearchData', () => {
       ],
     })
   })
+
+  it('keeps same-name tees separate when their ratings differ', () => {
+    const savedData = {
+      clubName: 'Example Golf Club',
+      source: 'api' as const,
+      tees: [
+        {
+          courseName: 'Old Course',
+          teeName: 'Championship',
+          courseRating: 73.1,
+          slopeRating: 137,
+        },
+      ],
+    }
+    const lookupData = {
+      clubName: 'Example Golf Club',
+      source: 'api' as const,
+      tees: [
+        {
+          courseName: 'Old Course',
+          teeName: 'Championship',
+          courseRating: 75.2,
+          slopeRating: 142,
+        },
+      ],
+    }
+
+    expect(mergeCourseSearchData(lookupData, savedData)?.tees).toEqual([
+      {
+        courseName: 'Old Course',
+        teeName: 'Championship',
+        courseRating: 75.2,
+        slopeRating: 142,
+        isSaved: false,
+      },
+      {
+        courseName: 'Old Course',
+        teeName: 'Championship',
+        courseRating: 73.1,
+        slopeRating: 137,
+        isSaved: true,
+      },
+    ])
+  })
 })

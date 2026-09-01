@@ -15,6 +15,7 @@ import PasswordRecovery from './PasswordRecovery.tsx'
 import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
 import Support from './Support.tsx'
+import type { SubmissionType } from './submissionApi.ts'
 import { getSupabaseClient } from './supabase.ts'
 
 type ActiveView =
@@ -114,6 +115,8 @@ function App() {
   const [authSetup] = useState(getAuthSetup)
   const profileRequestNumber = useRef(0)
   const [activeView, setActiveView] = useState<ActiveView>('profile')
+  const [supportInitialType, setSupportInitialType] =
+    useState<SubmissionType>('IDEA')
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [adminIdentity, setAdminIdentity] =
@@ -411,7 +414,10 @@ function App() {
           <button
             type="button"
             aria-current={activeView === 'support' ? 'page' : undefined}
-            onClick={() => setActiveView('support')}
+            onClick={() => {
+              setSupportInitialType('IDEA')
+              setActiveView('support')
+            }}
           >
             Support
           </button>
@@ -542,7 +548,12 @@ function App() {
             </div>
           </section>
         ) : activeView === 'courses' ? (
-          <CourseSearch />
+          <CourseSearch
+            onReportMissingCourse={() => {
+              setSupportInitialType('MISSING_COURSE')
+              setActiveView('support')
+            }}
+          />
         ) : activeView === 'rounds' ? (
           <RoundEntry
             profile={profile}
@@ -558,7 +569,7 @@ function App() {
             onLogRound={() => setActiveView('rounds')}
           />
         ) : activeView === 'support' ? (
-          <Support />
+          <Support initialType={supportInitialType} />
         ) : adminIdentity ? (
           <AdminPortal administratorName={adminIdentity.name} />
         ) : null}

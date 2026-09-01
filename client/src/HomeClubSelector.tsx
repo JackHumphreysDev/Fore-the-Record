@@ -1,5 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
+import {
+  buildCatalogueClubsPath,
+  isCatalogueClubsResponse,
+  type CatalogueClub,
+} from './courseCatalogueApi.ts'
 import './HomeClubSelector.css'
 
 type HomeClub = {
@@ -45,11 +50,13 @@ async function readApiError(
 ): Promise<string> {
   const body: unknown = await response.json().catch(() => null)
 
-  if (isRecord(body) && typeof body.error === 'string') {
-    return body.error
-  }
+  return isRecord(body) && typeof body.error === 'string'
+    ? body.error
+    : fallbackMessage
+}
 
-  return fallbackMessage
+function formatClubLocation(club: CatalogueClub): string {
+  return [club.city, club.county, club.postcode].filter(Boolean).join(', ')
 }
 
 function HomeClubSelector({
@@ -58,82 +65,75 @@ function HomeClubSelector({
   onHomeClubUpdated,
   onGoToCourses,
 }: HomeClubSelectorProps) {
-  const [savedClubs, setSavedClubs] = useState<HomeClub[]>([])
-  const [selectedClubId, setSelectedClubId] = useState(homeClubId ?? '')
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [loadError, setLoadError] = useState('')
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<CatalogueClub[]>([])
+  const [hasSearched, setHasSearched] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [savingClubId, setSavingClubId] = useState<string | null>(null)
+  const [searchError, setSearchError] = useState('')
   const [updateError, setUpdateError] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
 
-  useEffect(() => {
-    let isCancelled = false
+  async function searchClubs(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const search = query.trim()
 
-    async function loadSavedClubs() {
-      try {
-        const response = await authenticatedFetch('/api/courses')
+    if (!search) {
+      setSearchError('Enter all or part of a club name')
+      return
+    }
 
-        if (!response.ok) {
-          throw new Error(
-            await readApiError(
-              response,
-              'We could not load your saved clubs. Please refresh and try again.',
-            ),
-          )
-        }
+    setIsSearching(true)
+    setHasSearched(false)
+    setSearchError('')
+    setUpdateError('')
+    setStatusMessage('')
 
-        const body: unknown = await response.json()
+    try {
+      const response = await authenticatedFetch(
+        buildCatalogueClubsPath(search, 1, 10),
+      )
 
-        if (!Array.isArray(body) || !body.every(isHomeClub)) {
-          throw new Error('The saved club data returned was incomplete.')
-        }
-
-        if (!isCancelled) {
-          setSavedClubs(body)
-        }
-      } catch (error: unknown) {
-        if (!isCancelled) {
-          setLoadError(
-            error instanceof TypeError
-              ? 'We could not reach the server to load your saved clubs.'
-              : error instanceof Error
-                ? error.message
-                : 'We could not load your saved clubs. Please refresh and try again.',
-          )
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoading(false)
-        }
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+            'We could not search the club catalogue. Please try again.',
+          ),
+        )
       }
+
+      const body: unknown = await response.json()
+
+      if (!isCatalogueClubsResponse(body)) {
+        throw new Error('The club search results returned were incomplete.')
+      }
+
+      setResults(body.clubs)
+      setHasSearched(true)
+    } catch (error: unknown) {
+      setResults([])
+      setSearchError(
+        error instanceof TypeError
+          ? 'We could not reach the server. Check your connection and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'We could not search the club catalogue. Please try again.',
+      )
+    } finally {
+      setIsSearching(false)
     }
-
-    void loadSavedClubs()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [])
-
-  const selectableClubs = useMemo(() => {
-    if (!homeClub || savedClubs.some((club) => club.id === homeClub.id)) {
-      return savedClubs
-    }
-
-    return [homeClub, ...savedClubs]
-  }, [homeClub, savedClubs])
+  }
 
   async function saveHomeClub(nextHomeClubId: string | null) {
-    setIsSaving(true)
+    setSavingClubId(nextHomeClubId ?? 'remove')
     setUpdateError('')
     setStatusMessage('')
 
     try {
       const response = await authenticatedFetch('/api/users/me', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ homeClubId: nextHomeClubId }),
       })
 
@@ -153,7 +153,6 @@ function HomeClubSelector({
       }
 
       onHomeClubUpdated(body)
-      setSelectedClubId(body.homeClubId ?? '')
       setStatusMessage(
         body.homeClub
           ? `${body.homeClub.name} is now your home club.`
@@ -168,7 +167,7 @@ function HomeClubSelector({
             : 'We could not update your home club. Please try again.',
       )
     } finally {
-      setIsSaving(false)
+      setSavingClubId(null)
     }
   }
 
@@ -176,7 +175,7 @@ function HomeClubSelector({
     <section className="home-club-selector" aria-labelledby="home-club-title">
       <div className="home-club-heading">
         <div>
-          <span>Course library</span>
+          <span>Home club</span>
           <h3 id="home-club-title">
             {homeClubId ? 'Change your home club' : 'Choose your home club'}
           </h3>
@@ -186,63 +185,90 @@ function HomeClubSelector({
         </button>
       </div>
 
-      {isLoading ? (
-        <p className="home-club-state" role="status">
-          Loading saved clubs…
-        </p>
-      ) : loadError ? (
-        <p className="home-club-error" role="alert">
-          {loadError}
-        </p>
-      ) : selectableClubs.length === 0 ? (
-        <p className="home-club-state">
-          Save a club and at least one tee in Courses, then return here to set
-          it as your home club.
-        </p>
-      ) : (
-        <div className="home-club-controls">
-          <label htmlFor="home-club">Saved club</label>
-          <div className="home-club-actions">
-            <select
-              id="home-club"
-              value={selectedClubId}
-              disabled={isSaving}
-              onChange={(event) => {
-                setSelectedClubId(event.target.value)
-                setUpdateError('')
-                setStatusMessage('')
-              }}
-            >
-              <option value="">Select a club</option>
-              {selectableClubs.map((club) => (
-                <option key={club.id} value={club.id}>
-                  {club.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={
-                isSaving ||
-                selectedClubId === '' ||
-                selectedClubId === homeClubId
-              }
-              onClick={() => void saveHomeClub(selectedClubId)}
-            >
-              {isSaving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+      {homeClub ? (
+        <div className="home-club-current">
+          <span>Current home club</span>
+          <strong>{homeClub.name}</strong>
         </div>
-      )}
+      ) : null}
+
+      <form className="home-club-search" onSubmit={searchClubs} noValidate>
+        <label htmlFor="home-club-search">Search club catalogue</label>
+        <div className="home-club-search-control">
+          <input
+            id="home-club-search"
+            type="search"
+            maxLength={100}
+            autoComplete="off"
+            placeholder="e.g. Sickleholme"
+            value={query}
+            aria-invalid={Boolean(searchError)}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setSearchError('')
+            }}
+          />
+          <button type="submit" disabled={isSearching || savingClubId !== null}>
+            {isSearching ? 'Searching…' : 'Search'}
+          </button>
+        </div>
+        <small>Enter a full or partial club name.</small>
+      </form>
+
+      {searchError ? (
+        <p className="home-club-error" role="alert">
+          {searchError}
+        </p>
+      ) : null}
+
+      {hasSearched && results.length === 0 ? (
+        <p className="home-club-state">
+          No clubs matched “{query.trim()}”. Try fewer words or browse Courses.
+        </p>
+      ) : null}
+
+      {results.length > 0 ? (
+        <div className="home-club-results" aria-label="Club search results">
+          {results.map((club) => {
+            const location = formatClubLocation(club)
+            const isCurrent = club.id === homeClubId
+
+            return (
+              <article key={club.id}>
+                <div>
+                  <strong>{club.name}</strong>
+                  <span>
+                    {location || 'Location not supplied'}
+                    {' · '}
+                    {club.courseCount}{' '}
+                    {club.courseCount === 1 ? 'course' : 'courses'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={isCurrent || savingClubId !== null}
+                  onClick={() => void saveHomeClub(club.id)}
+                >
+                  {isCurrent
+                    ? 'Current'
+                    : savingClubId === club.id
+                      ? 'Saving…'
+                      : 'Set home club'}
+                </button>
+              </article>
+            )
+          })}
+        </div>
+      ) : null}
 
       {homeClubId ? (
         <button
           className="home-club-remove"
           type="button"
-          disabled={isSaving}
+          disabled={savingClubId !== null}
           onClick={() => void saveHomeClub(null)}
         >
-          Remove home club
+          {savingClubId === 'remove' ? 'Removing…' : 'Remove home club'}
         </button>
       ) : null}
 

@@ -110,32 +110,57 @@ model SubmissionMessage {
 }
 
 model Club {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  latitude  Float?
-  longitude Float?
-  members   User[]
-  courses   Course[]
+  id           String   @id @default(uuid()) @db.Uuid
+  externalId   String?  @unique @db.Uuid
+  name         String
+  city         String?  @db.VarChar(160)
+  county       String?  @db.VarChar(160)
+  postcode     String?  @db.VarChar(16)
+  countryCode  String?  @db.VarChar(3)
+  latitude     Float?
+  longitude    Float?
+  googleRating Float?
+  clubType     String?  @db.VarChar(80)
+  courseType   String?  @db.VarChar(80)
+  members      User[]
+  courses      Course[]
+
+  @@index([name])
 }
 
 model Course {
-  id     String @id @default(uuid()) @db.Uuid
-  clubId String @db.Uuid
-  name   String
-  club   Club   @relation(fields: [clubId], references: [id])
-  tees   Tee[]
+  id         String  @id @default(uuid()) @db.Uuid
+  externalId String? @unique @db.Uuid
+  clubId     String  @db.Uuid
+  name       String
+  holes      Int?
+  par        Int?
+  designedBy String? @db.VarChar(200)
+  yearOpened String? @db.VarChar(20)
+  club       Club    @relation(fields: [clubId], references: [id])
+  tees       Tee[]
+
+  @@index([name])
+  @@index([clubId, name])
 }
 
 model Tee {
   id           String    @id @default(uuid()) @db.Uuid
+  externalId   String?   @unique @db.Uuid
   courseId     String    @db.Uuid
   teeName      String
+  colour       String?   @db.VarChar(80)
+  gender       String?   @db.VarChar(40)
+  totalYardage Int?
+  totalMetres  Int?
   courseRating Decimal   @db.Decimal(4, 1)
   slopeRating  Int
   par          Int?
   source       TeeSource
   course       Course    @relation(fields: [courseId], references: [id])
   rounds       Round[]
+
+  @@index([courseId, teeName])
 }
 
 model Round {
