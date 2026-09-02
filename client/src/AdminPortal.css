@@ -194,6 +194,133 @@
   align-items: center;
 }
 
+.admin-account-create {
+  margin-top: 24px;
+  padding: 22px;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.25fr);
+  gap: 22px 34px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(23, 56, 42, 0.04);
+}
+
+.admin-account-create > div,
+.admin-account-access > div,
+.admin-account-delete > div {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+
+.admin-account-create p,
+.admin-account-editor header p {
+  margin: 0;
+  color: var(--forest-soft);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.admin-account-create h3,
+.admin-account-editor h3 {
+  margin: 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 27px;
+  font-weight: 400;
+}
+
+.admin-account-create span,
+.admin-account-access span,
+.admin-account-delete span {
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.admin-account-create form,
+.admin-account-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.admin-account-create label,
+.admin-account-edit-form label,
+.admin-account-delete label {
+  display: grid;
+  gap: 7px;
+  color: var(--forest-deep);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.admin-account-create input,
+.admin-account-edit-form input,
+.admin-account-delete input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  color: var(--forest-deep);
+  background: white;
+}
+
+.admin-account-create input:focus,
+.admin-account-edit-form input:focus,
+.admin-account-delete input:focus {
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(49, 88, 68, 0.1);
+}
+
+.admin-account-create button,
+.admin-account-edit-form button,
+.admin-account-access button,
+.admin-account-delete button,
+.admin-account-editor header button,
+.admin-manage-button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--forest);
+  border-radius: 8px;
+  color: white;
+  background: var(--forest);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.admin-account-create button:disabled,
+.admin-account-edit-form button:disabled,
+.admin-account-access button:disabled,
+.admin-account-delete button:disabled {
+  opacity: 0.45;
+}
+
+.admin-account-error,
+.admin-account-notice {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.admin-account-error {
+  color: var(--danger);
+  background: rgba(164, 63, 50, 0.09);
+}
+
+.admin-account-notice {
+  color: var(--forest);
+  background: rgba(23, 56, 42, 0.08);
+}
+
 .admin-search {
   width: min(100%, 480px);
   display: grid;
@@ -310,6 +437,116 @@
   background: var(--lime);
 }
 
+.admin-account-status {
+  display: inline-flex;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.admin-account-status-active {
+  color: #185b3b;
+  background: #ccebd8;
+}
+
+.admin-account-status-suspended {
+  color: var(--danger);
+  background: rgba(164, 63, 50, 0.12);
+}
+
+.admin-manage-button {
+  min-height: 34px;
+  color: var(--forest);
+  background: transparent;
+}
+
+.admin-protected-account {
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.admin-account-editor {
+  margin-top: 24px;
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+  border: 1px solid var(--forest);
+  border-radius: 14px;
+  background: white;
+}
+
+.admin-account-editor header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.admin-account-editor header > div {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-account-editor header button {
+  min-height: 34px;
+  color: var(--forest);
+  background: transparent;
+}
+
+.admin-account-access,
+.admin-account-delete {
+  padding-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-account-access strong,
+.admin-account-delete strong {
+  color: var(--forest-deep);
+  font-size: 11px;
+}
+
+.admin-account-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-account-confirm-actions button + button {
+  color: var(--forest);
+  background: transparent;
+}
+
+.admin-account-delete {
+  grid-template-columns: minmax(240px, 1fr) minmax(240px, 0.8fr) auto;
+  border-top-color: rgba(164, 63, 50, 0.25);
+}
+
+.admin-account-delete strong {
+  color: var(--danger);
+}
+
+.admin-account-delete button {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.admin-account-create button:focus-visible,
+.admin-account-edit-form button:focus-visible,
+.admin-account-access button:focus-visible,
+.admin-account-delete button:focus-visible,
+.admin-account-editor header button:focus-visible,
+.admin-manage-button:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
 .admin-pagination {
   display: flex;
   align-items: center;
@@ -387,6 +624,22 @@
   .admin-recent-list time {
     display: none;
   }
+
+  .admin-account-create,
+  .admin-account-access,
+  .admin-account-delete {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-account-create form,
+  .admin-account-edit-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-account-create form button,
+  .admin-account-edit-form button {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 650px) {
@@ -415,6 +668,16 @@
 
   .admin-search {
     width: 100%;
+  }
+
+  .admin-account-create form,
+  .admin-account-edit-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-account-create form button,
+  .admin-account-edit-form button {
+    grid-column: auto;
   }
 
   .admin-recent-list li {

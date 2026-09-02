@@ -53,6 +53,11 @@ enum UserRole {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 enum SubmissionType {
   IDEA
   ISSUE
@@ -74,15 +79,19 @@ model User {
   name                   String
   email                  String              @unique
   role                   UserRole            @default(PLAYER)
+  status                 UserStatus          @default(ACTIVE)
   homeClubId             String?             @db.Uuid
   handicapIndex          Decimal?            @db.Decimal(4, 1)
   createdAt              DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime            @default(now()) @updatedAt @db.Timestamptz(3)
   homeClub               Club?               @relation(fields: [homeClubId], references: [id], onDelete: SetNull)
   rounds                 Round[]
   submissions            Submission[]
   sentSubmissionMessages SubmissionMessage[] @relation("SubmissionMessageSender")
   adminAuditLogs         AdminAuditLog[]     @relation("AdminAuditActor")
   reviewedScorecards     ScorecardReview[]   @relation("ScorecardReviewer")
+
+  @@index([status, createdAt])
 }
 
 model AdminAuditLog {

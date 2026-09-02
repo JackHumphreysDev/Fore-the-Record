@@ -95,6 +95,7 @@ function removeAuthQueryParameters() {
 
   url.searchParams.delete('auth')
   url.searchParams.delete('reset-password')
+  url.searchParams.delete('set-password')
   window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
@@ -128,6 +129,9 @@ function App() {
   const [authError, setAuthError] = useState(authSetup.error)
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(
     () => new URLSearchParams(window.location.search).has('reset-password'),
+  )
+  const [isInvitationSetup, setIsInvitationSetup] = useState(
+    () => new URLSearchParams(window.location.search).has('set-password'),
   )
 
   async function loadProfile(currentSession: Session) {
@@ -236,7 +240,7 @@ function App() {
           return
         }
 
-        if (isPasswordRecovery) {
+        if (isPasswordRecovery || isInvitationSetup) {
           setIsAuthLoading(false)
           return
         }
@@ -281,7 +285,7 @@ function App() {
       isCancelled = true
       subscription.unsubscribe()
     }
-  }, [authSetup.client, isPasswordRecovery])
+  }, [authSetup.client, isInvitationSetup, isPasswordRecovery])
 
   async function signOut() {
     try {
@@ -295,10 +299,11 @@ function App() {
     }
   }
 
-  async function finishPasswordRecovery() {
+  async function finishPasswordSetup() {
     await signOut()
     removeAuthQueryParameters()
     setIsPasswordRecovery(false)
+    setIsInvitationSetup(false)
   }
 
   function updateHandicapIndex(handicapIndex: number | null) {
@@ -314,8 +319,13 @@ function App() {
     setProfile((current) => (current ? { ...current, ...update } : current))
   }
 
-  if (isPasswordRecovery && session) {
-    return <PasswordRecovery onComplete={() => void finishPasswordRecovery()} />
+  if ((isPasswordRecovery || isInvitationSetup) && session) {
+    return (
+      <PasswordRecovery
+        purpose={isInvitationSetup ? 'invitation' : 'recovery'}
+        onComplete={() => void finishPasswordSetup()}
+      />
+    )
   }
 
   if (isAuthLoading) {

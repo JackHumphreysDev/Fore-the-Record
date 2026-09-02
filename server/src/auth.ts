@@ -8,6 +8,8 @@ export type AuthenticatedUser = {
 }
 
 let authClient: SupabaseClient | null = null
+const AUTH_USER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export function getBearerToken(header: string | undefined): string | null {
   if (!header) {
@@ -67,4 +69,23 @@ export async function getAuthenticatedUser(
     email: user.email,
     emailConfirmed: Boolean(user.email_confirmed_at),
   }
+}
+
+export async function getVerifiedTokenSubject(
+  request: Request,
+): Promise<string | null> {
+  const token = getBearerToken(request.headers.authorization)
+
+  if (!token) {
+    return null
+  }
+
+  const { data, error } = await getAuthClient().auth.getClaims(token)
+  const subject = data?.claims.sub
+
+  if (error || typeof subject !== 'string' || !AUTH_USER_ID_PATTERN.test(subject)) {
+    return null
+  }
+
+  return subject
 }

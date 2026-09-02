@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   getAuthenticatedUserMock,
+  getVerifiedTokenSubjectMock,
+  getAccountStatusByAuthUserIdMock,
+  inviteAuthUserMock,
+  updateAuthUserEmailMock,
+  setAuthUserSuspendedMock,
+  deleteAuthUserMock,
   prismaTransactionMock,
   clubCountMock,
   clubCreateMock,
@@ -22,17 +28,21 @@ const {
   teeHoleCreateManyMock,
   teeHoleDeleteManyMock,
   scorecardReviewFindManyMock,
+  scorecardReviewDeleteManyMock,
   logRoundMock,
   parseLogRoundInputMock,
   roundCountMock,
+  roundDeleteManyMock,
   submissionCountMock,
   submissionCreateMock,
   submissionFindFirstMock,
   submissionFindUniqueMock,
   submissionFindManyMock,
   submissionUpdateMock,
+  submissionDeleteManyMock,
   submissionMessageCreateMock,
   submissionMessageFindManyMock,
+  submissionMessageDeleteManyMock,
   adminAuditLogCreateMock,
   userCountMock,
   userCreateMock,
@@ -40,8 +50,15 @@ const {
   userFindFirstMock,
   userFindUniqueMock,
   userUpdateMock,
+  userDeleteMock,
 } = vi.hoisted(() => ({
   getAuthenticatedUserMock: vi.fn(),
+  getVerifiedTokenSubjectMock: vi.fn(),
+  getAccountStatusByAuthUserIdMock: vi.fn(),
+  inviteAuthUserMock: vi.fn(),
+  updateAuthUserEmailMock: vi.fn(),
+  setAuthUserSuspendedMock: vi.fn(),
+  deleteAuthUserMock: vi.fn(),
   prismaTransactionMock: vi.fn(),
   clubCountMock: vi.fn(),
   clubCreateMock: vi.fn(),
@@ -61,17 +78,21 @@ const {
   teeHoleCreateManyMock: vi.fn(),
   teeHoleDeleteManyMock: vi.fn(),
   scorecardReviewFindManyMock: vi.fn(),
+  scorecardReviewDeleteManyMock: vi.fn(),
   logRoundMock: vi.fn(),
   parseLogRoundInputMock: vi.fn(),
   roundCountMock: vi.fn(),
+  roundDeleteManyMock: vi.fn(),
   submissionCountMock: vi.fn(),
   submissionCreateMock: vi.fn(),
   submissionFindFirstMock: vi.fn(),
   submissionFindUniqueMock: vi.fn(),
   submissionFindManyMock: vi.fn(),
   submissionUpdateMock: vi.fn(),
+  submissionDeleteManyMock: vi.fn(),
   submissionMessageCreateMock: vi.fn(),
   submissionMessageFindManyMock: vi.fn(),
+  submissionMessageDeleteManyMock: vi.fn(),
   adminAuditLogCreateMock: vi.fn(),
   userCountMock: vi.fn(),
   userCreateMock: vi.fn(),
@@ -79,6 +100,7 @@ const {
   userFindFirstMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   userUpdateMock: vi.fn(),
+  userDeleteMock: vi.fn(),
 }))
 
 vi.mock('../src/database.js', () => ({
@@ -107,6 +129,7 @@ vi.mock('../src/database.js', () => ({
     },
     scorecardReview: {
       findMany: scorecardReviewFindManyMock,
+      deleteMany: scorecardReviewDeleteManyMock,
     },
     user: {
       count: userCountMock,
@@ -115,9 +138,11 @@ vi.mock('../src/database.js', () => ({
       findMany: userFindManyMock,
       findUnique: userFindUniqueMock,
       update: userUpdateMock,
+      delete: userDeleteMock,
     },
     round: {
       count: roundCountMock,
+      deleteMany: roundDeleteManyMock,
     },
     submission: {
       count: submissionCountMock,
@@ -126,10 +151,12 @@ vi.mock('../src/database.js', () => ({
       findUnique: submissionFindUniqueMock,
       findMany: submissionFindManyMock,
       update: submissionUpdateMock,
+      deleteMany: submissionDeleteManyMock,
     },
     submissionMessage: {
       create: submissionMessageCreateMock,
       findMany: submissionMessageFindManyMock,
+      deleteMany: submissionMessageDeleteManyMock,
     },
     adminAuditLog: {
       create: adminAuditLogCreateMock,
@@ -150,6 +177,27 @@ vi.mock('../src/courseScorecards.js', () => ({
 
 vi.mock('../src/auth.js', () => ({
   getAuthenticatedUser: getAuthenticatedUserMock,
+  getVerifiedTokenSubject: getVerifiedTokenSubjectMock,
+}))
+
+vi.mock('../src/accountAccess.js', () => ({
+  getAccountStatusByAuthUserId: getAccountStatusByAuthUserIdMock,
+}))
+
+vi.mock('../src/adminAuth.js', () => ({
+  inviteAuthUser: inviteAuthUserMock,
+  updateAuthUserEmail: updateAuthUserEmailMock,
+  setAuthUserSuspended: setAuthUserSuspendedMock,
+  deleteAuthUser: deleteAuthUserMock,
+  AdminAuthOperationError: class AdminAuthOperationError extends Error {
+    constructor(
+      readonly reason: string,
+      message: string,
+    ) {
+      super(message)
+      this.name = 'AdminAuthOperationError'
+    }
+  },
 }))
 
 vi.mock('../src/rounds.js', async () => {
@@ -177,6 +225,17 @@ beforeEach(() => {
     email: 'jack@example.com',
     emailConfirmed: true,
   })
+  getVerifiedTokenSubjectMock.mockReset()
+  getVerifiedTokenSubjectMock.mockResolvedValue(null)
+  getAccountStatusByAuthUserIdMock.mockReset()
+  getAccountStatusByAuthUserIdMock.mockResolvedValue('ACTIVE')
+  inviteAuthUserMock.mockReset()
+  updateAuthUserEmailMock.mockReset()
+  updateAuthUserEmailMock.mockResolvedValue(undefined)
+  setAuthUserSuspendedMock.mockReset()
+  setAuthUserSuspendedMock.mockResolvedValue(undefined)
+  deleteAuthUserMock.mockReset()
+  deleteAuthUserMock.mockResolvedValue(undefined)
   clubCountMock.mockReset()
   clubCreateMock.mockReset()
   clubFindFirstMock.mockReset()
@@ -198,19 +257,27 @@ beforeEach(() => {
   teeHoleDeleteManyMock.mockReset()
   scorecardReviewFindManyMock.mockReset()
   scorecardReviewFindManyMock.mockResolvedValue([])
+  scorecardReviewDeleteManyMock.mockReset()
+  scorecardReviewDeleteManyMock.mockResolvedValue({ count: 0 })
   teeHoleCreateManyMock.mockResolvedValue({ count: 0 })
   teeHoleDeleteManyMock.mockResolvedValue({ count: 0 })
   logRoundMock.mockReset()
   parseLogRoundInputMock.mockReset()
   roundCountMock.mockReset()
+  roundDeleteManyMock.mockReset()
+  roundDeleteManyMock.mockResolvedValue({ count: 0 })
   submissionCountMock.mockReset()
   submissionCreateMock.mockReset()
   submissionFindFirstMock.mockReset()
   submissionFindUniqueMock.mockReset()
   submissionFindManyMock.mockReset()
   submissionUpdateMock.mockReset()
+  submissionDeleteManyMock.mockReset()
+  submissionDeleteManyMock.mockResolvedValue({ count: 0 })
   submissionMessageCreateMock.mockReset()
   submissionMessageFindManyMock.mockReset()
+  submissionMessageDeleteManyMock.mockReset()
+  submissionMessageDeleteManyMock.mockResolvedValue({ count: 0 })
   adminAuditLogCreateMock.mockReset()
   userCountMock.mockReset()
   userCreateMock.mockReset()
@@ -219,6 +286,8 @@ beforeEach(() => {
   userFindFirstMock.mockResolvedValue(null)
   userFindUniqueMock.mockReset()
   userUpdateMock.mockReset()
+  userDeleteMock.mockReset()
+  userDeleteMock.mockResolvedValue({})
 })
 
 describe('GET /api/health', () => {
@@ -237,6 +306,37 @@ describe('API authentication', () => {
 
     expect(response.status).toBe(401)
     expect(response.body).toEqual({ error: 'Authentication required' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+
+  it('should reject every protected request from a suspended account', async () => {
+    getAccountStatusByAuthUserIdMock.mockResolvedValueOnce('SUSPENDED')
+
+    const response = await request(app).get('/api/users/me')
+
+    expect(response.status).toBe(403)
+    expect(response.body).toEqual({
+      error: 'This account has been suspended. Contact the administrator.',
+    })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+
+  it('should preserve the suspension notice when Supabase rejects the banned session', async () => {
+    getAuthenticatedUserMock.mockResolvedValueOnce(null)
+    getVerifiedTokenSubjectMock.mockResolvedValueOnce(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    )
+    getAccountStatusByAuthUserIdMock.mockResolvedValueOnce('SUSPENDED')
+
+    const response = await request(app).get('/api/users/me')
+
+    expect(response.status).toBe(403)
+    expect(response.body).toEqual({
+      error: 'This account has been suspended. Contact the administrator.',
+    })
+    expect(getAccountStatusByAuthUserIdMock).toHaveBeenCalledWith(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    )
     expect(userFindUniqueMock).not.toHaveBeenCalled()
   })
 })
@@ -305,9 +405,11 @@ describe('GET /api/admin/overview', () => {
     userFindManyMock.mockResolvedValueOnce([
       {
         id: '22222222-2222-4222-8222-222222222222',
+        authUserId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
         name: 'Recent Player',
         email: 'recent@example.com',
         role: 'PLAYER',
+        status: 'ACTIVE',
         handicapIndex: '12.4',
         createdAt: new Date('2026-08-31T18:15:00.000Z'),
         homeClub: {
@@ -333,6 +435,8 @@ describe('GET /api/admin/overview', () => {
           name: 'Recent Player',
           email: 'recent@example.com',
           role: 'PLAYER',
+          status: 'ACTIVE',
+          hasLogin: true,
           handicapIndex: 12.4,
           createdAt: '2026-08-31T18:15:00.000Z',
           homeClub: {
@@ -351,9 +455,11 @@ describe('GET /api/admin/overview', () => {
       take: 5,
       select: {
         id: true,
+        authUserId: true,
         name: true,
         email: true,
         role: true,
+        status: true,
         handicapIndex: true,
         createdAt: true,
         homeClub: {
@@ -398,9 +504,11 @@ describe('GET /api/admin/users', () => {
     userFindManyMock.mockResolvedValueOnce([
       {
         id: '22222222-2222-4222-8222-222222222222',
+        authUserId: null,
         name: 'Jack Player',
         email: 'jack.player@example.com',
         role: 'PLAYER',
+        status: 'ACTIVE',
         handicapIndex: null,
         createdAt: new Date('2026-08-30T09:00:00.000Z'),
         homeClub: null,
@@ -420,6 +528,8 @@ describe('GET /api/admin/users', () => {
           name: 'Jack Player',
           email: 'jack.player@example.com',
           role: 'PLAYER',
+          status: 'ACTIVE',
+          hasLogin: false,
           handicapIndex: null,
           createdAt: '2026-08-30T09:00:00.000Z',
           homeClub: null,
@@ -458,9 +568,11 @@ describe('GET /api/admin/users', () => {
       take: 2,
       select: {
         id: true,
+        authUserId: true,
         name: true,
         email: true,
         role: true,
+        status: true,
         handicapIndex: true,
         createdAt: true,
         homeClub: {
@@ -487,6 +599,213 @@ describe('GET /api/admin/users', () => {
     expect(response.body).toEqual({ error: 'Invalid pagination' })
     expect(userCountMock).not.toHaveBeenCalled()
     expect(userFindManyMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('administrator account management', () => {
+  const administrator = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Site Administrator',
+    email: 'jackhumphreys.dev@gmail.com',
+    role: 'ADMIN',
+  }
+  const playerId = '22222222-2222-4222-8222-222222222222'
+  const authUserId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  const player = {
+    id: playerId,
+    authUserId,
+    name: 'Example Player',
+    email: 'player@example.com',
+    role: 'PLAYER',
+    status: 'ACTIVE',
+    handicapIndex: null,
+    createdAt: new Date('2026-09-02T09:00:00.000Z'),
+    homeClub: null,
+    _count: { rounds: 3 },
+  }
+
+  it('should invite a player without accepting or generating a password', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(administrator)
+    inviteAuthUserMock.mockResolvedValueOnce({ authUserId })
+    userCreateMock.mockResolvedValueOnce(player)
+    adminAuditLogCreateMock.mockResolvedValueOnce({})
+
+    const response = await request(app)
+      .post('/api/admin/users')
+      .set('Origin', 'https://fore-the-record.vercel.app')
+      .send({
+        name: '  Example   Player ',
+        email: ' PLAYER@EXAMPLE.COM ',
+        password: 'must-not-be-used',
+      })
+
+    expect(response.status).toBe(201)
+    expect(response.body).toMatchObject({
+      id: playerId,
+      name: 'Example Player',
+      email: 'player@example.com',
+      role: 'PLAYER',
+      status: 'ACTIVE',
+      hasLogin: true,
+      roundCount: 3,
+    })
+    expect(inviteAuthUserMock).toHaveBeenCalledWith({
+      name: 'Example Player',
+      email: 'player@example.com',
+      redirectTo: 'https://fore-the-record.vercel.app/?set-password=true',
+    })
+    expect(inviteAuthUserMock.mock.calls[0]?.[0]).not.toHaveProperty('password')
+    expect(userCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        authUserId,
+        name: 'Example Player',
+        email: 'player@example.com',
+        status: 'ACTIVE',
+      }),
+      select: expect.objectContaining({ authUserId: true, status: true }),
+    })
+    expect(adminAuditLogCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorUserId: administrator.id,
+        action: 'USER_INVITED',
+        targetType: 'User',
+      }),
+    })
+  })
+
+  it('should update a linked player email in Auth and the profile audit log', async () => {
+    userFindUniqueMock
+      .mockResolvedValueOnce(administrator)
+      .mockResolvedValueOnce(player)
+    userUpdateMock.mockResolvedValueOnce({
+      ...player,
+      name: 'Updated Player',
+      email: 'updated@example.com',
+    })
+    adminAuditLogCreateMock.mockResolvedValueOnce({})
+
+    const response = await request(app)
+      .patch(`/api/admin/users/${playerId}`)
+      .send({ name: 'Updated Player', email: 'updated@example.com' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({
+      name: 'Updated Player',
+      email: 'updated@example.com',
+      hasLogin: true,
+    })
+    expect(updateAuthUserEmailMock).toHaveBeenCalledWith(
+      authUserId,
+      'updated@example.com',
+    )
+    expect(adminAuditLogCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'USER_DETAILS_UPDATED',
+        targetId: playerId,
+      }),
+    })
+  })
+
+  it('should suspend a linked login and audit the status change', async () => {
+    userFindUniqueMock
+      .mockResolvedValueOnce(administrator)
+      .mockResolvedValueOnce(player)
+    userUpdateMock.mockResolvedValueOnce({
+      ...player,
+      status: 'SUSPENDED',
+    })
+    adminAuditLogCreateMock.mockResolvedValueOnce({})
+
+    const response = await request(app)
+      .patch(`/api/admin/users/${playerId}/status`)
+      .send({ status: 'SUSPENDED' })
+
+    expect(response.status).toBe(200)
+    expect(response.body.status).toBe('SUSPENDED')
+    expect(setAuthUserSuspendedMock).toHaveBeenCalledWith(authUserId, true)
+    expect(adminAuditLogCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'USER_SUSPENDED',
+        targetId: playerId,
+        before: { status: 'ACTIVE' },
+        after: { status: 'SUSPENDED' },
+      }),
+    })
+  })
+
+  it('should protect the sole administrator from account mutations', async () => {
+    userFindUniqueMock
+      .mockResolvedValueOnce(administrator)
+      .mockResolvedValueOnce({
+        ...player,
+        id: administrator.id,
+        name: administrator.name,
+        email: administrator.email,
+        role: 'ADMIN',
+      })
+
+    const response = await request(app)
+      .patch(`/api/admin/users/${administrator.id}/status`)
+      .send({ status: 'SUSPENDED' })
+
+    expect(response.status).toBe(409)
+    expect(response.body).toEqual({
+      error: 'The sole administrator account is protected.',
+    })
+    expect(setAuthUserSuspendedMock).not.toHaveBeenCalled()
+    expect(userUpdateMock).not.toHaveBeenCalled()
+  })
+
+  it('should require suspension before permanent deletion', async () => {
+    userFindUniqueMock
+      .mockResolvedValueOnce(administrator)
+      .mockResolvedValueOnce(player)
+
+    const response = await request(app)
+      .delete(`/api/admin/users/${playerId}`)
+      .send({ confirmation: player.email })
+
+    expect(response.status).toBe(409)
+    expect(response.body).toEqual({
+      error: 'Suspend this account before permanently deleting it.',
+    })
+    expect(deleteAuthUserMock).not.toHaveBeenCalled()
+    expect(userDeleteMock).not.toHaveBeenCalled()
+  })
+
+  it('should permanently delete a suspended login and its player records', async () => {
+    const suspendedPlayer = { ...player, status: 'SUSPENDED' }
+    userFindUniqueMock
+      .mockResolvedValueOnce(administrator)
+      .mockResolvedValueOnce(suspendedPlayer)
+    adminAuditLogCreateMock.mockResolvedValueOnce({})
+
+    const response = await request(app)
+      .delete(`/api/admin/users/${playerId}`)
+      .send({ confirmation: ' PLAYER@EXAMPLE.COM ' })
+
+    expect(response.status).toBe(204)
+    expect(deleteAuthUserMock).toHaveBeenCalledWith(authUserId)
+    expect(scorecardReviewDeleteManyMock).toHaveBeenCalledWith({
+      where: { round: { userId: playerId } },
+    })
+    expect(submissionMessageDeleteManyMock).toHaveBeenCalledWith({
+      where: { senderUserId: playerId },
+    })
+    expect(submissionDeleteManyMock).toHaveBeenCalledWith({
+      where: { userId: playerId },
+    })
+    expect(roundDeleteManyMock).toHaveBeenCalledWith({
+      where: { userId: playerId },
+    })
+    expect(userDeleteMock).toHaveBeenCalledWith({ where: { id: playerId } })
+    expect(adminAuditLogCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'USER_DELETED',
+        targetId: playerId,
+        after: { deleted: true },
+      }),
+    })
   })
 })
 

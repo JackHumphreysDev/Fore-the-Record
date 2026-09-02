@@ -1,6 +1,22 @@
 import express from 'express'
+import { randomUUID } from 'node:crypto'
+import { getAccountStatusByAuthUserId } from './accountAccess.js'
+import {
+  AdminAuthOperationError,
+  deleteAuthUser,
+  inviteAuthUser,
+  setAuthUserSuspended,
+  updateAuthUserEmail,
+} from './adminAuth.js'
+import {
+  AdminUserValidationError,
+  parseAdminUserDetails,
+  parseAdminUserStatus,
+  parseDeleteConfirmation,
+} from './adminUsers.js'
 import {
   getAuthenticatedUser,
+  getVerifiedTokenSubject,
   type AuthenticatedUser,
 } from './auth.js'
 import {
@@ -27,6 +43,7 @@ import {
   TeeSource,
   type TeeSource as TeeSourceValue,
   UserRole,
+  UserStatus,
   ScorecardSource,
   RoundParticipation,
   RoundScorecardStatus,
@@ -94,9 +111,11 @@ const ADMIN_PROFILE_SELECT = {
 
 const ADMIN_USER_SELECT = {
   id: true,
+  authUserId: true,
   name: true,
   email: true,
   role: true,
+  status: true,
   handicapIndex: true,
   createdAt: true,
   homeClub: {
@@ -270,19 +289,79 @@ function serializeProfile<
 
 function serializeAdminUser<
   T extends {
+    authUserId: string | null
     handicapIndex: unknown | null
     _count: { rounds: number }
   },
 >(user: T) {
-  const { _count, ...profile } = user
+  const { _count, authUserId, ...profile } = user
 
   return {
     ...profile,
+    hasLogin: authUserId !== null,
     handicapIndex:
       profile.handicapIndex === null
         ? null
         : Number(profile.handicapIndex),
     roundCount: _count.rounds,
+  }
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'P2002'
+  )
+}
+
+function getAdminAuthErrorResponse(error: unknown): {
+  status: number
+  message: string
+} | null {
+  if (!(error instanceof AdminAuthOperationError)) {
+    return null
+  }
+
+  switch (error.reason) {
+    case 'configuration':
+      return {
+        status: 503,
+        message:
+          'Account management is not configured. Add the server-only Supabase secret key.',
+      }
+    case 'conflict':
+      return { status: 409, message: error.message }
+    case 'rate_limit':
+      return {
+        status: 429,
+        message:
+          'The invitation email limit has been reached. Wait before trying again.',
+      }
+    default:
+      return {
+        status: 502,
+        message: 'The authentication provider could not complete this change.',
+      }
+  }
+}
+
+function getInviteRedirect(origin: string | undefined): string | undefined {
+  if (!origin) {
+    return undefined
+  }
+
+  try {
+    const url = new URL(origin)
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return undefined
+    }
+
+    return `${url.origin}/?set-password=true`
+  } catch {
+    return undefined
   }
 }
 
@@ -337,7 +416,33 @@ app.use('/api', async (request, response, next) => {
   const authenticatedUser = await getAuthenticatedUser(request)
 
   if (!authenticatedUser) {
+    // A Supabase suspension can make getUser reject an otherwise valid,
+    // unexpired token. Verify its signature before using only its subject to
+    // return the application suspension notice; it never grants API access.
+    const verifiedSubject = await getVerifiedTokenSubject(request)
+    const accountStatus = verifiedSubject
+      ? await getAccountStatusByAuthUserId(verifiedSubject)
+      : null
+
+    if (accountStatus === UserStatus.SUSPENDED) {
+      response.status(403).json({
+        error: 'This account has been suspended. Contact the administrator.',
+      })
+      return
+    }
+
     response.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  const accountStatus = await getAccountStatusByAuthUserId(
+    authenticatedUser.id,
+  )
+
+  if (accountStatus === UserStatus.SUSPENDED) {
+    response.status(403).json({
+      error: 'This account has been suspended. Contact the administrator.',
+    })
     return
   }
 
@@ -451,6 +556,424 @@ app.get('/api/admin/users', async (request, response) => {
       totalPages: Math.ceil(total / pageSize),
     },
   })
+})
+
+app.post('/api/admin/users', async (request, response) => {
+  let input
+
+  try {
+    input = parseAdminUserDetails(request.body)
+  } catch (error: unknown) {
+    if (error instanceof AdminUserValidationError) {
+      response.status(400).json({ error: error.message })
+      return
+    }
+
+    throw error
+  }
+
+  const existingProfile = await prisma.user.findFirst({
+    where: {
+      email: { equals: input.email, mode: 'insensitive' },
+    },
+    select: ADMIN_USER_SELECT,
+  })
+
+  if (existingProfile?.authUserId) {
+    response.status(409).json({
+      error: 'A player account already uses this email address.',
+    })
+    return
+  }
+
+  let authUserId: string
+
+  try {
+    const redirectTo = getInviteRedirect(request.get('origin'))
+    const invitedAccount = await inviteAuthUser({
+      ...input,
+      ...(redirectTo ? { redirectTo } : {}),
+    })
+    authUserId = invitedAccount.authUserId
+  } catch (error: unknown) {
+    const authError = getAdminAuthErrorResponse(error)
+
+    if (authError) {
+      response.status(authError.status).json({ error: authError.message })
+      return
+    }
+
+    throw error
+  }
+
+  const administrator = getAdminProfile(response.locals)
+  const userId = existingProfile?.id ?? randomUUID()
+  const before = existingProfile
+    ? {
+        name: existingProfile.name,
+        email: existingProfile.email,
+        status: existingProfile.status,
+        hasLogin: false,
+      }
+    : null
+
+  try {
+    const saveUser = existingProfile
+      ? prisma.user.update({
+          where: { id: existingProfile.id },
+          data: {
+            authUserId,
+            name: input.name,
+            email: input.email,
+            status: UserStatus.ACTIVE,
+          },
+          select: ADMIN_USER_SELECT,
+        })
+      : prisma.user.create({
+          data: {
+            id: userId,
+            authUserId,
+            name: input.name,
+            email: input.email,
+            status: UserStatus.ACTIVE,
+          },
+          select: ADMIN_USER_SELECT,
+        })
+
+    const [savedUser] = await prisma.$transaction([
+      saveUser,
+      prisma.adminAuditLog.create({
+        data: {
+          actorUserId: administrator.id,
+          action: 'USER_INVITED',
+          targetType: 'User',
+          targetId: userId,
+          ...(before ? { before } : {}),
+          after: {
+            name: input.name,
+            email: input.email,
+            status: UserStatus.ACTIVE,
+            hasLogin: true,
+          },
+        },
+      }),
+    ])
+
+    response.status(201).json(serializeAdminUser(savedUser))
+  } catch (error: unknown) {
+    await deleteAuthUser(authUserId).catch(() => undefined)
+
+    if (isUniqueConstraintError(error)) {
+      response.status(409).json({
+        error: 'A player profile already uses this email address.',
+      })
+      return
+    }
+
+    throw error
+  }
+})
+
+app.patch('/api/admin/users/:userId', async (request, response) => {
+  const userId = request.params.userId
+
+  if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) {
+    response.status(400).json({ error: 'Invalid user ID' })
+    return
+  }
+
+  let input
+
+  try {
+    input = parseAdminUserDetails(request.body)
+  } catch (error: unknown) {
+    if (error instanceof AdminUserValidationError) {
+      response.status(400).json({ error: error.message })
+      return
+    }
+
+    throw error
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: ADMIN_USER_SELECT,
+  })
+
+  if (!existingUser) {
+    response.status(404).json({ error: 'Player account not found' })
+    return
+  }
+
+  if (existingUser.role === UserRole.ADMIN) {
+    response.status(409).json({
+      error: 'The sole administrator account is protected.',
+    })
+    return
+  }
+
+  const emailChanged = existingUser.email !== input.email
+
+  if (existingUser.name === input.name && !emailChanged) {
+    response.status(200).json(serializeAdminUser(existingUser))
+    return
+  }
+
+  if (emailChanged && existingUser.authUserId) {
+    try {
+      await updateAuthUserEmail(existingUser.authUserId, input.email)
+    } catch (error: unknown) {
+      const authError = getAdminAuthErrorResponse(error)
+
+      if (authError) {
+        response.status(authError.status).json({ error: authError.message })
+        return
+      }
+
+      throw error
+    }
+  }
+
+  const administrator = getAdminProfile(response.locals)
+
+  try {
+    const [updatedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: input,
+        select: ADMIN_USER_SELECT,
+      }),
+      prisma.adminAuditLog.create({
+        data: {
+          actorUserId: administrator.id,
+          action: 'USER_DETAILS_UPDATED',
+          targetType: 'User',
+          targetId: userId,
+          before: {
+            name: existingUser.name,
+            email: existingUser.email,
+          },
+          after: input,
+        },
+      }),
+    ])
+
+    response.status(200).json(serializeAdminUser(updatedUser))
+  } catch (error: unknown) {
+    if (emailChanged && existingUser.authUserId) {
+      await updateAuthUserEmail(
+        existingUser.authUserId,
+        existingUser.email,
+      ).catch(() => undefined)
+    }
+
+    if (isUniqueConstraintError(error)) {
+      response.status(409).json({
+        error: 'A player profile already uses this email address.',
+      })
+      return
+    }
+
+    throw error
+  }
+})
+
+app.patch('/api/admin/users/:userId/status', async (request, response) => {
+  const userId = request.params.userId
+
+  if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) {
+    response.status(400).json({ error: 'Invalid user ID' })
+    return
+  }
+
+  let input
+
+  try {
+    input = parseAdminUserStatus(request.body)
+  } catch (error: unknown) {
+    if (error instanceof AdminUserValidationError) {
+      response.status(400).json({ error: error.message })
+      return
+    }
+
+    throw error
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: ADMIN_USER_SELECT,
+  })
+
+  if (!existingUser) {
+    response.status(404).json({ error: 'Player account not found' })
+    return
+  }
+
+  if (existingUser.role === UserRole.ADMIN) {
+    response.status(409).json({
+      error: 'The sole administrator account is protected.',
+    })
+    return
+  }
+
+  if (existingUser.status === input.status) {
+    response.status(200).json(serializeAdminUser(existingUser))
+    return
+  }
+
+  if (existingUser.authUserId) {
+    try {
+      await setAuthUserSuspended(
+        existingUser.authUserId,
+        input.status === UserStatus.SUSPENDED,
+      )
+    } catch (error: unknown) {
+      const authError = getAdminAuthErrorResponse(error)
+
+      if (authError) {
+        response.status(authError.status).json({ error: authError.message })
+        return
+      }
+
+      throw error
+    }
+  }
+
+  const administrator = getAdminProfile(response.locals)
+
+  try {
+    const [updatedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: input,
+        select: ADMIN_USER_SELECT,
+      }),
+      prisma.adminAuditLog.create({
+        data: {
+          actorUserId: administrator.id,
+          action:
+            input.status === UserStatus.SUSPENDED
+              ? 'USER_SUSPENDED'
+              : 'USER_RESTORED',
+          targetType: 'User',
+          targetId: userId,
+          before: { status: existingUser.status },
+          after: { status: input.status },
+        },
+      }),
+    ])
+
+    response.status(200).json(serializeAdminUser(updatedUser))
+  } catch (error: unknown) {
+    if (existingUser.authUserId) {
+      await setAuthUserSuspended(
+        existingUser.authUserId,
+        existingUser.status === UserStatus.SUSPENDED,
+      ).catch(() => undefined)
+    }
+
+    throw error
+  }
+})
+
+app.delete('/api/admin/users/:userId', async (request, response) => {
+  const userId = request.params.userId
+
+  if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) {
+    response.status(400).json({ error: 'Invalid user ID' })
+    return
+  }
+
+  let confirmation: string
+
+  try {
+    confirmation = parseDeleteConfirmation(request.body)
+  } catch (error: unknown) {
+    if (error instanceof AdminUserValidationError) {
+      response.status(400).json({ error: error.message })
+      return
+    }
+
+    throw error
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: ADMIN_USER_SELECT,
+  })
+
+  if (!existingUser) {
+    response.status(404).json({ error: 'Player account not found' })
+    return
+  }
+
+  if (existingUser.role === UserRole.ADMIN) {
+    response.status(409).json({
+      error: 'The sole administrator account cannot be deleted.',
+    })
+    return
+  }
+
+  if (existingUser.status !== UserStatus.SUSPENDED) {
+    response.status(409).json({
+      error: 'Suspend this account before permanently deleting it.',
+    })
+    return
+  }
+
+  if (confirmation !== existingUser.email.toLowerCase()) {
+    response.status(400).json({
+      error: 'The confirmation email does not match this player.',
+    })
+    return
+  }
+
+  if (existingUser.authUserId) {
+    try {
+      await deleteAuthUser(existingUser.authUserId)
+    } catch (error: unknown) {
+      const authError = getAdminAuthErrorResponse(error)
+
+      if (authError) {
+        response.status(authError.status).json({ error: authError.message })
+        return
+      }
+
+      throw error
+    }
+  }
+
+  const administrator = getAdminProfile(response.locals)
+
+  await prisma.$transaction([
+    prisma.scorecardReview.deleteMany({
+      where: { round: { userId } },
+    }),
+    prisma.submissionMessage.deleteMany({
+      where: { senderUserId: userId },
+    }),
+    prisma.submission.deleteMany({ where: { userId } }),
+    prisma.round.deleteMany({ where: { userId } }),
+    prisma.user.delete({ where: { id: userId } }),
+    prisma.adminAuditLog.create({
+      data: {
+        actorUserId: administrator.id,
+        action: 'USER_DELETED',
+        targetType: 'User',
+        targetId: userId,
+        before: {
+          name: existingUser.name,
+          email: existingUser.email,
+          status: existingUser.status,
+          roundCount: existingUser._count.rounds,
+          hadLogin: existingUser.authUserId !== null,
+        },
+        after: { deleted: true },
+      },
+    }),
+  ])
+
+  response.status(204).send()
 })
 
 app.get('/api/admin/submissions', async (request, response) => {
