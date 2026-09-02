@@ -2,6 +2,34 @@
   align-items: center;
 }
 
+.admin-submission-views {
+  padding-top: 20px;
+  display: flex;
+  gap: 8px;
+}
+
+.admin-submission-views button {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  background: white;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.admin-submission-views button[aria-pressed="true"] {
+  border-color: var(--forest);
+  color: white;
+  background: var(--forest);
+}
+
+.admin-submission-views button:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
 .admin-submission-filters {
   padding: 22px 0;
   display: grid;
@@ -17,6 +45,29 @@
   color: var(--forest-deep);
   font-size: 9px;
   font-weight: 800;
+}
+
+.admin-submission-archive-filter {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-submission-archive-filter span {
+  color: var(--forest-deep);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.admin-submission-archive-filter strong {
+  min-height: 46px;
+  padding: 0 13px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink-muted);
+  background: rgba(99, 112, 104, 0.06);
+  font-size: 10px;
 }
 
 .admin-submission-filters input,

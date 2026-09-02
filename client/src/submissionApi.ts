@@ -17,6 +17,12 @@ export const SUBMISSION_STATUSES = [
   'CLOSED',
 ] as const
 
+export const ACTIVE_SUBMISSION_STATUSES = [
+  'NEW',
+  'IN_PROGRESS',
+  'RESOLVED',
+] as const
+
 export type SubmissionType = (typeof SUBMISSION_TYPES)[number]
 export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number]
 

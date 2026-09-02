@@ -632,6 +632,48 @@ describe('GET /api/admin/submissions', () => {
     role: 'ADMIN',
   }
 
+  it('should exclude closed requests from the default active queue', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    submissionCountMock.mockResolvedValueOnce(0)
+    submissionFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).get(
+      '/api/admin/submissions?page=1&pageSize=10',
+    )
+
+    expect(response.status).toBe(200)
+    const where = { status: { not: 'CLOSED' } }
+    expect(submissionCountMock).toHaveBeenCalledWith({ where })
+    expect(submissionFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    )
+  })
+
+  it('should return the searchable closed archive when requested', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    submissionCountMock.mockResolvedValueOnce(0)
+    submissionFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).get(
+      '/api/admin/submissions?status=CLOSED&search=player&page=1&pageSize=10',
+    )
+
+    expect(response.status).toBe(200)
+    expect(submissionCountMock).toHaveBeenCalledWith({
+      where: {
+        status: 'CLOSED',
+        OR: [
+          { subject: { contains: 'player', mode: 'insensitive' } },
+          { message: { contains: 'player', mode: 'insensitive' } },
+          { clubName: { contains: 'player', mode: 'insensitive' } },
+          { courseName: { contains: 'player', mode: 'insensitive' } },
+          { user: { name: { contains: 'player', mode: 'insensitive' } } },
+          { user: { email: { contains: 'player', mode: 'insensitive' } } },
+        ],
+      },
+    })
+  })
+
   it('should return a filtered paginated review queue', async () => {
     userFindUniqueMock.mockResolvedValueOnce(adminProfile)
     submissionCountMock.mockResolvedValueOnce(1)
