@@ -33,6 +33,20 @@ describe('submission paths', () => {
     )
   })
 
+  it('should build the closed archive path', () => {
+    expect(
+      buildAdminSubmissionsPath({
+        search: '  player@example.com  ',
+        status: 'CLOSED',
+        type: '',
+        page: 1,
+        pageSize: 10,
+      }),
+    ).toBe(
+      '/api/admin/submissions?search=player%40example.com&status=CLOSED&page=1&pageSize=10',
+    )
+  })
+
   it('should build player and administrator conversation paths', () => {
     const submissionId = '11111111-1111-4111-8111-111111111111'
 

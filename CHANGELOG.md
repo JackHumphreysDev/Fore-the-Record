@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.8.1 - 2026-09-02
+
+### User-facing changes
+
+- No player-facing changes in this release.
+
+### Developer and admin changes
+
+- Changed the administrator support queue to show only active requests by default.
+- Added a separate closed-request archive that can be searched by request details, course information, player name, or player email and filtered by request type.
+- Made closed requests leave the active queue immediately and reopened requests leave the archive immediately.
+- Preserved complete closed conversations and existing audited status changes rather than deleting support history.
+- Added regression coverage for the default active queue and searchable closed archive.
+
 ## 0.8.0 - 2026-09-02
 
 ### User-facing changes

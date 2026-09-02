@@ -1,6 +1,6 @@
 # Administration
 
-Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, and version `0.7.0` adds manual scorecard review. General user and round management remains read-only.
+Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, and version `0.8.1` separates active support work from a searchable closed archive. General user and round management remains read-only.
 
 ## Security model
 
@@ -47,7 +47,7 @@ Before running it, the owner must already have registered, confirmed their email
 
 `GET /api/admin/users` returns safe, paginated profile details. Its optional `search` query matches names and emails; `page` and `pageSize` control pagination, with a maximum page size of 50.
 
-`GET /api/admin/submissions` returns safe, paginated support requests with their submitting profile identity. Its optional `search` query matches request text, course details, player names, and player emails. The `status` and `type` queries use the documented submission enums; `page` and `pageSize` control pagination, with a maximum page size of 50.
+`GET /api/admin/submissions` returns safe, paginated support requests with their submitting profile identity. Without a `status` query it excludes closed requests so completed work does not remain in the active queue. Passing `status=CLOSED` returns the searchable archive. Its optional `search` query matches request text, course details, player names, and player emails. The `status` and `type` queries use the documented submission enums; `page` and `pageSize` control pagination, with a maximum page size of 50.
 
 `GET /api/admin/submissions/:submissionId/messages` returns the ordered conversation for an existing request. `POST` to the same path adds a validated administrator reply unless the request is closed. The audit record notes that a reply was added but deliberately excludes the support-message text.
 
@@ -55,7 +55,7 @@ Before running it, the owner must already have registered, confirmed their email
 
 `GET /api/admin/scorecard-reviews` returns unresolved player-entered scorecard definitions with the associated player, tee, round, and locked hole strokes. `PATCH /api/admin/scorecard-reviews/:reviewId` accepts an approval with all 18 corrected hole definitions or a rejection. Approval stores the canonical tee scorecard, recalculates the adjusted gross score, differential, counting rounds, and Handicap Index, and writes an audit record. The player's submitted strokes are never editable or replaced.
 
-Players use the corresponding `/api/submissions/:submissionId/messages` routes. Those routes resolve ownership from the verified authentication account and return `404` for requests belonging to another player. Closed requests cannot receive player or administrator replies until the administrator reopens them.
+Players use the corresponding `/api/submissions/:submissionId/messages` routes. Those routes resolve ownership from the verified authentication account and return `404` for requests belonging to another player. Closed requests remain in the player's private history but cannot receive player or administrator replies until the administrator reopens them. In the administrator portal, closing a request moves it out of **Active requests** and into **Closed archive**; reopening it moves it back.
 
 The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. Submission replies, status changes, and structured scorecard review are the portal's only mutation controls. It exposes no password, token, authentication-secret, user-management, or unrestricted round-management fields.
 

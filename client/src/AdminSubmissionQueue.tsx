@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
 import {
+  ACTIVE_SUBMISSION_STATUSES,
   buildAdminSubmissionsPath,
   isAdminSubmissionsResponse,
-  SUBMISSION_STATUSES,
   SUBMISSION_STATUS_LABELS,
   SUBMISSION_TYPES,
   SUBMISSION_TYPE_LABELS,
@@ -16,6 +16,8 @@ import SubmissionConversation from './SubmissionConversation.tsx'
 import './AdminSubmissionQueue.css'
 
 const PAGE_SIZE = 10
+
+type QueueView = 'active' | 'closed'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -45,6 +47,7 @@ function formatQueueDate(value: string): string {
 }
 
 function AdminSubmissionQueue() {
+  const [queueView, setQueueView] = useState<QueueView>('active')
   const [draftSearch, setDraftSearch] = useState('')
   const [draftStatus, setDraftStatus] = useState<SubmissionStatus | ''>('')
   const [draftType, setDraftType] = useState<SubmissionType | ''>('')
@@ -69,7 +72,7 @@ function AdminSubmissionQueue() {
         const apiResponse = await authenticatedFetch(
           buildAdminSubmissionsPath({
             search,
-            status,
+            status: queueView === 'closed' ? 'CLOSED' : status,
             type,
             page,
             pageSize: PAGE_SIZE,
@@ -117,7 +120,24 @@ function AdminSubmissionQueue() {
 
     void loadSubmissions()
     return () => controller.abort()
-  }, [loadAttempt, page, search, status, type])
+  }, [loadAttempt, page, queueView, search, status, type])
+
+  function selectQueueView(nextView: QueueView) {
+    const viewIsUnchanged = nextView === queueView
+
+    setQueueView(nextView)
+    setDraftSearch('')
+    setDraftStatus('')
+    setDraftType('')
+    setSearch('')
+    setStatus('')
+    setType('')
+    setPage(1)
+
+    if (viewIsUnchanged) {
+      setLoadAttempt((value) => value + 1)
+    }
+  }
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -156,6 +176,17 @@ function AdminSubmissionQueue() {
   }
 
   function updateSubmissionStatus(update: SubmissionStatusUpdate) {
+    const remainsInCurrentView =
+      queueView === 'closed'
+        ? update.status === 'CLOSED'
+        : update.status !== 'CLOSED' &&
+          (status === '' || update.status === status)
+
+    if (!remainsInCurrentView) {
+      setLoadAttempt((value) => value + 1)
+      return
+    }
+
     setResponse((current) =>
       current
         ? {
@@ -177,6 +208,7 @@ function AdminSubmissionQueue() {
   const pagination = response?.pagination
   const pageCount = Math.max(pagination?.totalPages ?? 0, 1)
   const hasAppliedFilters = Boolean(search || status || type)
+  const isClosedArchive = queueView === 'closed'
 
   return (
     <section
@@ -186,10 +218,32 @@ function AdminSubmissionQueue() {
       <div className="admin-panel-heading admin-submission-heading">
         <div>
           <p>Player support</p>
-          <h2 id="admin-submission-title">Request queue</h2>
+          <h2 id="admin-submission-title">
+            {isClosedArchive ? 'Closed request archive' : 'Active requests'}
+          </h2>
         </div>
-        <span>Response tools</span>
+        <span>{isClosedArchive ? 'Searchable history' : 'Response tools'}</span>
       </div>
+
+      <nav
+        className="admin-submission-views"
+        aria-label="Support request views"
+      >
+        <button
+          type="button"
+          aria-pressed={!isClosedArchive}
+          onClick={() => selectQueueView('active')}
+        >
+          Active requests
+        </button>
+        <button
+          type="button"
+          aria-pressed={isClosedArchive}
+          onClick={() => selectQueueView('closed')}
+        >
+          Closed archive
+        </button>
+      </nav>
 
       <form className="admin-submission-filters" onSubmit={applyFilters}>
         <label>
@@ -202,22 +256,32 @@ function AdminSubmissionQueue() {
             onChange={(event) => setDraftSearch(event.target.value)}
           />
         </label>
-        <label>
-          Status
-          <select
-            value={draftStatus}
-            onChange={(event) =>
-              setDraftStatus(event.target.value as SubmissionStatus | '')
-            }
+        {isClosedArchive ? (
+          <div
+            className="admin-submission-archive-filter"
+            aria-label="Status: Closed only"
           >
-            <option value="">All statuses</option>
-            {SUBMISSION_STATUSES.map((submissionStatus) => (
-              <option key={submissionStatus} value={submissionStatus}>
-                {SUBMISSION_STATUS_LABELS[submissionStatus]}
-              </option>
-            ))}
-          </select>
-        </label>
+            <span>Status</span>
+            <strong>Closed only</strong>
+          </div>
+        ) : (
+          <label>
+            Status
+            <select
+              value={draftStatus}
+              onChange={(event) =>
+                setDraftStatus(event.target.value as SubmissionStatus | '')
+              }
+            >
+              <option value="">All active statuses</option>
+              {ACTIVE_SUBMISSION_STATUSES.map((submissionStatus) => (
+                <option key={submissionStatus} value={submissionStatus}>
+                  {SUBMISSION_STATUS_LABELS[submissionStatus]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           Type
           <select
@@ -275,7 +339,9 @@ function AdminSubmissionQueue() {
             <p className="admin-empty">
               {hasAppliedFilters
                 ? 'No support requests match these filters.'
-                : 'No support requests have been submitted yet.'}
+                : isClosedArchive
+                  ? 'No closed support requests have been archived yet.'
+                  : 'No active support requests need attention.'}
             </p>
           ) : (
             <div className="admin-submission-list">

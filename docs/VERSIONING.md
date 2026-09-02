@@ -1,6 +1,6 @@
 # Versioning and release notes
 
-Fore the Record uses one application version across the root, client, and server packages. The current version is `0.8.0`.
+Fore the Record uses one application version across the root, client, and server packages. The current version is `0.8.1`.
 
 ## Version format
 

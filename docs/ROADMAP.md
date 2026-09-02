@@ -7,7 +7,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 1. Custom domain and production email delivery.
 2. Admin-role and audit-log foundation. Completed in `0.2.0`.
 3. Admin portal. Read-only monitoring completed in `0.3.0`; management actions remain planned.
-4. User submissions and admin messaging. Submission foundation completed in `0.4.0`; private conversations and audited resolution controls completed in `0.5.0`.
+4. User submissions and admin messaging. Submission foundation completed in `0.4.0`; private conversations and audited resolution controls completed in `0.5.0`; active and archived administrator queues completed in `0.8.1`.
 5. Course catalogue and database-backed search. Import tooling, search, and quota-safe on-demand additions completed in `0.6.0`; a full production data load requires a future RapidAPI plan change.
 6. Hole-by-hole scorecards and administrator approval. Completed in `0.7.0`.
 7. Competition, casual, individual, and team round records. Completed in `0.8.0`.
@@ -111,7 +111,7 @@ Give signed-in players one place to report problems, suggest improvements, reque
 
 ### Delivery status
 
-Version `0.4.0` added player submission creation, private player history, structured missing-course details, and a protected read-only administrator queue with search, filters, and pagination. Version `0.5.0` adds private player and administrator replies, audited administrator status changes, and closed-thread safeguards. Direct links from data-correction requests to the affected record, submission rate limiting, unread indicators, and email notifications remain planned.
+Version `0.4.0` added player submission creation, private player history, structured missing-course details, and a protected read-only administrator queue with search, filters, and pagination. Version `0.5.0` added private player and administrator replies, audited administrator status changes, and closed-thread safeguards. Version `0.8.1` separates active requests from a searchable closed archive while retaining the complete conversation and reopening controls. Direct links from data-correction requests to the affected record, submission rate limiting, unread indicators, and email notifications remain planned.
 
 ### Submission types
 

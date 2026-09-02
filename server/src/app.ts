@@ -482,7 +482,9 @@ app.get('/api/admin/submissions', async (request, response) => {
   }
 
   const where = {
-    ...(status ? { status } : {}),
+    ...(status
+      ? { status }
+      : { status: { not: SubmissionStatus.CLOSED } }),
     ...(type ? { type } : {}),
     ...(search
       ? {
