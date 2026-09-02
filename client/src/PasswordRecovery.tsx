@@ -6,14 +6,19 @@ import './AuthScreen.css'
 
 type PasswordRecoveryProps = {
   onComplete: () => void
+  purpose?: 'recovery' | 'invitation'
 }
 
-function PasswordRecovery({ onComplete }: PasswordRecoveryProps) {
+function PasswordRecovery({
+  onComplete,
+  purpose = 'recovery',
+}: PasswordRecoveryProps) {
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
+  const isInvitation = purpose === 'invitation'
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -53,17 +58,27 @@ function PasswordRecovery({ onComplete }: PasswordRecoveryProps) {
       <section className="auth-panel">
         <div className="auth-card">
           <img className="auth-recovery-logo" src={brandLogo} alt="Fore the Record" />
-          <p className="form-kicker">Secure recovery</p>
-          <h2>{isComplete ? 'Password updated.' : 'Choose a new password.'}</h2>
+          <p className="form-kicker">
+            {isInvitation ? 'Invitation accepted' : 'Secure recovery'}
+          </p>
+          <h2>
+            {isComplete
+              ? isInvitation
+                ? 'Your account is ready.'
+                : 'Password updated.'
+              : 'Choose a new password.'}
+          </h2>
           <p className="auth-intro">
             {isComplete
-              ? 'Your new password is ready to use.'
+              ? isInvitation
+                ? 'Your password is set. Sign in to open your player record.'
+                : 'Your new password is ready to use.'
               : 'Use at least 8 characters and avoid a password you use elsewhere.'}
           </p>
 
           {isComplete ? (
             <button className="auth-submit" type="button" onClick={onComplete}>
-              Return to sign in
+              {isInvitation ? 'Continue to sign in' : 'Return to sign in'}
             </button>
           ) : (
             <form className="auth-form" onSubmit={handleSubmit} noValidate>

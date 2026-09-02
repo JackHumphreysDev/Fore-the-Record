@@ -14,6 +14,23 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.9.0 - 2026-09-02
+
+### User-facing changes
+
+- Added secure administrator invitations that let invited players choose their own password from the email link.
+- Added a clear suspended-account response when a suspended player attempts to use the application.
+
+### Developer and admin changes
+
+- Added a protected administrator player directory for secure invitations and safe name/email editing.
+- Added player suspension and restoration in both Supabase Auth and the application API access gate.
+- Added confirmation-gated permanent deletion that requires prior suspension and removes the player's login and associated application records.
+- Protected the sole administrator account from editing, suspension, or deletion.
+- Added server-only Supabase secret-key configuration; the browser never receives the administrator key and the administrator never chooses or sees player passwords.
+- Added audit records for invitations, profile changes, suspension, restoration, and deletion without recording secrets.
+- Added migration, provider-operation, validation, suspended-session, account-lifecycle, sole-admin, and client response-contract regression coverage.
+
 ## 0.8.1 - 2026-09-02
 
 ### User-facing changes

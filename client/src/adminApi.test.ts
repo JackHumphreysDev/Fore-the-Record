@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildAdminUserPath,
+  buildAdminUserStatusPath,
   buildAdminUsersPath,
   isAdminIdentity,
   isAdminOverview,
@@ -20,12 +22,23 @@ describe('buildAdminUsersPath', () => {
   })
 })
 
+describe('administrator account paths', () => {
+  it('should safely encode player IDs for detail and status requests', () => {
+    expect(buildAdminUserPath('player/id')).toBe('/api/admin/users/player%2Fid')
+    expect(buildAdminUserStatusPath('player/id')).toBe(
+      '/api/admin/users/player%2Fid/status',
+    )
+  })
+})
+
 describe('admin response validation', () => {
   const user = {
     id: '11111111-1111-4111-8111-111111111111',
     name: 'Example Player',
     email: 'player@example.com',
     role: 'PLAYER',
+    status: 'ACTIVE',
+    hasLogin: true,
     handicapIndex: 12.4,
     createdAt: '2026-08-31T18:15:00.000Z',
     homeClub: {
@@ -61,6 +74,18 @@ describe('admin response validation', () => {
       isAdminOverview({
         totals: { users: 14, rounds: 38, clubs: 6 },
         recentRegistrations: [{ ...user, role: 'OWNER' }],
+      }),
+    ).toBe(false)
+    expect(
+      isAdminOverview({
+        totals: { users: 14, rounds: 38, clubs: 6 },
+        recentRegistrations: [{ ...user, status: 'DELETED' }],
+      }),
+    ).toBe(false)
+    expect(
+      isAdminOverview({
+        totals: { users: 14, rounds: 38, clubs: 6 },
+        recentRegistrations: [{ ...user, hasLogin: 'yes' }],
       }),
     ).toBe(false)
     expect(

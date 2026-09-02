@@ -1,4 +1,5 @@
 export type AdminRole = 'PLAYER' | 'ADMIN'
+export type AdminUserStatus = 'ACTIVE' | 'SUSPENDED'
 
 export type AdminIdentity = {
   id: string
@@ -12,6 +13,8 @@ export type AdminUser = {
   name: string
   email: string
   role: AdminRole
+  status: AdminUserStatus
+  hasLogin: boolean
   handicapIndex: number | null
   createdAt: string
   homeClub: {
@@ -96,13 +99,15 @@ function isHomeClub(value: unknown): value is NonNullable<AdminUser['homeClub']>
   )
 }
 
-function isAdminUser(value: unknown): value is AdminUser {
+export function isAdminUser(value: unknown): value is AdminUser {
   return (
     isRecord(value) &&
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
     typeof value.email === 'string' &&
     (value.role === 'PLAYER' || value.role === 'ADMIN') &&
+    (value.status === 'ACTIVE' || value.status === 'SUSPENDED') &&
+    typeof value.hasLogin === 'boolean' &&
     (value.handicapIndex === null ||
       (typeof value.handicapIndex === 'number' &&
         Number.isFinite(value.handicapIndex))) &&
@@ -241,4 +246,12 @@ export function buildAdminUsersPath(
   parameters.set('pageSize', String(pageSize))
 
   return `/api/admin/users?${parameters.toString()}`
+}
+
+export function buildAdminUserPath(userId: string): string {
+  return `/api/admin/users/${encodeURIComponent(userId)}`
+}
+
+export function buildAdminUserStatusPath(userId: string): string {
+  return `${buildAdminUserPath(userId)}/status`
 }
