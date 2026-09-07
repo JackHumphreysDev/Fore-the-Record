@@ -3,11 +3,13 @@ import { authenticatedFetch } from './api.ts'
 import {
   buildSubmissionsPath,
   isSubmission,
+  isSubmissionRoundOptionsResponse,
   isSubmissionsResponse,
   SUBMISSION_STATUS_LABELS,
   SUBMISSION_TYPE_LABELS,
   PLAYER_SUBMISSION_TYPES,
   type SubmissionType,
+  type SubmissionRound,
   type SubmissionsResponse,
 } from './submissionApi.ts'
 import SubmissionConversation from './SubmissionConversation.tsx'
@@ -51,6 +53,10 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [courseName, setCourseName] = useState('')
   const [teeDetails, setTeeDetails] = useState('')
+  const [roundId, setRoundId] = useState('')
+  const [roundOptions, setRoundOptions] = useState<SubmissionRound[]>([])
+  const [roundOptionsError, setRoundOptionsError] = useState('')
+  const [areRoundOptionsLoading, setAreRoundOptionsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitNotice, setSubmitNotice] = useState('')
@@ -60,6 +66,53 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    if (type !== 'DATA_CORRECTION') {
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function loadRoundOptions() {
+      setAreRoundOptionsLoading(true)
+      setRoundOptionsError('')
+
+      try {
+        const response = await authenticatedFetch(
+          '/api/submissions/round-options',
+          { signal: controller.signal },
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            await readSupportError(response, 'We could not load your rounds.'),
+          )
+        }
+
+        const body: unknown = await response.json()
+
+        if (!isSubmissionRoundOptionsResponse(body)) {
+          throw new Error('The round list returned was incomplete.')
+        }
+
+        setRoundOptions(body.rounds)
+      } catch (error: unknown) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setRoundOptionsError(
+            error instanceof Error ? error.message : 'We could not load your rounds.',
+          )
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setAreRoundOptionsLoading(false)
+        }
+      }
+    }
+
+    void loadRoundOptions()
+    return () => controller.abort()
+  }, [type])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -136,6 +189,7 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
                 teeDetails,
               }
             : {}),
+          ...(type === 'DATA_CORRECTION' && roundId ? { roundId } : {}),
         }),
       })
 
@@ -161,6 +215,7 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
       setWebsiteUrl('')
       setCourseName('')
       setTeeDetails('')
+      setRoundId('')
       setSubmitNotice('Your request has been sent to the administrator.')
       setPage(1)
       setLoadAttempt((value) => value + 1)
@@ -213,6 +268,7 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
                   setType(event.target.value as SubmissionType)
                   setSubmitError('')
                   setSubmitNotice('')
+                  setRoundId('')
                 }}
               >
                 {PLAYER_SUBMISSION_TYPES.map((submissionType) => (
@@ -222,6 +278,36 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
                 ))}
               </select>
             </label>
+
+            {type === 'DATA_CORRECTION' ? (
+              <label>
+                Affected round <span>Optional</span>
+                <select
+                  value={roundId}
+                  disabled={isSubmitting || areRoundOptionsLoading}
+                  onChange={(event) => setRoundId(event.target.value)}
+                >
+                  <option value="">
+                    {areRoundOptionsLoading
+                      ? 'Loading your rounds…'
+                      : 'No specific round'}
+                  </option>
+                  {roundOptions.map((round) => (
+                    <option key={round.id} value={round.id}>
+                      {formatSupportDate(round.datePlayed)} — {round.tee.course.club.name} — {round.tee.teeName}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  Selecting the round helps the administrator open the correct record.
+                </small>
+                {roundOptionsError ? (
+                  <span className="support-inline-error" role="alert">
+                    {roundOptionsError}
+                  </span>
+                ) : null}
+              </label>
+            ) : null}
 
             <label>
               Subject
@@ -366,6 +452,19 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
                     </div>
                     <h3>{submission.subject}</h3>
                     <p>{submission.message}</p>
+                    {submission.round ? (
+                      <div className="support-linked-round">
+                        <small>Linked round</small>
+                        <strong>{submission.round.tee.course.club.name}</strong>
+                        <span>
+                          {submission.round.tee.course.name} · {submission.round.tee.teeName} · {formatSupportDate(submission.round.datePlayed)}
+                        </span>
+                      </div>
+                    ) : submission.type === 'DATA_CORRECTION' ? (
+                      <p className="support-linked-round-missing">
+                        No round is linked, or the linked round has since been deleted.
+                      </p>
+                    ) : null}
                     {submission.clubName ? (
                       <dl className="support-course-details">
                         <div><dt>Club</dt><dd>{submission.clubName}</dd></div>

@@ -15,6 +15,7 @@ describe('parseSubmissionInput', () => {
       }),
     ).toEqual({
       type: 'IDEA',
+      roundId: null,
       subject: 'Add a yearly summary',
       message: 'It would be useful to compare each season.',
       clubName: null,
@@ -39,6 +40,7 @@ describe('parseSubmissionInput', () => {
       }),
     ).toEqual({
       type: 'MISSING_COURSE',
+      roundId: null,
       subject: 'Missing local club',
       message: 'I cannot find this club in course search.',
       clubName: 'Example Golf Club',
@@ -47,6 +49,42 @@ describe('parseSubmissionInput', () => {
       courseName: 'Championship Course',
       teeDetails: 'White tees: 6,500 yards',
     })
+  })
+
+  it('should accept a linked round only for a data correction', () => {
+    const roundId = '11111111-1111-4111-8111-111111111111'
+
+    expect(
+      parseSubmissionInput({
+        type: 'DATA_CORRECTION',
+        subject: 'Incorrect round total',
+        message: 'The score recorded for this round needs correcting.',
+        roundId,
+      }),
+    ).toEqual({
+      type: 'DATA_CORRECTION',
+      roundId,
+      subject: 'Incorrect round total',
+      message: 'The score recorded for this round needs correcting.',
+      clubName: null,
+      townCounty: null,
+      websiteUrl: null,
+      courseName: null,
+      teeDetails: null,
+    })
+
+    expect(() =>
+      parseSubmissionInput({
+        type: 'ISSUE',
+        subject: 'Incorrect round total',
+        message: 'The score recorded for this round needs correcting.',
+        roundId,
+      }),
+    ).toThrow(
+      new SubmissionValidationError(
+        'A round can only be linked to an incorrect information request',
+      ),
+    )
   })
 
   it('should reject an unsupported submission type', () => {

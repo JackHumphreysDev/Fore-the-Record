@@ -10,7 +10,11 @@ import {
 } from './adminRoundApi.ts'
 import type { AdminUser } from './adminApi.ts'
 
-type Props = { user: AdminUser; onRoundsChanged: () => void }
+type Props = {
+  user: AdminUser
+  focusedRoundId: string | null
+  onRoundsChanged: () => void
+}
 
 async function errorMessage(response: Response, fallback: string) {
   const body: unknown = await response.json().catch(() => null)
@@ -18,7 +22,7 @@ async function errorMessage(response: Response, fallback: string) {
     typeof body.error === 'string' ? body.error : fallback
 }
 
-function AdminRoundManager({ user, onRoundsChanged }: Props) {
+function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
   const [data, setData] = useState<AdminRoundsResponse | null>(null)
   const [page, setPage] = useState(1)
   const [reload, setReload] = useState(0)
@@ -30,6 +34,38 @@ function AdminRoundManager({ user, onRoundsChanged }: Props) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!focusedRoundId) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function loadFocusedRound() {
+      try {
+        const response = await authenticatedFetch(
+          buildAdminRoundPath(focusedRoundId!),
+          { signal: controller.signal },
+        )
+        if (!response.ok) {
+          throw new Error(await errorMessage(response, 'Could not open the linked round.'))
+        }
+        const body: unknown = await response.json()
+        if (!isAdminRound(body) || body.userId !== user.id) {
+          throw new Error('The linked round does not belong to this player.')
+        }
+        selectRound(body)
+      } catch (caught: unknown) {
+        if (!(caught instanceof DOMException && caught.name === 'AbortError')) {
+          setError(caught instanceof Error ? caught.message : 'Could not open the linked round.')
+        }
+      }
+    }
+
+    void loadFocusedRound()
+    return () => controller.abort()
+  }, [focusedRoundId, user.id])
 
   useEffect(() => {
     const controller = new AbortController()

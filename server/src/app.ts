@@ -191,8 +191,47 @@ const SUBMISSION_SELECT = {
   websiteUrl: true,
   courseName: true,
   teeDetails: true,
+  round: {
+    select: {
+      id: true,
+      datePlayed: true,
+      category: true,
+      participation: true,
+      grossScore: true,
+      tee: {
+        select: {
+          teeName: true,
+          course: {
+            select: {
+              name: true,
+              club: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
+  },
   createdAt: true,
   updatedAt: true,
+} as const
+
+const SUBMISSION_ROUND_SELECT = {
+  id: true,
+  datePlayed: true,
+  category: true,
+  participation: true,
+  grossScore: true,
+  tee: {
+    select: {
+      teeName: true,
+      course: {
+        select: {
+          name: true,
+          club: { select: { name: true } },
+        },
+      },
+    },
+  },
 } as const
 
 const ADMIN_SUBMISSION_SELECT = {
@@ -630,6 +669,27 @@ app.get('/api/admin/users', async (request, response) => {
   })
 })
 
+app.get('/api/admin/users/:userId', async (request, response) => {
+  const userId = request.params.userId
+
+  if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) {
+    response.status(400).json({ error: 'Invalid player ID' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: ADMIN_USER_SELECT,
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'Player account not found' })
+    return
+  }
+
+  response.status(200).json(serializeAdminUser(user))
+})
+
 app.get('/api/admin/users/:userId/rounds', async (request, response) => {
   const userId = request.params.userId
   const page = parsePaginationValue(request.query.page, 1)
@@ -718,6 +778,27 @@ app.patch('/api/admin/rounds/:roundId', async (request, response) => {
     }
     throw error
   }
+})
+
+app.get('/api/admin/rounds/:roundId', async (request, response) => {
+  const roundId = request.params.roundId
+
+  if (typeof roundId !== 'string' || !UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round ID' })
+    return
+  }
+
+  const round = await prisma.round.findUnique({
+    where: { id: roundId },
+    select: ADMIN_ROUND_SELECT,
+  })
+
+  if (!round) {
+    response.status(404).json({ error: 'Round not found' })
+    return
+  }
+
+  response.status(200).json(serializeAdminRound(round))
 })
 
 app.delete('/api/admin/rounds/:roundId', async (request, response) => {
@@ -1842,6 +1923,18 @@ app.post('/api/submissions', async (request, response) => {
     return
   }
 
+  if (input.roundId) {
+    const linkedRound = await prisma.round.findFirst({
+      where: { id: input.roundId, userId: user.id },
+      select: { id: true },
+    })
+
+    if (!linkedRound) {
+      response.status(404).json({ error: 'Round not found for this profile' })
+      return
+    }
+  }
+
   const submission = await prisma.submission.create({
     data: {
       userId: user.id,
@@ -1851,6 +1944,27 @@ app.post('/api/submissions', async (request, response) => {
   })
 
   response.status(201).json(submission)
+})
+
+app.get('/api/submissions/round-options', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const rounds = await prisma.round.findMany({
+    where: { userId: user.id },
+    orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+    select: SUBMISSION_ROUND_SELECT,
+  })
+
+  response.status(200).json({ rounds })
 })
 
 app.get('/api/submissions', async (request, response) => {

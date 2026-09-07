@@ -46,7 +46,11 @@ function formatQueueDate(value: string): string {
   }).format(new Date(value))
 }
 
-function AdminSubmissionQueue() {
+type AdminSubmissionQueueProps = {
+  onManageRound: (userId: string, roundId: string) => void
+}
+
+function AdminSubmissionQueue({ onManageRound }: AdminSubmissionQueueProps) {
   const [queueView, setQueueView] = useState<QueueView>('active')
   const [draftSearch, setDraftSearch] = useState('')
   const [draftStatus, setDraftStatus] = useState<SubmissionStatus | ''>('')
@@ -407,6 +411,27 @@ function AdminSubmissionQueue() {
                         </div>
                       ) : null}
                     </dl>
+                  ) : null}
+                  {submission.round ? (
+                    <section className="admin-submission-round">
+                      <div>
+                        <small>Linked round</small>
+                        <strong>{submission.round.tee.course.club.name}</strong>
+                        <span>
+                          {submission.round.tee.course.name} · {submission.round.tee.teeName} · {formatQueueDate(submission.round.datePlayed)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onManageRound(submission.user.id, submission.round!.id)}
+                      >
+                        Open round management
+                      </button>
+                    </section>
+                  ) : submission.type === 'DATA_CORRECTION' ? (
+                    <p className="admin-submission-round-missing">
+                      No round is linked, or the linked round has since been deleted. The conversation remains available.
+                    </p>
                   ) : null}
                   <SubmissionConversation
                     administrator
