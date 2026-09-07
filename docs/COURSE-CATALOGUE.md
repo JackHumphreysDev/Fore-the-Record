@@ -7,10 +7,13 @@ Golf Course Data API catalogue.
 Version `0.7.0` adds tee-specific hole scorecards. Round Entry requests a
 selected tee's saved scorecard first. If one is not stored and the course has
 a provider ID, the server makes one `GET /courses/{course_id}/scorecard`
-request, validates a complete set of 18 holes, selects the matching tee, and
-saves its par, stroke index, and available yardage. Later rounds reuse the
-saved data and spend no provider requests. An incomplete or missing provider
-card falls back to manual player entry and administrator review.
+request with the selected provider `tee_id`, validates a complete set of 18
+holes, and saves its par, stroke index, and available yardage. Version `0.11.1`
+supports both the provider's current single `tee_set` response and its earlier
+`tee_sets` array response. Scorecards are cached by course and tee so one tee
+cannot be reused for another. Later rounds reuse the saved data and spend no
+provider requests. An incomplete or missing provider card falls back to manual
+player entry and administrator review.
 
 Clubs and tees saved before provider identifiers were introduced are upgraded
 on their first scorecard lookup. The server matches the legacy club, course,

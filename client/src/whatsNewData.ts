@@ -8,6 +8,17 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'provider-scorecards-restored',
+    publishedAt: '2026-09-07',
+    title: 'Scorecards for newly added courses',
+    summary:
+      'Newly found provider courses now load the hole-by-hole card for the exact tee you choose in Round Entry.',
+    highlights: [
+      'Par, stroke index, and available yardage are brought into all 18 holes automatically.',
+      'Manual scorecard entry remains available when a course genuinely has no complete card.',
+    ],
+  },
+  {
     id: 'updates-in-one-place',
     publishedAt: '2026-09-07',
     title: 'Keep up with what’s new',

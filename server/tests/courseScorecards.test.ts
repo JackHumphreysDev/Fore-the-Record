@@ -20,6 +20,35 @@ afterEach(() => {
 })
 
 describe('parseProviderScorecard', () => {
+  it('normalizes the current single-tee scorecard response', () => {
+    expect(
+      parseProviderScorecard({
+        course_id: 'course-id',
+        course_name: 'Hallamshire',
+        tee_set: {
+          id: 'tee-id',
+          name: 'Red',
+          course_rating: 68.8,
+          slope_rating: 120,
+        },
+        holes,
+      }),
+    ).toEqual([
+      {
+        teeExternalId: 'tee-id',
+        teeName: 'Red',
+        courseRating: 68.8,
+        slopeRating: 120,
+        holes: holes.map((hole) => ({
+          holeNumber: hole.hole_number,
+          par: hole.par,
+          strokeIndex: hole.stroke_index,
+          yardage: hole.yardage,
+        })),
+      },
+    ])
+  })
+
   it('normalizes complete tee-specific hole data', () => {
     expect(
       parseProviderScorecard({
@@ -100,7 +129,48 @@ describe('getProviderTeeScorecard', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce()
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
-      'https://uk-golf-course-data-api.p.rapidapi.com/courses/course-id/scorecard',
+      'https://uk-golf-course-data-api.p.rapidapi.com/courses/course-id/scorecard?tee_id=tee-id',
     )
+  })
+
+  it('fetches different tees on the same course separately', async () => {
+    vi.stubEnv('RAPIDAPI_KEY', 'test-key')
+    vi.stubEnv('RAPIDAPI_HOST', 'uk-golf-course-data-api.p.rapidapi.com')
+    const fetchMock = vi.fn().mockImplementation((url: URL) => {
+      const teeId = url.searchParams.get('tee_id')
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            tee_set: {
+              id: teeId,
+              name: teeId === 'white-id' ? 'White' : 'Red',
+              course_rating: teeId === 'white-id' ? 71.2 : 68.8,
+              slope_rating: teeId === 'white-id' ? 128 : 120,
+            },
+            holes,
+          }),
+          { status: 200 },
+        ),
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getProviderTeeScorecard('course-id', {
+      externalId: 'white-id',
+      teeName: 'White',
+      courseRating: 71.2,
+      slopeRating: 128,
+    })
+    await getProviderTeeScorecard('course-id', {
+      externalId: 'red-id',
+      teeName: 'Red',
+      courseRating: 68.8,
+      slopeRating: 120,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('tee_id=white-id')
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('tee_id=red-id')
   })
 })

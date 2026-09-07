@@ -567,6 +567,7 @@ app.get('/api/admin/overview', async (_request, response) => {
 app.get('/api/admin/users', async (request, response) => {
   const page = parsePaginationValue(request.query.page, 1)
   const pageSize = parsePaginationValue(request.query.pageSize, 20)
+  const searchQuery = request.query.search
 
   if (page === null || pageSize === null || pageSize > 50) {
     response.status(400).json({ error: 'Invalid pagination' })
@@ -574,14 +575,14 @@ app.get('/api/admin/users', async (request, response) => {
   }
 
   if (
-    request.query.search !== undefined &&
-    typeof request.query.search !== 'string'
+    searchQuery !== undefined &&
+    typeof searchQuery !== 'string'
   ) {
     response.status(400).json({ error: 'Invalid search' })
     return
   }
 
-  const search = request.query.search?.trim() ?? ''
+  const search = typeof searchQuery === 'string' ? searchQuery.trim() : ''
 
   if (search.length > 100) {
     response.status(400).json({ error: 'Invalid search' })
@@ -1167,8 +1168,9 @@ app.delete('/api/admin/users/:userId', async (request, response) => {
 app.get('/api/admin/submissions', async (request, response) => {
   const page = parsePaginationValue(request.query.page, 1)
   const pageSize = parsePaginationValue(request.query.pageSize, 20)
-  const status = request.query.status
-  const type = request.query.type
+  const statusQuery = request.query.status
+  const typeQuery = request.query.type
+  const searchQuery = request.query.search
 
   if (page === null || pageSize === null || pageSize > 50) {
     response.status(400).json({ error: 'Invalid pagination' })
@@ -1176,16 +1178,17 @@ app.get('/api/admin/submissions', async (request, response) => {
   }
 
   if (
-    (status !== undefined && !isSubmissionStatus(status)) ||
-    (type !== undefined && !isSubmissionType(type)) ||
-    (request.query.search !== undefined &&
-      typeof request.query.search !== 'string')
+    (statusQuery !== undefined && !isSubmissionStatus(statusQuery)) ||
+    (typeQuery !== undefined && !isSubmissionType(typeQuery)) ||
+    (searchQuery !== undefined && typeof searchQuery !== 'string')
   ) {
     response.status(400).json({ error: 'Invalid submission filters' })
     return
   }
 
-  const search = request.query.search?.trim() ?? ''
+  const status = isSubmissionStatus(statusQuery) ? statusQuery : undefined
+  const type = isSubmissionType(typeQuery) ? typeQuery : undefined
+  const search = typeof searchQuery === 'string' ? searchQuery.trim() : ''
 
   if (search.length > 100) {
     response.status(400).json({ error: 'Invalid submission filters' })
@@ -2214,8 +2217,9 @@ app.get('/api/catalogue/courses', async (request, response) => {
     return
   }
 
-  const clubSearch = clubQuery?.trim() ?? ''
-  const courseSearch = courseQuery?.trim() ?? ''
+  const clubSearch = typeof clubQuery === 'string' ? clubQuery.trim() : ''
+  const courseSearch =
+    typeof courseQuery === 'string' ? courseQuery.trim() : ''
 
   if (
     (!clubSearch && !courseSearch) ||
