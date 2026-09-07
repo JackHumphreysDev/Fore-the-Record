@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.12.0 - 2026-09-07
+
+### User-facing changes
+
+- Added an optional affected-round selector to incorrect-information requests.
+- Displayed the linked club, course, tee, and date in the player's support history.
+- Preserved the complete support conversation if its linked round is later deleted.
+
+### Developer and admin changes
+
+- Added a nullable round relationship with `ON DELETE SET NULL` so correction requests remain usable after round deletion.
+- Enforced round ownership on the server before accepting a player-supplied reference.
+- Added linked player and round context to the protected support queue and a direct route into the exact round editor.
+- Added authenticated round-option and protected administrator record endpoints with response validation.
+- Added parsing, ownership, null-reference, and client response-contract regression coverage.
+
 ## 0.11.1 - 2026-09-07
 
 ### User-facing changes

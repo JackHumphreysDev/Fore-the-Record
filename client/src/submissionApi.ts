@@ -26,6 +26,21 @@ export const ACTIVE_SUBMISSION_STATUSES = [
 export type SubmissionType = (typeof SUBMISSION_TYPES)[number]
 export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number]
 
+export type SubmissionRound = {
+  id: string
+  datePlayed: string
+  category: 'CASUAL' | 'COMPETITION'
+  participation: 'INDIVIDUAL' | 'TEAM'
+  grossScore: number | null
+  tee: {
+    teeName: string
+    course: {
+      name: string
+      club: { name: string }
+    }
+  }
+}
+
 export const SUBMISSION_TYPE_LABELS: Record<SubmissionType, string> = {
   IDEA: 'Idea or improvement',
   ISSUE: 'Problem with the site',
@@ -52,6 +67,7 @@ export type Submission = {
   websiteUrl: string | null
   courseName: string | null
   teeDetails: string | null
+  round: SubmissionRound | null
   createdAt: string
   updatedAt: string
 }
@@ -79,6 +95,10 @@ export type SubmissionsResponse = {
 export type AdminSubmissionsResponse = {
   submissions: AdminSubmission[]
   pagination: Pagination
+}
+
+export type SubmissionRoundOptionsResponse = {
+  rounds: SubmissionRound[]
 }
 
 export type SubmissionMessage = {
@@ -141,6 +161,24 @@ function isSafeWebsiteUrl(value: unknown): value is string | null {
   }
 }
 
+export function isSubmissionRound(value: unknown): value is SubmissionRound {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.datePlayed === 'string' &&
+    !Number.isNaN(Date.parse(value.datePlayed)) &&
+    (value.category === 'CASUAL' || value.category === 'COMPETITION') &&
+    (value.participation === 'INDIVIDUAL' || value.participation === 'TEAM') &&
+    (value.grossScore === null || Number.isInteger(value.grossScore)) &&
+    isRecord(value.tee) &&
+    typeof value.tee.teeName === 'string' &&
+    isRecord(value.tee.course) &&
+    typeof value.tee.course.name === 'string' &&
+    isRecord(value.tee.course.club) &&
+    typeof value.tee.course.club.name === 'string'
+  )
+}
+
 export function isSubmission(value: unknown): value is Submission {
   if (!isRecord(value)) {
     return false
@@ -162,11 +200,22 @@ export function isSubmission(value: unknown): value is Submission {
     isSafeWebsiteUrl(value.websiteUrl) &&
     isNullableString(value.courseName) &&
     isNullableString(value.teeDetails) &&
+    (value.round === null || isSubmissionRound(value.round)) &&
     typeof value.createdAt === 'string' &&
     !Number.isNaN(Date.parse(value.createdAt)) &&
     typeof value.updatedAt === 'string' &&
     !Number.isNaN(Date.parse(value.updatedAt)) &&
     hasCourseIdentity
+  )
+}
+
+export function isSubmissionRoundOptionsResponse(
+  value: unknown,
+): value is SubmissionRoundOptionsResponse {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.rounds) &&
+    value.rounds.every(isSubmissionRound)
   )
 }
 

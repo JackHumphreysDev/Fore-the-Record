@@ -112,6 +112,7 @@ model AdminAuditLog {
 model Submission {
   id              String              @id @default(uuid()) @db.Uuid
   userId          String              @db.Uuid
+  roundId         String?             @db.Uuid
   type            SubmissionType
   status          SubmissionStatus    @default(NEW)
   subject         String              @db.VarChar(120)
@@ -124,10 +125,12 @@ model Submission {
   createdAt       DateTime            @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime            @updatedAt @db.Timestamptz(3)
   user            User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  round           Round?              @relation(fields: [roundId], references: [id], onDelete: SetNull)
   messages        SubmissionMessage[]
   scorecardReview ScorecardReview?
 
   @@index([userId, createdAt])
+  @@index([roundId])
   @@index([status, type, createdAt])
 }
 
@@ -228,6 +231,7 @@ model Round {
   holeScores         HoleScore[]
   scorecardStatus    RoundScorecardStatus @default(VERIFIED)
   scorecardReview    ScorecardReview?
+  correctionRequests Submission[]
 }
 
 model TeeHole {

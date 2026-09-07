@@ -14,6 +14,11 @@ import {
 
 type AdminUserDirectoryProps = {
   onUsersChanged: () => void
+  roundCorrectionTarget: {
+    userId: string
+    roundId: string
+    requestId: number
+  } | null
 }
 
 const PAGE_SIZE = 20
@@ -51,7 +56,10 @@ function UserIdentity({ user }: { user: AdminUser }) {
   )
 }
 
-function AdminUserDirectory({ onUsersChanged }: AdminUserDirectoryProps) {
+function AdminUserDirectory({
+  onUsersChanged,
+  roundCorrectionTarget,
+}: AdminUserDirectoryProps) {
   const [usersResponse, setUsersResponse] =
     useState<AdminUsersResponse | null>(null)
   const [searchInput, setSearchInput] = useState('')
@@ -74,6 +82,54 @@ function AdminUserDirectory({ onUsersChanged }: AdminUserDirectoryProps) {
   const [isMutating, setIsMutating] = useState(false)
   const [mutationError, setMutationError] = useState('')
   const [mutationNotice, setMutationNotice] = useState('')
+
+  useEffect(() => {
+    if (!roundCorrectionTarget) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function openLinkedPlayer() {
+      setMutationError('')
+
+      try {
+        const response = await authenticatedFetch(
+          buildAdminUserPath(roundCorrectionTarget!.userId),
+          { signal: controller.signal },
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            await readAccountError(response, 'Could not open the linked player.'),
+          )
+        }
+
+        const body: unknown = await response.json()
+
+        if (!isAdminUser(body)) {
+          throw new Error('The linked player returned was incomplete.')
+        }
+
+        manageUser(body)
+        window.requestAnimationFrame(() => {
+          document.getElementById('admin-player-directory')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          })
+        })
+      } catch (error: unknown) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setMutationError(
+            error instanceof Error ? error.message : 'Could not open the linked player.',
+          )
+        }
+      }
+    }
+
+    void openLinkedPlayer()
+    return () => controller.abort()
+  }, [roundCorrectionTarget])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -378,6 +434,7 @@ function AdminUserDirectory({ onUsersChanged }: AdminUserDirectoryProps) {
 
   return (
     <section
+      id="admin-player-directory"
       className="admin-panel admin-directory"
       aria-labelledby="player-directory-title"
     >
@@ -579,6 +636,11 @@ function AdminUserDirectory({ onUsersChanged }: AdminUserDirectoryProps) {
 
               <AdminRoundManager
                 user={managedUser}
+                focusedRoundId={
+                  roundCorrectionTarget?.userId === managedUser.id
+                    ? roundCorrectionTarget.roundId
+                    : null
+                }
                 onRoundsChanged={() => {
                   setLoadAttempt((value) => value + 1)
                   onUsersChanged()

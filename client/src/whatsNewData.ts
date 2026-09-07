@@ -8,6 +8,17 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'linked-round-corrections',
+    publishedAt: '2026-09-07',
+    title: 'Point us to the round that needs correcting',
+    summary:
+      'When you report incorrect round information, you can now select the affected round from your playing history.',
+    highlights: [
+      'The administrator can open the correct record directly from your request.',
+      'Your private conversation stays available even if the round is later removed.',
+    ],
+  },
+  {
     id: 'provider-scorecards-restored',
     publishedAt: '2026-09-07',
     title: 'Scorecards for newly added courses',

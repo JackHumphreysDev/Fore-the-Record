@@ -52,6 +52,11 @@ function AdminPortal({ administratorName }: AdminPortalProps) {
   const [overviewAttempt, setOverviewAttempt] = useState(0)
   const [isOverviewLoading, setIsOverviewLoading] = useState(true)
   const [overviewError, setOverviewError] = useState('')
+  const [roundCorrectionTarget, setRoundCorrectionTarget] = useState<{
+    userId: string
+    roundId: string
+    requestId: number
+  } | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -192,11 +197,16 @@ function AdminPortal({ administratorName }: AdminPortalProps) {
         </>
       ) : null}
 
-      <AdminSubmissionQueue />
+      <AdminSubmissionQueue
+        onManageRound={(userId, roundId) => {
+          setRoundCorrectionTarget({ userId, roundId, requestId: Date.now() })
+        }}
+      />
 
       <AdminScorecardReviews />
 
       <AdminUserDirectory
+        roundCorrectionTarget={roundCorrectionTarget}
         onUsersChanged={() => setOverviewAttempt((value) => value + 1)}
       />
     </section>

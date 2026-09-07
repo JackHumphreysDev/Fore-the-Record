@@ -74,12 +74,36 @@ describe('submission response validation', () => {
     websiteUrl: 'https://example.com',
     courseName: null,
     teeDetails: null,
+    round: null,
     createdAt: '2026-08-31T20:00:00.000Z',
     updatedAt: '2026-08-31T20:00:00.000Z',
   }
 
   it('should accept a complete submission', () => {
     expect(isSubmission(submission)).toBe(true)
+  })
+
+  it('should accept a submission linked to a safe round summary', () => {
+    expect(
+      isSubmission({
+        ...submission,
+        type: 'DATA_CORRECTION',
+        round: {
+          id: '22222222-2222-4222-8222-222222222222',
+          datePlayed: '2026-09-06T00:00:00.000Z',
+          category: 'CASUAL',
+          participation: 'INDIVIDUAL',
+          grossScore: 84,
+          tee: {
+            teeName: "Men's White Tees",
+            course: {
+              name: 'Hallamshire',
+              club: { name: 'Hallamshire Golf Club' },
+            },
+          },
+        },
+      }),
+    ).toBe(true)
   })
 
   it('should reject unsupported types and unsafe URLs', () => {

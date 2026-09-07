@@ -9,6 +9,7 @@ export type SubmissionType = (typeof SUBMISSION_TYPES)[number]
 
 export type SubmissionInput = {
   type: SubmissionType
+  roundId: string | null
   subject: string
   message: string
   clubName: string | null
@@ -17,6 +18,9 @@ export type SubmissionInput = {
   courseName: string | null
   teeDetails: string | null
 }
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export class SubmissionValidationError extends Error {
   constructor(message: string) {
@@ -115,10 +119,22 @@ export function parseSubmissionInput(body: unknown): SubmissionInput {
 
   const subject = parseRequiredText(body.subject, 'Subject', 5, 120)
   const message = parseRequiredText(body.message, 'Details', 10, 2000)
+  const roundId = parseOptionalText(body.roundId, 'Round', 36)
+
+  if (roundId && !UUID_PATTERN.test(roundId)) {
+    throw new SubmissionValidationError('Choose a valid round')
+  }
+
+  if (roundId && body.type !== 'DATA_CORRECTION') {
+    throw new SubmissionValidationError(
+      'A round can only be linked to an incorrect information request',
+    )
+  }
 
   if (body.type !== 'MISSING_COURSE') {
     return {
       type: body.type,
+      roundId,
       subject,
       message,
       clubName: null,
@@ -131,6 +147,7 @@ export function parseSubmissionInput(body: unknown): SubmissionInput {
 
   return {
     type: body.type,
+    roundId: null,
     subject,
     message,
     clubName: parseRequiredText(body.clubName, 'Club name', 2, 160),

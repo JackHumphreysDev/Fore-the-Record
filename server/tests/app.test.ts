@@ -35,6 +35,7 @@ const {
   parseLogRoundInputMock,
   roundCountMock,
   roundFindManyMock,
+  roundFindFirstMock,
   roundFindUniqueMock,
   roundDeleteManyMock,
   submissionCountMock,
@@ -89,6 +90,7 @@ const {
   parseLogRoundInputMock: vi.fn(),
   roundCountMock: vi.fn(),
   roundFindManyMock: vi.fn(),
+  roundFindFirstMock: vi.fn(),
   roundFindUniqueMock: vi.fn(),
   roundDeleteManyMock: vi.fn(),
   submissionCountMock: vi.fn(),
@@ -150,6 +152,7 @@ vi.mock('../src/database.js', () => ({
     },
     round: {
       count: roundCountMock,
+      findFirst: roundFindFirstMock,
       findMany: roundFindManyMock,
       findUnique: roundFindUniqueMock,
       deleteMany: roundDeleteManyMock,
@@ -290,6 +293,7 @@ beforeEach(() => {
   logRoundMock.mockReset()
   parseLogRoundInputMock.mockReset()
   roundCountMock.mockReset()
+  roundFindFirstMock.mockReset()
   roundFindManyMock.mockReset()
   roundFindUniqueMock.mockReset()
   roundDeleteManyMock.mockReset()
@@ -932,6 +936,26 @@ describe('player submissions', () => {
     websiteUrl: true,
     courseName: true,
     teeDetails: true,
+    round: {
+      select: {
+        id: true,
+        datePlayed: true,
+        category: true,
+        participation: true,
+        grossScore: true,
+        tee: {
+          select: {
+            teeName: true,
+            course: {
+              select: {
+                name: true,
+                club: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    },
     createdAt: true,
     updatedAt: true,
   }
@@ -949,6 +973,7 @@ describe('player submissions', () => {
       websiteUrl: null,
       courseName: null,
       teeDetails: null,
+      round: null,
       createdAt: new Date('2026-08-31T20:00:00.000Z'),
       updatedAt: new Date('2026-08-31T20:00:00.000Z'),
     })
@@ -971,6 +996,7 @@ describe('player submissions', () => {
       websiteUrl: null,
       courseName: null,
       teeDetails: null,
+      round: null,
       createdAt: '2026-08-31T20:00:00.000Z',
       updatedAt: '2026-08-31T20:00:00.000Z',
     })
@@ -982,6 +1008,7 @@ describe('player submissions', () => {
       data: {
         userId,
         type: 'ISSUE',
+        roundId: null,
         subject: 'Round history is unclear',
         message: 'The counting badge is difficult to understand.',
         clubName: null,
@@ -1009,6 +1036,75 @@ describe('player submissions', () => {
     expect(submissionCreateMock).not.toHaveBeenCalled()
   })
 
+  it('should securely link a correction to a round owned by the profile', async () => {
+    const roundId = '33333333-3333-4333-8333-333333333333'
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    roundFindFirstMock.mockResolvedValueOnce({ id: roundId })
+    submissionCreateMock.mockResolvedValueOnce({
+      id: submissionId,
+      type: 'DATA_CORRECTION',
+      status: 'NEW',
+      subject: 'Incorrect round score',
+      message: 'The total for this round needs to be corrected.',
+      clubName: null,
+      townCounty: null,
+      websiteUrl: null,
+      courseName: null,
+      teeDetails: null,
+      round: null,
+      createdAt: new Date('2026-09-07T20:00:00.000Z'),
+      updatedAt: new Date('2026-09-07T20:00:00.000Z'),
+    })
+
+    const response = await request(app).post('/api/submissions').send({
+      type: 'DATA_CORRECTION',
+      subject: 'Incorrect round score',
+      message: 'The total for this round needs to be corrected.',
+      roundId,
+    })
+
+    expect(response.status).toBe(201)
+    expect(roundFindFirstMock).toHaveBeenCalledWith({
+      where: { id: roundId, userId },
+      select: { id: true },
+    })
+    expect(submissionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId, roundId }),
+      }),
+    )
+  })
+
+  it('should not link another profile’s round', async () => {
+    const roundId = '33333333-3333-4333-8333-333333333333'
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    roundFindFirstMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).post('/api/submissions').send({
+      type: 'DATA_CORRECTION',
+      subject: 'Incorrect round score',
+      message: 'The total for this round needs to be corrected.',
+      roundId,
+    })
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'Round not found for this profile' })
+    expect(submissionCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('should return only the authenticated profile’s round options', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    roundFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).get('/api/submissions/round-options')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ rounds: [] })
+    expect(roundFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId } }),
+    )
+  })
+
   it('should return only the authenticated profile submissions', async () => {
     userFindUniqueMock.mockResolvedValueOnce({ id: userId })
     submissionCountMock.mockResolvedValueOnce(1)
@@ -1024,6 +1120,7 @@ describe('player submissions', () => {
         websiteUrl: null,
         courseName: null,
         teeDetails: null,
+        round: null,
         createdAt: new Date('2026-08-31T19:00:00.000Z'),
         updatedAt: new Date('2026-08-31T20:00:00.000Z'),
       },
@@ -1117,6 +1214,7 @@ describe('GET /api/admin/submissions', () => {
         websiteUrl: null,
         courseName: null,
         teeDetails: null,
+        round: null,
         createdAt: new Date('2026-08-31T20:00:00.000Z'),
         updatedAt: new Date('2026-08-31T20:00:00.000Z'),
         user: {
@@ -1145,6 +1243,7 @@ describe('GET /api/admin/submissions', () => {
           websiteUrl: null,
           courseName: null,
           teeDetails: null,
+          round: null,
           createdAt: '2026-08-31T20:00:00.000Z',
           updatedAt: '2026-08-31T20:00:00.000Z',
           user: {
@@ -1191,6 +1290,26 @@ describe('GET /api/admin/submissions', () => {
         websiteUrl: true,
         courseName: true,
         teeDetails: true,
+        round: {
+          select: {
+            id: true,
+            datePlayed: true,
+            category: true,
+            participation: true,
+            grossScore: true,
+            tee: {
+              select: {
+                teeName: true,
+                course: {
+                  select: {
+                    name: true,
+                    club: { select: { name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
         createdAt: true,
         updatedAt: true,
         user: {

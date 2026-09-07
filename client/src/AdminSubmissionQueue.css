@@ -258,6 +258,60 @@
   color: var(--forest);
 }
 
+.admin-submission-round {
+  margin-top: 18px;
+  padding: 15px 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border: 1px solid rgba(49, 88, 68, 0.18);
+  border-radius: 10px;
+  background: rgba(49, 88, 68, 0.06);
+}
+
+.admin-submission-round > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-submission-round small {
+  color: var(--ink-muted);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.admin-submission-round strong {
+  color: var(--forest-deep);
+  font-size: 11px;
+}
+
+.admin-submission-round span,
+.admin-submission-round-missing {
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+
+.admin-submission-round button {
+  min-height: 42px;
+  padding: 0 15px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 7px;
+  color: white;
+  background: var(--forest);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.admin-submission-round-missing {
+  margin: 16px 0 0;
+  font-style: italic;
+}
+
 .admin-submission-filter-actions button:focus-visible {
   outline: 3px solid var(--lime);
   outline-offset: 3px;
@@ -283,6 +337,11 @@
     padding: 16px 0 0;
     border-top: 1px solid var(--line);
     border-left: 0;
+  }
+
+  .admin-submission-round {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .admin-submission-filter-actions button {
