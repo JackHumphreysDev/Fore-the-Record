@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.11.1 - 2026-09-07
+
+### User-facing changes
+
+- Restored automatic hole-by-hole scorecards for newly added provider courses and the exact tee selected during Round Entry.
+- Kept the existing manual-entry and administrator-review route for courses whose provider data is genuinely incomplete.
+
+### Developer and admin changes
+
+- Updated the scorecard normalizer for the provider's current single-tee response while retaining support for its earlier multi-tee response.
+- Added the selected provider tee ID to scorecard requests and separated cached scorecards by both course and tee.
+- Corrected the deployed RapidAPI host, path, query parameter, and rejected Production and Preview credentials.
+- Strengthened Express query-value narrowing for the TypeScript version used by Vercel builds.
+- Added regression coverage for current response normalization, selected-tee requests, and separate same-course tee caching.
+
 ## 0.11.0 - 2026-09-07
 
 ### User-facing changes

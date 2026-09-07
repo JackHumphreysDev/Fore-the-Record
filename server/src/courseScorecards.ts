@@ -92,11 +92,17 @@ export function parseProviderScorecard(
       ? responseBody.data
       : responseBody
 
-  if (!isRecord(body) || !Array.isArray(body.tee_sets)) {
+  if (!isRecord(body)) {
     return []
   }
 
-  return body.tee_sets.flatMap((teeSet): ProviderTeeScorecard[] => {
+  const teeSets = Array.isArray(body.tee_sets)
+    ? body.tee_sets
+    : isRecord(body.tee_set) && Array.isArray(body.holes)
+      ? [{ ...body.tee_set, holes: body.holes }]
+      : []
+
+  return teeSets.flatMap((teeSet): ProviderTeeScorecard[] => {
     if (
       !isRecord(teeSet) ||
       typeof teeSet.name !== 'string' ||
@@ -180,7 +186,10 @@ export async function getProviderTeeScorecard(
     return null
   }
 
-  let scorecards = providerScorecardCache.get(courseExternalId)
+  const cacheKey = tee.externalId
+    ? `${courseExternalId}:${tee.externalId}`
+    : `${courseExternalId}:${normalizeLabel(tee.teeName)}:${tee.courseRating}:${tee.slopeRating}`
+  let scorecards = providerScorecardCache.get(cacheKey)
 
   if (!scorecards) {
     try {
@@ -188,6 +197,11 @@ export async function getProviderTeeScorecard(
         `/courses/${encodeURIComponent(courseExternalId)}/scorecard`,
         `https://${apiHost}`,
       )
+
+      if (tee.externalId) {
+        url.searchParams.set('tee_id', tee.externalId)
+      }
+
       const response = await fetch(url, {
         headers: {
           'X-RapidAPI-Key': apiKey,
@@ -208,7 +222,7 @@ export async function getProviderTeeScorecard(
         return null
       }
 
-      providerScorecardCache.set(courseExternalId, scorecards)
+      providerScorecardCache.set(cacheKey, scorecards)
     } catch (error: unknown) {
       console.warn(
         `RapidAPI scorecard lookup failed for ${courseExternalId}`,
