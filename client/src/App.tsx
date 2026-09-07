@@ -16,6 +16,7 @@ import RoundHistory from './RoundHistory.tsx'
 import Support from './Support.tsx'
 import type { SubmissionType } from './submissionApi.ts'
 import { getSupabaseClient } from './supabase.ts'
+import WhatsNew from './WhatsNew.tsx'
 
 const AdminPortal = lazy(() => import('./AdminPortal.tsx'))
 
@@ -25,6 +26,7 @@ type ActiveView =
   | 'rounds'
   | 'history'
   | 'support'
+  | 'whats-new'
   | 'admin'
 
 type HomeClub = {
@@ -432,6 +434,13 @@ function App() {
           >
             Support
           </button>
+          <button
+            type="button"
+            aria-current={activeView === 'whats-new' ? 'page' : undefined}
+            onClick={() => setActiveView('whats-new')}
+          >
+            What’s New
+          </button>
           {adminIdentity ? (
             <button
               type="button"
@@ -581,6 +590,8 @@ function App() {
           />
         ) : activeView === 'support' ? (
           <Support initialType={supportInitialType} />
+        ) : activeView === 'whats-new' ? (
+          <WhatsNew />
         ) : adminIdentity ? (
           <Suspense
             fallback={

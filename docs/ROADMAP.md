@@ -11,7 +11,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 5. Course catalogue and database-backed search. Import tooling, search, and quota-safe on-demand additions completed in `0.6.0`; a full production data load requires a future RapidAPI plan change.
 6. Hole-by-hole scorecards and administrator approval. Completed in `0.7.0`.
 7. Competition, casual, individual, and team round records. Completed in `0.8.0`.
-8. User-facing **What's New** section.
+8. User-facing **What's New** section. Completed in `0.11.0`.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
 
@@ -57,6 +57,10 @@ Maintain a professional version history for development while giving players a s
 - Add an in-app **What's New** section or tab containing plain-language feature summaries and release dates.
 - Do not require a version number to appear in the player-facing section.
 - Never show internal database, infrastructure, security, dependency, or refactoring notes to ordinary users.
+
+### Delivery status
+
+Version `0.11.0` adds a signed-in **What's New** navigation tab with curated, newest-first release dates and plain-language summaries. Its browser content is maintained separately from the complete developer changelog so internal changes and version numbers are not exposed to players.
 
 ## Admin-role foundation — completed in 0.2.0
 
