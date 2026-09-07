@@ -2,6 +2,11 @@ import express from 'express'
 import { randomUUID } from 'node:crypto'
 import { getAccountStatusByAuthUserId } from './accountAccess.js'
 import {
+  AdminRoundError,
+  deleteRoundAsAdmin,
+  updateRoundAsAdmin,
+} from './adminRounds.js'
+import {
   AdminAuthOperationError,
   deleteAuthUser,
   inviteAuthUser,
@@ -126,6 +131,52 @@ const ADMIN_USER_SELECT = {
   },
   _count: {
     select: { rounds: true },
+  },
+} as const
+
+const ADMIN_ROUND_SELECT = {
+  id: true,
+  userId: true,
+  datePlayed: true,
+  timePlayed: true,
+  category: true,
+  participation: true,
+  competitionName: true,
+  competitionFormat: true,
+  numberOfPlayers: true,
+  grossScore: true,
+  adjustedGrossScore: true,
+  isCapped: true,
+  weatherCondition: true,
+  pccAdjustment: true,
+  scoreDifferential: true,
+  isAcceptable: true,
+  usedInHandicapCalc: true,
+  scorecardStatus: true,
+  holeScores: {
+    orderBy: { holeNumber: 'asc' as const },
+    select: {
+      holeNumber: true,
+      par: true,
+      strokeIndex: true,
+      strokesTaken: true,
+    },
+  },
+  tee: {
+    select: {
+      id: true,
+      teeName: true,
+      courseRating: true,
+      slopeRating: true,
+      par: true,
+      course: {
+        select: {
+          id: true,
+          name: true,
+          club: { select: { id: true, name: true } },
+        },
+      },
+    },
   },
 } as const
 
@@ -304,6 +355,26 @@ function serializeAdminUser<
         ? null
         : Number(profile.handicapIndex),
     roundCount: _count.rounds,
+  }
+}
+
+function serializeAdminRound<
+  T extends {
+    datePlayed: Date
+    pccAdjustment: unknown
+    scoreDifferential: unknown | null
+    tee: { courseRating: unknown }
+  },
+>(round: T) {
+  return {
+    ...round,
+    datePlayed: round.datePlayed.toISOString(),
+    pccAdjustment: Number(round.pccAdjustment),
+    scoreDifferential:
+      round.scoreDifferential === null
+        ? null
+        : Number(round.scoreDifferential),
+    tee: { ...round.tee, courseRating: Number(round.tee.courseRating) },
   }
 }
 
@@ -556,6 +627,123 @@ app.get('/api/admin/users', async (request, response) => {
       totalPages: Math.ceil(total / pageSize),
     },
   })
+})
+
+app.get('/api/admin/users/:userId/rounds', async (request, response) => {
+  const userId = request.params.userId
+  const page = parsePaginationValue(request.query.page, 1)
+  const pageSize = parsePaginationValue(request.query.pageSize, 10)
+
+  if (
+    typeof userId !== 'string' ||
+    !UUID_PATTERN.test(userId) ||
+    page === null ||
+    pageSize === null ||
+    pageSize > 25
+  ) {
+    response.status(400).json({ error: 'Invalid round history request' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, handicapIndex: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'Player account not found' })
+    return
+  }
+
+  const [total, rounds] = await prisma.$transaction([
+    prisma.round.count({ where: { userId } }),
+    prisma.round.findMany({
+      where: { userId },
+      orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: ADMIN_ROUND_SELECT,
+    }),
+  ])
+
+  response.status(200).json({
+    player: {
+      id: user.id,
+      name: user.name,
+      handicapIndex:
+        user.handicapIndex === null ? null : Number(user.handicapIndex),
+    },
+    rounds: rounds.map(serializeAdminRound),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  })
+})
+
+app.patch('/api/admin/rounds/:roundId', async (request, response) => {
+  const roundId = request.params.roundId
+  if (typeof roundId !== 'string' || !UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round ID' })
+    return
+  }
+
+  try {
+    const administrator = getAdminProfile(response.locals)
+    const result = await updateRoundAsAdmin({
+      roundId,
+      administratorId: administrator.id,
+      body: request.body,
+    })
+    const round = await prisma.round.findUnique({
+      where: { id: roundId },
+      select: ADMIN_ROUND_SELECT,
+    })
+    if (!round) {
+      response.status(404).json({ error: 'Round not found' })
+      return
+    }
+    response.status(200).json({
+      round: serializeAdminRound(round),
+      handicapIndex: result.handicapIndex,
+    })
+  } catch (error: unknown) {
+    if (error instanceof AdminRoundError) {
+      response.status(error.reason === 'not_found' ? 404 : error.reason === 'conflict' ? 409 : 400).json({
+        error: error.message,
+      })
+      return
+    }
+    throw error
+  }
+})
+
+app.delete('/api/admin/rounds/:roundId', async (request, response) => {
+  const roundId = request.params.roundId
+  if (typeof roundId !== 'string' || !UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round ID' })
+    return
+  }
+
+  try {
+    const administrator = getAdminProfile(response.locals)
+    const result = await deleteRoundAsAdmin({
+      roundId,
+      administratorId: administrator.id,
+      confirmation:
+        isRecord(request.body) ? request.body.confirmation : undefined,
+    })
+    response.status(200).json(result)
+  } catch (error: unknown) {
+    if (error instanceof AdminRoundError) {
+      response.status(error.reason === 'not_found' ? 404 : 400).json({
+        error: error.message,
+      })
+      return
+    }
+    throw error
+  }
 })
 
 app.post('/api/admin/users', async (request, response) => {

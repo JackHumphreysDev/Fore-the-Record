@@ -311,6 +311,150 @@
   font-size: 10px;
 }
 
+.admin-round-manager {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.admin-round-manager > header,
+.admin-round-editor > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-round-manager h3,
+.admin-round-manager p {
+  margin: 0;
+}
+
+.admin-round-manager header p {
+  color: var(--forest-soft);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.admin-round-row {
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 105px 100px 42px;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink-muted);
+  background: white;
+  text-align: left;
+}
+
+.admin-round-row > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-round-row strong {
+  color: var(--forest-deep);
+}
+
+.admin-round-editor {
+  margin-top: 8px;
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--forest-soft);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.admin-round-editor > form {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-round-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-round-fields label,
+.admin-round-holes label {
+  display: grid;
+  gap: 6px;
+  color: var(--forest-deep);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.admin-round-fields input,
+.admin-round-fields select,
+.admin-round-holes input,
+.admin-round-delete input {
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: white;
+}
+
+.admin-round-holes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.admin-round-holes label > span {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-round-holes small {
+  color: var(--ink-muted);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.admin-round-editor button,
+.admin-round-delete button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: var(--forest);
+  font-weight: 800;
+}
+
+.admin-round-delete {
+  padding-top: 16px;
+  border-top: 1px solid rgba(164, 63, 50, 0.25);
+}
+
+.admin-round-delete form {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.admin-round-delete button {
+  background: var(--danger);
+}
+
+.admin-round-delete button:disabled {
+  opacity: 0.4;
+}
+
 .admin-account-error {
   color: var(--danger);
   background: rgba(164, 63, 50, 0.09);
@@ -640,6 +784,10 @@
   .admin-account-edit-form button {
     grid-column: 1 / -1;
   }
+
+  .admin-round-holes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 650px) {
@@ -693,5 +841,18 @@
   .admin-results-meta {
     align-items: start;
     flex-direction: column;
+  }
+
+  .admin-round-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-round-row > span:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .admin-round-fields,
+  .admin-round-holes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

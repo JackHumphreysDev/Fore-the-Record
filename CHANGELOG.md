@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.10.0 - 2026-09-07
+
+### User-facing changes
+
+- Added administrator-assisted correction of round details and scorecards when a player reports an incorrect entry.
+- Recalculated the player's Handicap Index and counting rounds immediately after an administrator correction or deletion.
+
+### Developer and admin changes
+
+- Added paginated player round histories inside the protected account-management panel.
+- Added audited editing of dates, times, classifications, competition details, weather, PCC, gross totals, and all 18 player strokes.
+- Kept course, tee, participation, par, and stroke-index data locked during corrections to prevent accidental rating or scorecard substitution.
+- Added typed-confirmation permanent round deletion, including cleanup of linked manual scorecard-review submissions.
+- Recalculated counting flags and the complete player Handicap Index transactionally after every edit or deletion.
+- Added API authorization, validation, total-mismatch, calculation, deletion, response-contract, and path regression coverage.
+
 ## 0.9.0 - 2026-09-02
 
 ### User-facing changes
