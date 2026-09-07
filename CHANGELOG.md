@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.11.0 - 2026-09-07
+
+### User-facing changes
+
+- Added a signed-in **What's New** tab containing plain-language summaries of useful player features and the dates they became available.
+- Listed updates newest first without showing version numbers or internal development details.
+
+### Developer and admin changes
+
+- Added a typed, curated source for player-visible update content rather than exposing or parsing the complete development changelog.
+- Added responsive timeline styling and semantic release-date markup.
+- Added regression coverage for ordering, unique entries, valid dates, date formatting, and exclusion of versions and internal terminology.
+- Updated the shared application version and documented the completed roadmap item.
+
 ## 0.10.0 - 2026-09-07
 
 ### User-facing changes
