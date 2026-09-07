@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
+import AdminRoundManager from './AdminRoundManager.tsx'
 import {
   buildAdminUserPath,
   buildAdminUsersPath,
@@ -575,6 +576,14 @@ function AdminUserDirectory({ onUsersChanged }: AdminUserDirectoryProps) {
                 </label>
                 <button type="submit" disabled={isMutating}>Save details</button>
               </form>
+
+              <AdminRoundManager
+                user={managedUser}
+                onRoundsChanged={() => {
+                  setLoadAttempt((value) => value + 1)
+                  onUsersChanged()
+                }}
+              />
 
               <div className="admin-account-access">
                 <div>

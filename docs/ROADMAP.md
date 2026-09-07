@@ -6,7 +6,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 
 1. Custom domain and production email delivery.
 2. Admin-role and audit-log foundation. Completed in `0.2.0`.
-3. Admin portal. Read-only monitoring completed in `0.3.0`; guarded account invitations, editing, suspension, restoration, and deletion completed in `0.9.0`; general round editing remains planned.
+3. Admin portal. Read-only monitoring completed in `0.3.0`; guarded account management completed in `0.9.0`; audited round correction and deletion completed in `0.10.0`.
 4. User submissions and admin messaging. Submission foundation completed in `0.4.0`; private conversations and audited resolution controls completed in `0.5.0`; active and archived administrator queues completed in `0.8.1`.
 5. Course catalogue and database-backed search. Import tooling, search, and quota-safe on-demand additions completed in `0.6.0`; a full production data load requires a future RapidAPI plan change.
 6. Hole-by-hole scorecards and administrator approval. Completed in `0.7.0`.
@@ -73,7 +73,7 @@ Give the project owner controlled administrative access without making an email 
 - Add an audit log recording the administrator, action, target record, timestamp, and safe before/after details.
 - Never expose passwords, access tokens, database credentials, or authentication secrets in the portal.
 
-## Admin portal — account management completed in 0.9.0
+## Admin portal — round management completed in 0.10.0
 
 ### Goal
 
@@ -81,7 +81,7 @@ Allow authorized administrators to monitor and maintain player data.
 
 ### Delivery status
 
-Version `0.3.0` provides protected operational totals, recent registrations, and paginated user search. Version `0.9.0` adds secure player invitations, safe name/email editing, linked Auth synchronization, suspension/restoration, and confirmation-gated permanent deletion. The sole administrator remains protected, and unrestricted user impersonation and general round editing remain out of scope.
+Version `0.3.0` provides protected operational totals, recent registrations, and paginated user search. Version `0.9.0` adds secure player invitations, safe name/email editing, linked Auth synchronization, suspension/restoration, and confirmation-gated permanent deletion. Version `0.10.0` adds paginated round inspection, safe score and metadata correction, guarded deletion, full Handicap Index recalculation, and audit history. The sole administrator remains protected and unrestricted user impersonation remains out of scope.
 
 ### Capabilities
 
@@ -89,8 +89,8 @@ Version `0.3.0` provides protected operational totals, recent registrations, and
 - View and search users.
 - Create users through a secure invitation flow or edit appropriate profile fields. Completed in `0.9.0`.
 - Suspend, restore, or permanently delete a user account when necessary. Completed in `0.9.0`.
-- Review a user's courses, rounds, submissions, and current Handicap Index.
-- Correct or remove a round when necessary.
+- Review a user's rounds and current Handicap Index. Completed in `0.10.0`; a combined saved-course view remains optional future work.
+- Correct or remove a round when necessary. Completed in `0.10.0`.
 - Reply to user submissions and update their status.
 
 ### Safety requirements

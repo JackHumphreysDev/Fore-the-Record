@@ -9,6 +9,8 @@ const {
   updateAuthUserEmailMock,
   setAuthUserSuspendedMock,
   deleteAuthUserMock,
+  updateRoundAsAdminMock,
+  deleteRoundAsAdminMock,
   prismaTransactionMock,
   clubCountMock,
   clubCreateMock,
@@ -32,6 +34,8 @@ const {
   logRoundMock,
   parseLogRoundInputMock,
   roundCountMock,
+  roundFindManyMock,
+  roundFindUniqueMock,
   roundDeleteManyMock,
   submissionCountMock,
   submissionCreateMock,
@@ -59,6 +63,8 @@ const {
   updateAuthUserEmailMock: vi.fn(),
   setAuthUserSuspendedMock: vi.fn(),
   deleteAuthUserMock: vi.fn(),
+  updateRoundAsAdminMock: vi.fn(),
+  deleteRoundAsAdminMock: vi.fn(),
   prismaTransactionMock: vi.fn(),
   clubCountMock: vi.fn(),
   clubCreateMock: vi.fn(),
@@ -82,6 +88,8 @@ const {
   logRoundMock: vi.fn(),
   parseLogRoundInputMock: vi.fn(),
   roundCountMock: vi.fn(),
+  roundFindManyMock: vi.fn(),
+  roundFindUniqueMock: vi.fn(),
   roundDeleteManyMock: vi.fn(),
   submissionCountMock: vi.fn(),
   submissionCreateMock: vi.fn(),
@@ -142,6 +150,8 @@ vi.mock('../src/database.js', () => ({
     },
     round: {
       count: roundCountMock,
+      findMany: roundFindManyMock,
+      findUnique: roundFindUniqueMock,
       deleteMany: roundDeleteManyMock,
     },
     submission: {
@@ -200,6 +210,20 @@ vi.mock('../src/adminAuth.js', () => ({
   },
 }))
 
+vi.mock('../src/adminRounds.js', () => ({
+  updateRoundAsAdmin: updateRoundAsAdminMock,
+  deleteRoundAsAdmin: deleteRoundAsAdminMock,
+  AdminRoundError: class AdminRoundError extends Error {
+    constructor(
+      readonly reason: string,
+      message: string,
+    ) {
+      super(message)
+      this.name = 'AdminRoundError'
+    }
+  },
+}))
+
 vi.mock('../src/rounds.js', async () => {
   const actual = await vi.importActual<typeof import('../src/rounds.js')>(
     '../src/rounds.js',
@@ -236,6 +260,8 @@ beforeEach(() => {
   setAuthUserSuspendedMock.mockResolvedValue(undefined)
   deleteAuthUserMock.mockReset()
   deleteAuthUserMock.mockResolvedValue(undefined)
+  updateRoundAsAdminMock.mockReset()
+  deleteRoundAsAdminMock.mockReset()
   clubCountMock.mockReset()
   clubCreateMock.mockReset()
   clubFindFirstMock.mockReset()
@@ -264,6 +290,8 @@ beforeEach(() => {
   logRoundMock.mockReset()
   parseLogRoundInputMock.mockReset()
   roundCountMock.mockReset()
+  roundFindManyMock.mockReset()
+  roundFindUniqueMock.mockReset()
   roundDeleteManyMock.mockReset()
   roundDeleteManyMock.mockResolvedValue({ count: 0 })
   submissionCountMock.mockReset()
@@ -805,6 +833,87 @@ describe('administrator account management', () => {
         targetId: playerId,
         after: { deleted: true },
       }),
+    })
+  })
+})
+
+describe('administrator round management', () => {
+  const administrator = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Site Administrator',
+    email: 'jackhumphreys.dev@gmail.com',
+    role: 'ADMIN',
+  }
+  const userId = '22222222-2222-4222-8222-222222222222'
+  const roundId = '33333333-3333-4333-8333-333333333333'
+  const round = {
+    id: roundId,
+    userId,
+    datePlayed: new Date('2026-09-01T00:00:00.000Z'),
+    pccAdjustment: '0.0',
+    scoreDifferential: '12.3',
+    tee: { courseRating: '71.2' },
+  }
+
+  it('returns paginated rounds for the selected player', async () => {
+    userFindUniqueMock
+      .mockResolvedValueOnce(administrator)
+      .mockResolvedValueOnce({ id: userId, name: 'Player', handicapIndex: '12.3' })
+    roundCountMock.mockResolvedValueOnce(1)
+    roundFindManyMock.mockResolvedValueOnce([round])
+
+    const response = await request(app).get(
+      `/api/admin/users/${userId}/rounds?page=1&pageSize=10`,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.player).toEqual({
+      id: userId,
+      name: 'Player',
+      handicapIndex: 12.3,
+    })
+    expect(response.body.rounds[0]).toMatchObject({
+      id: roundId,
+      datePlayed: '2026-09-01T00:00:00.000Z',
+      pccAdjustment: 0,
+      scoreDifferential: 12.3,
+      tee: { courseRating: 71.2 },
+    })
+  })
+
+  it('updates a round through the audited domain service', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(administrator)
+    updateRoundAsAdminMock.mockResolvedValueOnce({ handicapIndex: 11.8 })
+    roundFindUniqueMock.mockResolvedValueOnce(round)
+    const body = { datePlayed: '2026-09-02', grossScore: 84 }
+
+    const response = await request(app)
+      .patch(`/api/admin/rounds/${roundId}`)
+      .send(body)
+
+    expect(response.status).toBe(200)
+    expect(response.body.handicapIndex).toBe(11.8)
+    expect(updateRoundAsAdminMock).toHaveBeenCalledWith({
+      roundId,
+      administratorId: administrator.id,
+      body,
+    })
+  })
+
+  it('requires typed confirmation before deleting a round', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(administrator)
+    const { AdminRoundError } = await import('../src/adminRounds.js')
+    deleteRoundAsAdminMock.mockRejectedValueOnce(
+      new AdminRoundError('validation', 'Type DELETE to confirm permanent round deletion.'),
+    )
+
+    const response = await request(app)
+      .delete(`/api/admin/rounds/${roundId}`)
+      .send({ confirmation: 'delete' })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: 'Type DELETE to confirm permanent round deletion.',
     })
   })
 })

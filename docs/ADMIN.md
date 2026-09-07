@@ -1,6 +1,6 @@
 # Administration
 
-Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, and version `0.9.0` adds guarded player-account management. Round management remains read-only outside the existing scorecard-review workflow.
+Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, version `0.9.0` adds guarded player-account management, and version `0.10.0` adds audited round correction and deletion.
 
 ## Security model
 
@@ -59,6 +59,8 @@ Before running it, the owner must already have registered, confirmed their email
 
 `DELETE /api/admin/users/:userId` is the guarded permanent-delete path. The player must first be suspended and the administrator must type the exact player email. It removes the Supabase Auth login, profile, rounds, scorecard reviews, support requests, and related messages while preserving a non-secret deletion audit record. This action cannot be undone. The sole `ADMIN` profile is rejected by every account-mutation route.
 
+`GET /api/admin/users/:userId/rounds` returns that player's paginated round history and current Handicap Index. `PATCH /api/admin/rounds/:roundId` corrects the date, time, round category, competition details, conditions, PCC, gross score, and 18 player strokes. Course, tee, participation, par, and stroke index remain locked so a correction cannot silently replace rating or scorecard data. The gross total must equal the hole total. `DELETE /api/admin/rounds/:roundId` requires the exact confirmation text `DELETE`. Both mutations recalculate the complete player Handicap Index and counting-round flags transactionally and create a safe audit record. Deleting a round also closes out its linked manual scorecard-review data.
+
 `GET /api/admin/submissions` returns safe, paginated support requests with their submitting profile identity. Without a `status` query it excludes closed requests so completed work does not remain in the active queue. Passing `status=CLOSED` returns the searchable archive. Its optional `search` query matches request text, course details, player names, and player emails. The `status` and `type` queries use the documented submission enums; `page` and `pageSize` control pagination, with a maximum page size of 50.
 
 `GET /api/admin/submissions/:submissionId/messages` returns the ordered conversation for an existing request. `POST` to the same path adds a validated administrator reply unless the request is closed. The audit record notes that a reply was added but deliberately excludes the support-message text.
@@ -69,6 +71,6 @@ Before running it, the owner must already have registered, confirmed their email
 
 Players use the corresponding `/api/submissions/:submissionId/messages` routes. Those routes resolve ownership from the verified authentication account and return `404` for requests belonging to another player. Closed requests remain in the player's private history but cannot receive player or administrator replies until the administrator reopens them. In the administrator portal, closing a request moves it out of **Active requests** and into **Closed archive**; reopening it moves it back.
 
-The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. The portal exposes no password, token, authentication-secret, impersonation, or unrestricted round-management fields.
+The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. The portal exposes no password, token, authentication-secret, impersonation, course-rating replacement, or participation-conversion controls.
 
 Every future `/api/admin/...` route must remain behind this server guard. Hiding a client navigation item is useful presentation, but it is not authorization.
