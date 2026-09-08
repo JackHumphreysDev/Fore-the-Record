@@ -234,8 +234,14 @@ const SUBMISSION_ROUND_SELECT = {
   },
 } as const
 
+const PLAYER_SUBMISSION_SELECT = {
+  ...SUBMISSION_SELECT,
+  playerHasUnread: true,
+} as const
+
 const ADMIN_SUBMISSION_SELECT = {
   ...SUBMISSION_SELECT,
+  adminHasUnread: true,
   user: {
     select: {
       id: true,
@@ -415,6 +421,20 @@ function serializeAdminRound<
         : Number(round.scoreDifferential),
     tee: { ...round.tee, courseRating: Number(round.tee.courseRating) },
   }
+}
+
+function serializePlayerSubmission<
+  T extends { playerHasUnread: boolean },
+>(submission: T) {
+  const { playerHasUnread, ...details } = submission
+  return { ...details, hasUnread: playerHasUnread }
+}
+
+function serializeAdminSubmission<
+  T extends { adminHasUnread: boolean },
+>(submission: T) {
+  const { adminHasUnread, ...details } = submission
+  return { ...details, hasUnread: adminHasUnread }
 }
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -1246,6 +1266,14 @@ app.delete('/api/admin/users/:userId', async (request, response) => {
   response.status(204).send()
 })
 
+app.get('/api/admin/submissions/unread-count', async (_request, response) => {
+  const count = await prisma.submission.count({
+    where: { adminHasUnread: true },
+  })
+
+  response.status(200).json({ count })
+})
+
 app.get('/api/admin/submissions', async (request, response) => {
   const page = parsePaginationValue(request.query.page, 1)
   const pageSize = parsePaginationValue(request.query.pageSize, 20)
@@ -1341,7 +1369,7 @@ app.get('/api/admin/submissions', async (request, response) => {
   ])
 
   response.status(200).json({
-    submissions,
+    submissions: submissions.map(serializeAdminSubmission),
     pagination: {
       page,
       pageSize,
@@ -1762,6 +1790,12 @@ app.get(
       select: SUBMISSION_MESSAGE_SELECT,
     })
 
+    await prisma.submission.update({
+      where: { id: submissionId },
+      data: { adminHasUnread: false },
+      select: { id: true },
+    })
+
     response.status(200).json({ messages })
   },
 )
@@ -1827,6 +1861,11 @@ app.post(
           targetId: submissionId,
           after: { senderRole: UserRole.ADMIN },
         },
+      }),
+      prisma.submission.update({
+        where: { id: submissionId },
+        data: { adminHasUnread: false, playerHasUnread: true },
+        select: { id: true },
       }),
     ])
 
@@ -1938,12 +1977,32 @@ app.post('/api/submissions', async (request, response) => {
   const submission = await prisma.submission.create({
     data: {
       userId: user.id,
+      adminHasUnread: true,
       ...input,
     },
-    select: SUBMISSION_SELECT,
+    select: PLAYER_SUBMISSION_SELECT,
   })
 
-  response.status(201).json(submission)
+  response.status(201).json(serializePlayerSubmission(submission))
+})
+
+app.get('/api/submissions/unread-count', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const count = await prisma.submission.count({
+    where: { userId: user.id, playerHasUnread: true },
+  })
+
+  response.status(200).json({ count })
 })
 
 app.get('/api/submissions/round-options', async (_request, response) => {
@@ -1995,12 +2054,12 @@ app.get('/api/submissions', async (request, response) => {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       skip: (page - 1) * pageSize,
       take: pageSize,
-      select: SUBMISSION_SELECT,
+      select: PLAYER_SUBMISSION_SELECT,
     }),
   ])
 
   response.status(200).json({
-    submissions,
+    submissions: submissions.map(serializePlayerSubmission),
     pagination: {
       page,
       pageSize,
@@ -2041,6 +2100,12 @@ app.get(
       where: { submissionId },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: SUBMISSION_MESSAGE_SELECT,
+    })
+
+    await prisma.submission.update({
+      where: { id: submissionId },
+      data: { playerHasUnread: false },
+      select: { id: true },
     })
 
     response.status(200).json({ messages })
@@ -2101,6 +2166,12 @@ app.post(
         ...input,
       },
       select: SUBMISSION_MESSAGE_SELECT,
+    })
+
+    await prisma.submission.update({
+      where: { id: submissionId },
+      data: { playerHasUnread: false, adminHasUnread: true },
+      select: { id: true },
     })
 
     response.status(201).json(message)

@@ -300,6 +300,17 @@
   background: rgba(99, 112, 104, 0.12);
 }
 
+.submission-unread {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: white;
+  background: var(--forest);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
 .support-request-list h3 {
   margin: 17px 0 0;
   color: var(--forest-deep);

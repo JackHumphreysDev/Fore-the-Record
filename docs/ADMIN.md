@@ -1,6 +1,6 @@
 # Administration
 
-Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, version `0.9.0` adds guarded player-account management, and version `0.10.0` adds audited round correction and deletion.
+Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, version `0.9.0` adds guarded player-account management, version `0.10.0` adds audited round correction and deletion, version `0.12.0` links correction requests to affected rounds, and version `0.13.0` adds participant-specific unread indicators.
 
 ## Security model
 
@@ -64,6 +64,8 @@ Before running it, the owner must already have registered, confirmed their email
 `GET /api/admin/submissions` returns safe, paginated support requests with their submitting profile identity. Without a `status` query it excludes closed requests so completed work does not remain in the active queue. Passing `status=CLOSED` returns the searchable archive. Its optional `search` query matches request text, course details, player names, and player emails. The `status` and `type` queries use the documented submission enums; `page` and `pageSize` control pagination, with a maximum page size of 50.
 
 `GET /api/admin/submissions/:submissionId/messages` returns the ordered conversation for an existing request. `POST` to the same path adds a validated administrator reply unless the request is closed. The audit record notes that a reply was added but deliberately excludes the support-message text.
+
+`GET /api/admin/submissions/unread-count` returns the number of requests awaiting administrator attention. A new request or player reply sets only the administrator unread flag; opening its authorized conversation clears it. Administrator replies set only the player's unread flag. Existing conversations remain read when the migration is deployed.
 
 `PATCH /api/admin/submissions/:submissionId/status` accepts `NEW`, `IN_PROGRESS`, `RESOLVED`, or `CLOSED`. A changed status and its before/after audit record are written in one database transaction. Repeating the current status is safe and does not create duplicate audit noise.
 

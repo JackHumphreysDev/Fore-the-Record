@@ -15,6 +15,7 @@ import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
 import Support from './Support.tsx'
 import type { SubmissionType } from './submissionApi.ts'
+import { isSubmissionUnreadCountResponse } from './submissionApi.ts'
 import { getSupabaseClient } from './supabase.ts'
 import WhatsNew from './WhatsNew.tsx'
 
@@ -125,6 +126,9 @@ function App() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [adminIdentity, setAdminIdentity] =
     useState<AdminIdentity | null>(null)
+  const [supportUnreadCount, setSupportUnreadCount] = useState(0)
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0)
+  const [unreadRefresh, setUnreadRefresh] = useState(0)
   const [isAuthLoading, setIsAuthLoading] = useState(
     authSetup.client !== null,
   )
@@ -234,6 +238,8 @@ function App() {
         setSession(nextSession)
         setAdminIdentity(null)
         setActiveView('profile')
+        setSupportUnreadCount(0)
+        setAdminUnreadCount(0)
 
         if (!nextSession) {
           profileRequestNumber.current += 1
@@ -289,6 +295,54 @@ function App() {
     }
   }, [authSetup.client, isInvitationSetup, isPasswordRecovery])
 
+  useEffect(() => {
+    if (!session || !profile) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function loadUnreadCounts() {
+      const playerResponse = await fetchWithAccessToken(
+        session!.access_token,
+        '/api/submissions/unread-count',
+        { signal: controller.signal },
+      ).catch(() => null)
+
+      if (playerResponse?.ok) {
+        const body: unknown = await playerResponse.json().catch(() => null)
+        if (isSubmissionUnreadCountResponse(body)) {
+          setSupportUnreadCount(body.count)
+        }
+      }
+
+      if (!adminIdentity) {
+        setAdminUnreadCount(0)
+        return
+      }
+
+      const adminResponse = await fetchWithAccessToken(
+        session!.access_token,
+        '/api/admin/submissions/unread-count',
+        { signal: controller.signal },
+      ).catch(() => null)
+
+      if (adminResponse?.ok) {
+        const body: unknown = await adminResponse.json().catch(() => null)
+        if (isSubmissionUnreadCountResponse(body)) {
+          setAdminUnreadCount(body.count)
+        }
+      }
+    }
+
+    void loadUnreadCounts()
+    return () => controller.abort()
+  }, [activeView, adminIdentity, profile, session, unreadRefresh])
+
+  function refreshUnreadCounts() {
+    setUnreadRefresh((value) => value + 1)
+  }
+
   async function signOut() {
     try {
       await getSupabaseClient().auth.signOut()
@@ -298,6 +352,8 @@ function App() {
       setProfile(null)
       setAdminIdentity(null)
       setActiveView('profile')
+      setSupportUnreadCount(0)
+      setAdminUnreadCount(0)
     }
   }
 
@@ -433,6 +489,11 @@ function App() {
             }}
           >
             Support
+            {supportUnreadCount > 0 ? (
+              <span className="nav-unread-count" aria-label={`${supportUnreadCount} unread support requests`}>
+                {supportUnreadCount > 99 ? '99+' : supportUnreadCount}
+              </span>
+            ) : null}
           </button>
           <button
             type="button"
@@ -448,6 +509,11 @@ function App() {
               onClick={() => setActiveView('admin')}
             >
               Admin
+              {adminUnreadCount > 0 ? (
+                <span className="nav-unread-count" aria-label={`${adminUnreadCount} unread support requests`}>
+                  {adminUnreadCount > 99 ? '99+' : adminUnreadCount}
+                </span>
+              ) : null}
             </button>
           ) : null}
         </nav>
@@ -589,7 +655,10 @@ function App() {
             onLogRound={() => setActiveView('rounds')}
           />
         ) : activeView === 'support' ? (
-          <Support initialType={supportInitialType} />
+          <Support
+            initialType={supportInitialType}
+            onUnreadChanged={refreshUnreadCounts}
+          />
         ) : activeView === 'whats-new' ? (
           <WhatsNew />
         ) : adminIdentity ? (
@@ -600,7 +669,10 @@ function App() {
               </section>
             }
           >
-            <AdminPortal administratorName={adminIdentity.name} />
+            <AdminPortal
+              administratorName={adminIdentity.name}
+              onUnreadChanged={refreshUnreadCounts}
+            />
           </Suspense>
         ) : null}
       </main>

@@ -42,9 +42,13 @@ function formatSupportDate(value: string): string {
 
 type SupportProps = {
   initialType?: SubmissionType
+  onUnreadChanged?: () => void
 }
 
-function Support({ initialType = 'IDEA' }: SupportProps) {
+function Support({
+  initialType = 'IDEA',
+  onUnreadChanged,
+}: SupportProps) {
   const [type, setType] = useState<SubmissionType>(initialType)
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
@@ -219,6 +223,7 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
       setSubmitNotice('Your request has been sent to the administrator.')
       setPage(1)
       setLoadAttempt((value) => value + 1)
+      onUnreadChanged?.()
     } catch (error: unknown) {
       setSubmitError(
         error instanceof TypeError
@@ -446,6 +451,9 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
                         {SUBMISSION_STATUS_LABELS[submission.status]}
                       </span>
                       <span>{SUBMISSION_TYPE_LABELS[submission.type]}</span>
+                      {submission.hasUnread ? (
+                        <span className="submission-unread">New reply</span>
+                      ) : null}
                       <time dateTime={submission.createdAt}>
                         {formatSupportDate(submission.createdAt)}
                       </time>
@@ -500,6 +508,21 @@ function Support({ initialType = 'IDEA' }: SupportProps) {
                     <SubmissionConversation
                       submissionId={submission.id}
                       status={submission.status}
+                      onUnreadChanged={() => {
+                        setSubmissionsResponse((current) =>
+                          current
+                            ? {
+                                ...current,
+                                submissions: current.submissions.map((item) =>
+                                  item.id === submission.id
+                                    ? { ...item, hasUnread: false }
+                                    : item,
+                                ),
+                              }
+                            : current,
+                        )
+                        onUnreadChanged?.()
+                      }}
                     />
                   </article>
                 ))}

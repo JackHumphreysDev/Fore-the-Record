@@ -173,6 +173,17 @@
   background: rgba(99, 112, 104, 0.12);
 }
 
+.admin-submission-unread {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: var(--forest-deep);
+  background: var(--lime);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
 .admin-submission-content {
   margin-top: 18px;
   display: grid;

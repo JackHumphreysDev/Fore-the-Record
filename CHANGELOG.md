@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.13.0 - 2026-09-07
+
+### User-facing changes
+
+- Added an unread count beside Support when an administrator reply is waiting.
+- Added a new-reply marker to the relevant support request.
+- Cleared unread markers automatically when the player opens the conversation.
+
+### Developer and admin changes
+
+- Added an administrator navigation count and per-request unread markers for new player submissions and replies.
+- Tracked player and administrator unread state independently so a sender never creates a notification for themselves.
+- Added protected unread-count endpoints and marked conversations read only after an authorized participant opens them.
+- Kept existing conversations read during migration while new activity adopts the notification lifecycle.
+- Added unread-count response validation plus server regression coverage for creation, replies, reads, counts, and participant isolation.
+
 ## 0.12.0 - 2026-09-07
 
 ### User-facing changes

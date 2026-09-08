@@ -8,6 +8,17 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'support-unread-indicators',
+    publishedAt: '2026-09-07',
+    title: 'See when a support reply is waiting',
+    summary:
+      'Support now shows when the administrator has added a reply you have not opened yet.',
+    highlights: [
+      'An unread count appears beside Support in the main navigation.',
+      'Opening the conversation clears its new-reply marker automatically.',
+    ],
+  },
+  {
     id: 'linked-round-corrections',
     publishedAt: '2026-09-07',
     title: 'Point us to the round that needs correcting',

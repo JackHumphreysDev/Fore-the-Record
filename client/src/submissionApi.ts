@@ -68,6 +68,7 @@ export type Submission = {
   courseName: string | null
   teeDetails: string | null
   round: SubmissionRound | null
+  hasUnread: boolean
   createdAt: string
   updatedAt: string
 }
@@ -99,6 +100,10 @@ export type AdminSubmissionsResponse = {
 
 export type SubmissionRoundOptionsResponse = {
   rounds: SubmissionRound[]
+}
+
+export type SubmissionUnreadCountResponse = {
+  count: number
 }
 
 export type SubmissionMessage = {
@@ -201,11 +206,22 @@ export function isSubmission(value: unknown): value is Submission {
     isNullableString(value.courseName) &&
     isNullableString(value.teeDetails) &&
     (value.round === null || isSubmissionRound(value.round)) &&
+    typeof value.hasUnread === 'boolean' &&
     typeof value.createdAt === 'string' &&
     !Number.isNaN(Date.parse(value.createdAt)) &&
     typeof value.updatedAt === 'string' &&
     !Number.isNaN(Date.parse(value.updatedAt)) &&
     hasCourseIdentity
+  )
+}
+
+export function isSubmissionUnreadCountResponse(
+  value: unknown,
+): value is SubmissionUnreadCountResponse {
+  return (
+    isRecord(value) &&
+    Number.isInteger(value.count) &&
+    Number(value.count) >= 0
   )
 }
 

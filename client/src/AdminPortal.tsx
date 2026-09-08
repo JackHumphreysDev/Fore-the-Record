@@ -12,6 +12,7 @@ import './AdminPortal.css'
 
 type AdminPortalProps = {
   administratorName: string
+  onUnreadChanged: () => void
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,7 +48,10 @@ function UserIdentity({ user }: { user: AdminUser }) {
   )
 }
 
-function AdminPortal({ administratorName }: AdminPortalProps) {
+function AdminPortal({
+  administratorName,
+  onUnreadChanged,
+}: AdminPortalProps) {
   const [overview, setOverview] = useState<AdminOverview | null>(null)
   const [overviewAttempt, setOverviewAttempt] = useState(0)
   const [isOverviewLoading, setIsOverviewLoading] = useState(true)
@@ -198,6 +202,7 @@ function AdminPortal({ administratorName }: AdminPortalProps) {
       ) : null}
 
       <AdminSubmissionQueue
+        onUnreadChanged={onUnreadChanged}
         onManageRound={(userId, roundId) => {
           setRoundCorrectionTarget({ userId, roundId, requestId: Date.now() })
         }}
