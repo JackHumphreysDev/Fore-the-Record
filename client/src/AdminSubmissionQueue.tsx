@@ -48,9 +48,13 @@ function formatQueueDate(value: string): string {
 
 type AdminSubmissionQueueProps = {
   onManageRound: (userId: string, roundId: string) => void
+  onUnreadChanged: () => void
 }
 
-function AdminSubmissionQueue({ onManageRound }: AdminSubmissionQueueProps) {
+function AdminSubmissionQueue({
+  onManageRound,
+  onUnreadChanged,
+}: AdminSubmissionQueueProps) {
   const [queueView, setQueueView] = useState<QueueView>('active')
   const [draftSearch, setDraftSearch] = useState('')
   const [draftStatus, setDraftStatus] = useState<SubmissionStatus | ''>('')
@@ -358,6 +362,9 @@ function AdminSubmissionQueue({ onManageRound }: AdminSubmissionQueueProps) {
                       {SUBMISSION_STATUS_LABELS[submission.status]}
                     </span>
                     <span>{SUBMISSION_TYPE_LABELS[submission.type]}</span>
+                    {submission.hasUnread ? (
+                      <span className="admin-submission-unread">Unread</span>
+                    ) : null}
                     <time dateTime={submission.createdAt}>
                       {formatQueueDate(submission.createdAt)}
                     </time>
@@ -438,6 +445,21 @@ function AdminSubmissionQueue({ onManageRound }: AdminSubmissionQueueProps) {
                     submissionId={submission.id}
                     status={submission.status}
                     onStatusUpdated={updateSubmissionStatus}
+                    onUnreadChanged={() => {
+                      setResponse((current) =>
+                        current
+                          ? {
+                              ...current,
+                              submissions: current.submissions.map((item) =>
+                                item.id === submission.id
+                                  ? { ...item, hasUnread: false }
+                                  : item,
+                              ),
+                            }
+                          : current,
+                      )
+                      onUnreadChanged()
+                    }}
                   />
                 </article>
               ))}

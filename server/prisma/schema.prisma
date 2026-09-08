@@ -122,6 +122,8 @@ model Submission {
   websiteUrl      String?             @db.VarChar(500)
   courseName      String?             @db.VarChar(160)
   teeDetails      String?             @db.VarChar(1000)
+  playerHasUnread Boolean             @default(false)
+  adminHasUnread  Boolean             @default(false)
   createdAt       DateTime            @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime            @updatedAt @db.Timestamptz(3)
   user            User                @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -130,6 +132,8 @@ model Submission {
   scorecardReview ScorecardReview?
 
   @@index([userId, createdAt])
+  @@index([userId, playerHasUnread])
+  @@index([adminHasUnread])
   @@index([roundId])
   @@index([status, type, createdAt])
 }

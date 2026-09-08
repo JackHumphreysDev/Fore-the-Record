@@ -958,6 +958,7 @@ describe('player submissions', () => {
     },
     createdAt: true,
     updatedAt: true,
+    playerHasUnread: true,
   }
 
   it('should create a submission for the authenticated profile', async () => {
@@ -974,6 +975,7 @@ describe('player submissions', () => {
       courseName: null,
       teeDetails: null,
       round: null,
+      playerHasUnread: false,
       createdAt: new Date('2026-08-31T20:00:00.000Z'),
       updatedAt: new Date('2026-08-31T20:00:00.000Z'),
     })
@@ -997,6 +999,7 @@ describe('player submissions', () => {
       courseName: null,
       teeDetails: null,
       round: null,
+      hasUnread: false,
       createdAt: '2026-08-31T20:00:00.000Z',
       updatedAt: '2026-08-31T20:00:00.000Z',
     })
@@ -1007,6 +1010,7 @@ describe('player submissions', () => {
     expect(submissionCreateMock).toHaveBeenCalledWith({
       data: {
         userId,
+        adminHasUnread: true,
         type: 'ISSUE',
         roundId: null,
         subject: 'Round history is unclear',
@@ -1052,6 +1056,7 @@ describe('player submissions', () => {
       courseName: null,
       teeDetails: null,
       round: null,
+      playerHasUnread: false,
       createdAt: new Date('2026-09-07T20:00:00.000Z'),
       updatedAt: new Date('2026-09-07T20:00:00.000Z'),
     })
@@ -1121,6 +1126,7 @@ describe('player submissions', () => {
         courseName: null,
         teeDetails: null,
         round: null,
+        playerHasUnread: true,
         createdAt: new Date('2026-08-31T19:00:00.000Z'),
         updatedAt: new Date('2026-08-31T20:00:00.000Z'),
       },
@@ -1138,6 +1144,7 @@ describe('player submissions', () => {
       totalPages: 1,
     })
     expect(response.body.submissions).toHaveLength(1)
+    expect(response.body.submissions[0].hasUnread).toBe(true)
     expect(submissionCountMock).toHaveBeenCalledWith({ where: { userId } })
     expect(submissionFindManyMock).toHaveBeenCalledWith({
       where: { userId },
@@ -1215,6 +1222,7 @@ describe('GET /api/admin/submissions', () => {
         courseName: null,
         teeDetails: null,
         round: null,
+        adminHasUnread: true,
         createdAt: new Date('2026-08-31T20:00:00.000Z'),
         updatedAt: new Date('2026-08-31T20:00:00.000Z'),
         user: {
@@ -1244,6 +1252,7 @@ describe('GET /api/admin/submissions', () => {
           courseName: null,
           teeDetails: null,
           round: null,
+          hasUnread: true,
           createdAt: '2026-08-31T20:00:00.000Z',
           updatedAt: '2026-08-31T20:00:00.000Z',
           user: {
@@ -1312,6 +1321,7 @@ describe('GET /api/admin/submissions', () => {
         },
         createdAt: true,
         updatedAt: true,
+        adminHasUnread: true,
         user: {
           select: {
             id: true,
@@ -1333,6 +1343,21 @@ describe('GET /api/admin/submissions', () => {
     expect(response.status).toBe(400)
     expect(response.body).toEqual({ error: 'Invalid submission filters' })
     expect(submissionCountMock).not.toHaveBeenCalled()
+  })
+
+  it('should return the administrator unread request count', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    submissionCountMock.mockResolvedValueOnce(4)
+
+    const response = await request(app).get(
+      '/api/admin/submissions/unread-count',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ count: 4 })
+    expect(submissionCountMock).toHaveBeenCalledWith({
+      where: { adminHasUnread: true },
+    })
   })
 })
 
@@ -1424,6 +1449,24 @@ describe('submission conversations', () => {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: messageSelect,
     })
+    expect(submissionUpdateMock).toHaveBeenCalledWith({
+      where: { id: submissionId },
+      data: { playerHasUnread: false },
+      select: { id: true },
+    })
+  })
+
+  it('should return the player unread conversation count', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: playerId })
+    submissionCountMock.mockResolvedValueOnce(2)
+
+    const response = await request(app).get('/api/submissions/unread-count')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ count: 2 })
+    expect(submissionCountMock).toHaveBeenCalledWith({
+      where: { userId: playerId, playerHasUnread: true },
+    })
   })
 
   it('should let a player reply to their open submission', async () => {
@@ -1468,6 +1511,11 @@ describe('submission conversations', () => {
       },
       select: messageSelect,
     })
+    expect(submissionUpdateMock).toHaveBeenCalledWith({
+      where: { id: submissionId },
+      data: { playerHasUnread: false, adminHasUnread: true },
+      select: { id: true },
+    })
   })
 
   it('should not reveal another player submission conversation', async () => {
@@ -1498,6 +1546,29 @@ describe('submission conversations', () => {
       error: 'Closed submissions cannot receive replies',
     })
     expect(submissionMessageCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('should mark a conversation read when the administrator opens it', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: adminId,
+      name: 'Site Administrator',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    })
+    submissionFindUniqueMock.mockResolvedValueOnce({ id: submissionId })
+    submissionMessageFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).get(
+      `/api/admin/submissions/${submissionId}/messages`,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ messages: [] })
+    expect(submissionUpdateMock).toHaveBeenCalledWith({
+      where: { id: submissionId },
+      data: { adminHasUnread: false },
+      select: { id: true },
+    })
   })
 
   it('should let the administrator reply to an open submission', async () => {
@@ -1543,6 +1614,11 @@ describe('submission conversations', () => {
         targetId: submissionId,
         after: { senderRole: 'ADMIN' },
       },
+    })
+    expect(submissionUpdateMock).toHaveBeenCalledWith({
+      where: { id: submissionId },
+      data: { adminHasUnread: false, playerHasUnread: true },
+      select: { id: true },
     })
   })
 

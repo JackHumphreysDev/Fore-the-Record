@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
 import {
   buildAdminSubmissionStatusPath,
@@ -19,6 +19,7 @@ type SubmissionConversationProps = {
   submissionId: string
   status: SubmissionStatus
   onStatusUpdated?: (update: SubmissionStatusUpdate) => void
+  onUnreadChanged?: () => void
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -53,6 +54,7 @@ function SubmissionConversation({
   submissionId,
   status,
   onStatusUpdated,
+  onUnreadChanged,
 }: SubmissionConversationProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [messagesResponse, setMessagesResponse] =
@@ -68,6 +70,11 @@ function SubmissionConversation({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [statusError, setStatusError] = useState('')
   const [statusNotice, setStatusNotice] = useState('')
+  const onUnreadChangedRef = useRef(onUnreadChanged)
+
+  useEffect(() => {
+    onUnreadChangedRef.current = onUnreadChanged
+  }, [onUnreadChanged])
 
   useEffect(() => {
     if (!isExpanded) {
@@ -102,6 +109,7 @@ function SubmissionConversation({
         }
 
         setMessagesResponse(body)
+        onUnreadChangedRef.current?.()
       } catch (error: unknown) {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return
@@ -161,6 +169,7 @@ function SubmissionConversation({
       }))
       setReply('')
       setReplyNotice('Your reply has been added.')
+      onUnreadChangedRef.current?.()
     } catch (error: unknown) {
       setReplyError(
         error instanceof TypeError

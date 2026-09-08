@@ -539,6 +539,7 @@ export async function logRound(input: LogRoundInput) {
                       clubName: tee.course?.club.name,
                       courseName: tee.course?.name,
                       teeDetails: tee.teeName,
+                      adminHasUnread: true,
                     },
                   },
                   holes: {

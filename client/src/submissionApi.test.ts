@@ -9,6 +9,7 @@ import {
   isSubmissionMessage,
   isSubmissionMessagesResponse,
   isSubmissionStatusUpdate,
+  isSubmissionUnreadCountResponse,
   isSubmissionsResponse,
 } from './submissionApi.ts'
 
@@ -75,6 +76,7 @@ describe('submission response validation', () => {
     courseName: null,
     teeDetails: null,
     round: null,
+    hasUnread: false,
     createdAt: '2026-08-31T20:00:00.000Z',
     updatedAt: '2026-08-31T20:00:00.000Z',
   }
@@ -189,5 +191,12 @@ describe('submission response validation', () => {
         updatedAt: '2026-08-31T21:15:00.000Z',
       }),
     ).toBe(false)
+  })
+
+  it('should validate non-negative unread counts', () => {
+    expect(isSubmissionUnreadCountResponse({ count: 3 })).toBe(true)
+    expect(isSubmissionUnreadCountResponse({ count: 0 })).toBe(true)
+    expect(isSubmissionUnreadCountResponse({ count: -1 })).toBe(false)
+    expect(isSubmissionUnreadCountResponse({ count: 1.5 })).toBe(false)
   })
 })
