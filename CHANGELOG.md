@@ -14,6 +14,19 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.13.1 - 2026-09-09
+
+### User-facing changes
+
+- Added a clear wait message when unusually frequent support requests or replies reach the hourly allowance.
+
+### Developer and admin changes
+
+- Added database-backed rolling limits of five new player support requests and twenty player replies per hour.
+- Excluded automatically generated scorecard-review requests from the player's request allowance.
+- Returned standard `429` responses with a `Retry-After` header while keeping administrator replies unrestricted.
+- Added regression coverage for the rolling window, limit messages, rejected writes, and successful request and reply paths.
+
 ## 0.13.0 - 2026-09-07
 
 ### User-facing changes
