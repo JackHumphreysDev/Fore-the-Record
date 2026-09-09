@@ -40,6 +40,7 @@ import {
 } from './courseScorecards.js'
 import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
+import { buildPerformanceSummary } from './performanceSummary.js'
 import {
   SubmissionStatus,
   type SubmissionStatus as SubmissionStatusValue,
@@ -2306,6 +2307,46 @@ app.get('/api/users/me/rounds', async (_request, response) => {
         courseRating: Number(round.tee.courseRating),
       },
     })),
+  )
+})
+
+app.get('/api/users/me/performance-summary', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      rounds: {
+        orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          id: true,
+          datePlayed: true,
+          category: true,
+          participation: true,
+          scoreDifferential: true,
+          isAcceptable: true,
+          usedInHandicapCalc: true,
+          scorecardStatus: true,
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  response.status(200).json(
+    buildPerformanceSummary(
+      user.rounds.map((round) => ({
+        ...round,
+        scoreDifferential:
+          round.scoreDifferential === null
+            ? null
+            : Number(round.scoreDifferential),
+      })),
+    ),
   )
 })
 

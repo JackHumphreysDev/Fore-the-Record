@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.14.0 - 2026-09-09
+
+### User-facing changes
+
+- Added a performance summary to the signed-in Profile screen.
+- Added totals for casual, individual competition, team competition, verified scored, and currently counting rounds.
+- Added best and average verified score differentials plus a five-round recent scoring trend.
+- Marked recent differentials that currently contribute to the player's Handicap Index.
+
+### Developer and admin changes
+
+- Added a protected player performance-summary endpoint using the authenticated profile ownership boundary.
+- Excluded pending, rejected, team, and unacceptable rounds from official differential statistics while retaining them in record totals.
+- Added an indexed player/date round-history access path for scalable lifetime summaries.
+- Added server calculation, endpoint, client response-validation, loading, empty, and error-state regression coverage.
+
 ## 0.13.1 - 2026-09-09
 
 ### User-facing changes

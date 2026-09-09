@@ -12,8 +12,13 @@ This roadmap records agreed future work. Items are planned requirements, not com
 6. Hole-by-hole scorecards and administrator approval. Completed in `0.7.0`.
 7. Competition, casual, individual, and team round records. Completed in `0.8.0`.
 8. User-facing **What's New** section. Completed in `0.11.0`.
+9. Player performance summary. Completed in `0.14.0`.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Player performance summary — completed in 0.14.0
+
+The signed-in Profile screen summarizes total, casual, individual competition, team competition, verified scored, and currently counting rounds. It also shows the player's current Handicap Index, best and average verified acceptable score differentials, and their five most recent eligible differentials. Pending, rejected, team, and otherwise unacceptable rounds remain in the record totals but cannot distort the scoring figures. All summary data is derived through the authenticated player's server-side ownership boundary.
 
 ## Full course catalogue — tooling completed in 0.6.0
 
