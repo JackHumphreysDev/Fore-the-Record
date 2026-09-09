@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'personal-milestones',
+    publishedAt: '2026-09-09',
+    title: 'Celebrate every step of your golfing story',
+    summary:
+      'Your Profile now turns verified rounds into lifetime totals, personal bests, and achievements.',
+    highlights: [
+      'Follow total holes, shots, recorded yards, eagles, birdies, pars, and bogeys.',
+      'See your lowest gross score, best differential, and lowest Handicap Index.',
+      'Earn dated milestones for rounds, competitions, counting scores, and breaking scoring barriers.',
+    ],
+  },
+  {
     id: 'favourite-courses-default-tees',
     publishedAt: '2026-09-09',
     title: 'Keep your regular courses close',

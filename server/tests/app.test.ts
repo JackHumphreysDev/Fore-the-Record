@@ -1974,6 +1974,63 @@ describe('submission conversations', () => {
   })
 })
 
+describe('GET /api/users/me/personal-milestones', () => {
+  it('derives lifetime totals from the authenticated player record', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          datePlayed: new Date('2026-09-09T00:00:00.000Z'),
+          createdAt: new Date('2026-09-09T12:00:00.000Z'),
+          category: 'CASUAL',
+          participation: 'INDIVIDUAL',
+          grossScore: 4,
+          scoreDifferential: '12.4',
+          isAcceptable: true,
+          scorecardStatus: 'VERIFIED',
+          holeScores: [
+            { holeNumber: 1, par: 4, strokesTaken: 4 },
+          ],
+          tee: {
+            holes: [{ holeNumber: 1, yardage: 410 }],
+          },
+        },
+      ],
+    })
+
+    const response = await request(app).get(
+      '/api/users/me/personal-milestones',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.totals).toEqual({
+      holesPlayed: 1,
+      totalShots: 4,
+      yardsCovered: 410,
+      eagles: 0,
+      birdies: 0,
+      pars: 1,
+      bogeys: 0,
+    })
+    expect(response.body.personalBests.lowestDifferential.value).toBe(12.4)
+    expect(userFindUniqueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      }),
+    )
+  })
+
+  it('returns 404 when the authenticated account has no profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get(
+      '/api/users/me/personal-milestones',
+    )
+
+    expect(response.status).toBe(404)
+  })
+})
+
 describe('player course preferences', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
   const courseId = '22222222-2222-4222-8222-222222222222'
