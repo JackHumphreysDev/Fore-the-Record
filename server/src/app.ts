@@ -19,6 +19,7 @@ import {
   parseAdminUserStatus,
   parseDeleteConfirmation,
 } from './adminUsers.js'
+import adminCatalogueRouter from './adminCatalogueRoutes.js'
 import {
   getAuthenticatedUser,
   getVerifiedTokenSubject,
@@ -603,6 +604,8 @@ app.use('/api/admin', async (_request, response, next) => {
   response.locals.adminProfile = adminProfile
   next()
 })
+
+app.use('/api/admin/catalogue', adminCatalogueRouter)
 
 app.get('/api/admin/me', (_request, response) => {
   response.status(200).json(getAdminProfile(response.locals))

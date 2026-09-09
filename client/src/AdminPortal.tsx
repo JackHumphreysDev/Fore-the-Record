@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { authenticatedFetch } from './api.ts'
 import AdminSubmissionQueue from './AdminSubmissionQueue.tsx'
 import AdminScorecardReviews from './AdminScorecardReviews.tsx'
+import AdminCourseCatalogue from './AdminCourseCatalogue.tsx'
 import AdminUserDirectory from './AdminUserDirectory.tsx'
 import {
   isAdminOverview,
@@ -209,6 +210,10 @@ function AdminPortal({
       />
 
       <AdminScorecardReviews />
+
+      <AdminCourseCatalogue
+        onCatalogueChanged={() => setOverviewAttempt((value) => value + 1)}
+      />
 
       <AdminUserDirectory
         roundCorrectionTarget={roundCorrectionTarget}

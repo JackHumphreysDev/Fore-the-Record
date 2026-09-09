@@ -1,6 +1,6 @@
 # Administration
 
-Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, version `0.9.0` adds guarded player-account management, version `0.10.0` adds audited round correction and deletion, version `0.12.0` links correction requests to affected rounds, version `0.13.0` adds participant-specific unread indicators, and version `0.13.1` adds persistent player support rate limits.
+Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, version `0.9.0` adds guarded player-account management, version `0.10.0` adds audited round correction and deletion, version `0.12.0` links correction requests to affected rounds, version `0.13.0` adds participant-specific unread indicators, version `0.13.1` adds persistent player support rate limits, and version `0.15.0` adds guarded course catalogue management.
 
 ## Security model
 
@@ -52,6 +52,10 @@ Before running it, the owner must already have registered, confirmed their email
 `GET /api/admin/me` is the first route behind the administrator guard. A verified administrator access token receives the administrator's safe profile identity. A signed-in non-administrator receives `403 Administrator access required`, and a request without a verified session receives `401 Authentication required`.
 
 `GET /api/admin/overview` returns profile, round, and saved-club totals plus the five most recent registrations.
+
+`GET /api/admin/catalogue` searches club, location, course, and tee names and returns paginated nested catalogue records with their scorecards and usage controls. The catalogue management routes create and update clubs, courses, rated tees, and complete 18-hole scorecards. Every successful mutation is audited.
+
+`DELETE /api/admin/catalogue/clubs/:clubId`, `/courses/:courseId`, and `/tees/:teeId` require the exact confirmation text `DELETE`. A club cannot be deleted while it is a home club or still contains courses; courses must have no tees; and tees must have no rounds or scorecard reviews. Once a round uses a tee, its course rating, slope rating, par, and scorecard are locked. Safe name, colour, gender, and distance corrections remain available, while a genuinely corrected rating must be stored as a new tee so old Handicap Index calculations retain their original basis.
 
 `GET /api/admin/users` returns safe, paginated profile details. Its optional `search` query matches names and emails; `page` and `pageSize` control pagination, with a maximum page size of 50.
 

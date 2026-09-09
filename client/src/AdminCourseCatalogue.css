@@ -1,0 +1,393 @@
+.admin-catalogue {
+  margin-top: 34px;
+}
+
+.admin-catalogue-heading {
+  align-items: center;
+}
+
+.admin-catalogue-intro {
+  max-width: 780px;
+  margin: 22px 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.admin-catalogue-search {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto auto auto;
+  align-items: end;
+  gap: 10px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-catalogue-search label,
+.admin-catalogue-fields label {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-catalogue-search label span,
+.admin-catalogue-fields label span {
+  color: var(--forest-deep);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.admin-catalogue-search input,
+.admin-catalogue-fields input,
+.admin-catalogue-hole input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  color: var(--forest-deep);
+  background: white;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.admin-catalogue-search input:focus,
+.admin-catalogue-fields input:focus,
+.admin-catalogue-hole input:focus {
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(49, 88, 68, 0.1);
+}
+
+.admin-catalogue-search button,
+.admin-catalogue-actions button,
+.admin-catalogue-record-actions button,
+.admin-catalogue-course header button,
+.admin-catalogue-add,
+.admin-catalogue-pages button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--forest);
+  border-radius: 8px;
+  color: white;
+  background: var(--forest);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.admin-catalogue-search button:disabled,
+.admin-catalogue-actions button:disabled,
+.admin-catalogue-record-actions button:disabled,
+.admin-catalogue-course header button:disabled,
+.admin-catalogue-pages button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.admin-catalogue-search .admin-catalogue-secondary,
+.admin-catalogue-actions .admin-catalogue-secondary {
+  color: var(--forest);
+  background: transparent;
+}
+
+.admin-catalogue-feedback {
+  margin: 18px 0 0;
+  padding: 13px 15px;
+  border: 1px solid #9ac9a9;
+  border-radius: 8px;
+  color: #185b3b;
+  background: #edf8f0;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.admin-catalogue-error {
+  border-color: #e3a39a;
+  color: #8e2e24;
+  background: #fff0ed;
+}
+
+.admin-catalogue-list {
+  display: grid;
+  gap: 13px;
+  padding-top: 20px;
+}
+
+.admin-catalogue-club {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: white;
+}
+
+.admin-catalogue-toggle {
+  width: 100%;
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border: 0;
+  color: var(--forest-deep);
+  background: transparent;
+  text-align: left;
+}
+
+.admin-catalogue-toggle > span:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-catalogue-toggle small {
+  color: var(--forest-soft);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.admin-catalogue-toggle strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.admin-catalogue-toggle > span:last-child {
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-catalogue-club-body {
+  padding: 22px;
+  border-top: 1px solid var(--line);
+  background: rgba(23, 56, 42, 0.025);
+}
+
+.admin-catalogue-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.admin-catalogue-record-actions p {
+  margin: 0 auto 0 0;
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+
+.admin-catalogue-record-actions .admin-catalogue-danger,
+.admin-catalogue-course header .admin-catalogue-danger {
+  border-color: #b5493d;
+  color: #a1362b;
+  background: transparent;
+}
+
+.admin-catalogue-courses {
+  margin-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.admin-catalogue-course {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: white;
+}
+
+.admin-catalogue-course > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.admin-catalogue-course > header > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-catalogue-course header small {
+  color: var(--forest-soft);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.admin-catalogue-course h4,
+.admin-catalogue-editor h3,
+.admin-catalogue-editor h4 {
+  margin: 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 400;
+}
+
+.admin-catalogue-course header p,
+.admin-catalogue-editor p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 9px;
+}
+
+.admin-catalogue-course > header > div:last-child {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-catalogue-tees {
+  margin-top: 16px;
+  display: grid;
+  gap: 9px;
+}
+
+.admin-catalogue-tee {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 253, 247, 0.68);
+}
+
+.admin-catalogue-tee > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.admin-catalogue-tee > header div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-catalogue-tee > header strong {
+  color: var(--forest-deep);
+  font-size: 11px;
+}
+
+.admin-catalogue-tee > header span {
+  color: var(--ink-muted);
+  font-size: 9px;
+}
+
+.admin-catalogue-tee > header em,
+.admin-catalogue-lock {
+  color: #765500;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.admin-catalogue-editor {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(23, 56, 42, 0.045);
+}
+
+.admin-catalogue-fields {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-catalogue-fields-tee {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-catalogue-fields input:disabled {
+  color: var(--ink-muted);
+  background: rgba(99, 112, 104, 0.09);
+}
+
+.admin-catalogue-actions {
+  margin-top: 15px;
+  display: flex;
+  gap: 9px;
+}
+
+.admin-catalogue-add {
+  margin-top: 15px;
+  color: var(--forest);
+  background: transparent;
+}
+
+.admin-catalogue-scorecard {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: 54px repeat(3, minmax(90px, 1fr));
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.admin-catalogue-scorecard > span {
+  color: var(--ink-muted);
+  font-size: 8px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.admin-catalogue-hole {
+  display: contents;
+}
+
+.admin-catalogue-hole strong {
+  color: var(--forest-deep);
+  font-size: 10px;
+}
+
+.admin-catalogue-hole input {
+  min-height: 38px;
+}
+
+.admin-catalogue-pages {
+  padding-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.admin-catalogue-pages span {
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+@media (max-width: 840px) {
+  .admin-catalogue-search,
+  .admin-catalogue-fields,
+  .admin-catalogue-fields-tee {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-catalogue-search,
+  .admin-catalogue-fields,
+  .admin-catalogue-fields-tee {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-catalogue-toggle,
+  .admin-catalogue-course > header,
+  .admin-catalogue-tee > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-catalogue-scorecard {
+    grid-template-columns: 42px repeat(3, minmax(64px, 1fr));
+  }
+}
