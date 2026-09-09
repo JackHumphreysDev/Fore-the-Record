@@ -42,6 +42,7 @@ import {
 import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
 import { buildPerformanceSummary } from './performanceSummary.js'
+import { buildPersonalMilestones } from './personalMilestones.js'
 import { buildHandicapProgression } from './handicapProgression.js'
 import {
   SubmissionStatus,
@@ -2440,6 +2441,63 @@ app.get('/api/users/me/performance-summary', async (_request, response) => {
           round.scoreDifferential === null
             ? null
             : Number(round.scoreDifferential),
+      })),
+    ),
+  )
+})
+
+app.get('/api/users/me/personal-milestones', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      rounds: {
+        orderBy: [{ datePlayed: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          datePlayed: true,
+          createdAt: true,
+          category: true,
+          participation: true,
+          grossScore: true,
+          scoreDifferential: true,
+          isAcceptable: true,
+          scorecardStatus: true,
+          holeScores: {
+            orderBy: { holeNumber: 'asc' },
+            select: {
+              holeNumber: true,
+              par: true,
+              strokesTaken: true,
+            },
+          },
+          tee: {
+            select: {
+              holes: {
+                orderBy: { holeNumber: 'asc' },
+                select: { holeNumber: true, yardage: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  response.status(200).json(
+    buildPersonalMilestones(
+      user.rounds.map(({ tee, ...round }) => ({
+        ...round,
+        scoreDifferential:
+          round.scoreDifferential === null
+            ? null
+            : Number(round.scoreDifferential),
+        teeHoles: tee.holes,
       })),
     ),
   )

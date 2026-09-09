@@ -38,7 +38,7 @@ The application features are still under development. The core handicap calculat
 
 ## Roadmap and releases
 
-The current application version is `0.17.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.18.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)

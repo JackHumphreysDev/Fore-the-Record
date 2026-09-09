@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.18.0 - 2026-09-09
+
+### User-facing changes
+
+- Added automatically earned personal milestones with achievement dates and progress towards locked targets.
+- Added lifetime totals for holes played, shots taken, recorded yards, eagles, birdies, pars, and bogeys.
+- Added personal-best cards for lowest gross score, best score differential, and lowest historical Handicap Index.
+- Added milestones for round totals, a first counting round, a first individual competition, and scores below 100, 90, 80, and 70.
+
+### Developer and admin changes
+
+- Added an authenticated milestone endpoint derived from the verified player's existing rounds and scorecards.
+- Reused the central Handicap Index calculator to reconstruct the player's historical low.
+- Excluded team, pending, rejected, and record-only scorecards from scoring statistics and used only known hole yardages.
+- Added calculation, ownership, exclusion, empty-state, and browser response-contract regression coverage.
+
 ## 0.17.0 - 2026-09-09
 
 ### User-facing changes

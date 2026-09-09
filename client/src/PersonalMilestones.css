@@ -1,0 +1,122 @@
+.personal-milestones {
+  margin: 0 0 30px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.personal-milestones > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.personal-milestones h3 {
+  margin: 5px 0 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.personal-milestones > header > span,
+.milestone-bests small,
+.milestone-totals dt {
+  color: var(--ink-muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+}
+
+.milestone-totals {
+  margin: 18px 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.milestone-totals div {
+  padding: 13px 10px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.milestone-totals div:nth-child(4n) { border-right: 0; }
+.milestone-totals div:nth-last-child(-n + 3) { border-bottom: 0; }
+
+.milestone-totals dd {
+  margin: 5px 0 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+}
+
+.milestone-yardage-note {
+  margin: 7px 0 0;
+  color: var(--ink-muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.milestone-bests {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.milestone-bests article {
+  padding: 13px;
+  display: grid;
+  gap: 4px;
+  border-radius: 9px;
+  color: white;
+  background: var(--forest);
+}
+
+.milestone-bests small,
+.milestone-bests span { color: rgba(255, 255, 255, 0.66); }
+.milestone-bests strong { font-family: Georgia, "Times New Roman", serif; font-size: 23px; font-weight: 400; }
+.milestone-bests span { font-size: 8px; }
+
+.milestone-achievements {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.milestone-achievements article {
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.milestone-achievements article.is-achieved { background: rgba(113, 143, 0, 0.09); }
+.milestone-achievements article.is-locked { opacity: 0.65; }
+.milestone-icon { width: 24px; height: 24px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--forest-soft); font-weight: 850; }
+.milestone-achievements strong { color: var(--forest-deep); font-size: 11px; }
+.milestone-achievements p { margin: 3px 0; color: var(--ink-muted); font-size: 8px; line-height: 1.4; }
+.milestone-achievements small { color: var(--forest-soft); font-size: 8px; font-weight: 750; }
+
+.milestone-state { min-height: 90px; display: grid; place-items: center; color: var(--ink-muted); font-size: 9px; }
+.milestone-state p { margin: 0; }
+.milestone-state button { margin-top: 8px; padding: 8px 12px; color: white; background: var(--forest); }
+
+@media (max-width: 560px) {
+  .milestone-totals { grid-template-columns: repeat(2, 1fr); }
+  .milestone-totals div:nth-child(4n) { border-right: 1px solid var(--line); }
+  .milestone-totals div:nth-child(2n) { border-right: 0; }
+  .milestone-totals div:nth-last-child(-n + 3) { border-bottom: 1px solid var(--line); }
+  .milestone-totals div:last-child { border-bottom: 0; }
+  .milestone-bests,
+  .milestone-achievements { grid-template-columns: 1fr; }
+}
