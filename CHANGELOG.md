@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.15.0 - 2026-09-09
+
+### User-facing changes
+
+- No player-facing changes in this release.
+
+### Developer and admin changes
+
+- Added a protected, searchable course catalogue manager to the administrator portal.
+- Added audited creation and editing of clubs, courses, rated tees, and complete 18-hole scorecards.
+- Added confirmation-gated deletion and blocked removal of catalogue records that are still referenced.
+- Locked tee ratings, par, and scorecards after a round uses the tee so historical scores and Handicap Index calculations cannot be silently changed.
+- Kept safe metadata corrections available on used tees and directed rating corrections to a new tee record.
+- Added server validation, authorization, usage-lock, nested-response, and client response-contract regression coverage.
+
 ## 0.14.0 - 2026-09-09
 
 ### User-facing changes

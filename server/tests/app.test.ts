@@ -528,6 +528,171 @@ describe('GET /api/admin/overview', () => {
   })
 })
 
+describe('GET /api/admin/catalogue', () => {
+  const adminProfile = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Site Administrator',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  }
+
+  it('returns nested catalogue records with safe usage controls', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    clubCountMock.mockResolvedValueOnce(1)
+    clubFindManyMock.mockResolvedValueOnce([
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        externalId: null,
+        name: 'Example Golf Club',
+        city: 'Sheffield',
+        county: 'South Yorkshire',
+        postcode: null,
+        countryCode: 'ENG',
+        latitude: null,
+        longitude: null,
+        googleRating: null,
+        clubType: null,
+        courseType: null,
+        _count: { members: 1, courses: 1 },
+        courses: [
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            externalId: null,
+            name: 'Main Course',
+            holes: 18,
+            par: 72,
+            designedBy: null,
+            yearOpened: null,
+            _count: { tees: 1 },
+            tees: [
+              {
+                id: '44444444-4444-4444-8444-444444444444',
+                externalId: null,
+                teeName: 'White',
+                colour: 'white',
+                gender: 'male',
+                totalYardage: 6500,
+                totalMetres: null,
+                par: 72,
+                courseRating: '71.8',
+                slopeRating: 128,
+                source: 'MANUAL',
+                holes: [],
+                _count: { rounds: 2, scorecardReviews: 0 },
+              },
+            ],
+          },
+        ],
+      },
+    ])
+
+    const response = await request(app).get(
+      '/api/admin/catalogue?search=example&page=1&pageSize=10',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.clubs[0]).toMatchObject({
+      name: 'Example Golf Club',
+      canDelete: false,
+      courses: [
+        {
+          canDelete: false,
+          tees: [
+            {
+              courseRating: 71.8,
+              isUsed: true,
+              canDelete: false,
+            },
+          ],
+        },
+      ],
+    })
+    expect(response.body.pagination).toEqual({
+      page: 1,
+      pageSize: 10,
+      total: 1,
+      totalPages: 1,
+    })
+  })
+
+  it('rejects a player before reading catalogue data', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      ...adminProfile,
+      role: 'PLAYER',
+    })
+
+    const response = await request(app).get('/api/admin/catalogue')
+
+    expect(response.status).toBe(403)
+    expect(clubFindManyMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('administrator catalogue mutations', () => {
+  const adminProfile = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Site Administrator',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  }
+
+  it('creates a club and writes an audit record in the same transaction', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    clubCreateMock.mockResolvedValueOnce({
+      id: '22222222-2222-4222-8222-222222222222',
+    })
+    adminAuditLogCreateMock.mockResolvedValueOnce({})
+
+    const response = await request(app)
+      .post('/api/admin/catalogue/clubs')
+      .send({ name: 'New Golf Club', countryCode: 'eng' })
+
+    expect(response.status).toBe(201)
+    expect(prismaTransactionMock).toHaveBeenCalledOnce()
+    expect(clubCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        name: 'New Golf Club',
+        countryCode: 'ENG',
+      }),
+      select: { id: true },
+    })
+    expect(adminAuditLogCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorUserId: adminProfile.id,
+        action: 'CATALOGUE_CLUB_CREATED',
+        targetType: 'Club',
+      }),
+    })
+  })
+
+  it('locks ratings when a recorded round already uses the tee', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    teeFindUniqueMock.mockResolvedValueOnce({
+      id: '44444444-4444-4444-8444-444444444444',
+      teeName: 'White',
+      courseRating: '71.8',
+      slopeRating: 128,
+      par: 72,
+      _count: { rounds: 2 },
+    })
+
+    const response = await request(app)
+      .patch(
+        '/api/admin/catalogue/tees/44444444-4444-4444-8444-444444444444',
+      )
+      .send({
+        teeName: 'White',
+        courseRating: 72,
+        slopeRating: 128,
+        par: 72,
+      })
+
+    expect(response.status).toBe(409)
+    expect(response.body.error).toContain('rounds already use this tee')
+    expect(teeUpdateMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /api/admin/users', () => {
   const adminProfile = {
     id: '11111111-1111-4111-8111-111111111111',

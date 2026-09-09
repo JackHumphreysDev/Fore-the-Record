@@ -13,8 +13,23 @@ This roadmap records agreed future work. Items are planned requirements, not com
 7. Competition, casual, individual, and team round records. Completed in `0.8.0`.
 8. User-facing **What's New** section. Completed in `0.11.0`.
 9. Player performance summary. Completed in `0.14.0`.
+10. Admin course catalogue management. Completed in `0.15.0`.
+11. Handicap progression chart on the Rounds screen. A visual reference will be supplied before implementation.
+12. Favourite courses and default tees.
+13. Personal milestones.
+14. Account settings.
+15. Player goals.
+16. Round-history filters.
+17. Round notes.
+18. Email notifications. Production delivery depends on the future custom domain and email configuration.
+19. Privacy and account controls.
+20. Installable mobile app.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Administrator course catalogue management — completed in 0.15.0
+
+The protected administrator portal can search and maintain clubs, courses, rated tees, and complete 18-hole scorecards. Creates, edits, scorecard replacements, and deletes are audited. Permanent removal requires typed confirmation and is refused while a record is referenced. Once a round uses a tee, its ratings, par, and scorecard remain immutable so existing differentials and Handicap Index history cannot change silently; safe descriptive and distance corrections remain available.
 
 ## Player performance summary — completed in 0.14.0
 
