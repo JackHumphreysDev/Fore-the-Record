@@ -338,6 +338,122 @@
   line-height: 1.5;
 }
 
+.history-scorecard-toggle {
+  min-height: 42px;
+  margin-top: 18px;
+  padding: 0 15px;
+  border: 1px solid var(--forest);
+  border-radius: 8px;
+  color: var(--forest);
+  background: transparent;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.history-scorecard-toggle:hover,
+.history-scorecard-toggle[aria-expanded="true"] {
+  color: white;
+  background: var(--forest);
+}
+
+.history-scorecard-toggle:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
+.history-scorecard {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+}
+
+.history-scorecard-scroll {
+  overflow-x: auto;
+}
+
+.history-scorecard table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.history-scorecard th,
+.history-scorecard td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--forest-deep);
+  font-size: 10px;
+}
+
+.history-scorecard thead th {
+  color: var(--ink-muted);
+  background: rgba(23, 56, 42, 0.045);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.history-scorecard tbody th {
+  color: var(--forest-soft);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+}
+
+.history-scorecard tbody tr:nth-child(9) > *,
+.history-scorecard tbody tr:last-child > * {
+  border-bottom-color: var(--forest-soft);
+}
+
+.history-nine-totals {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  color: white;
+  background: var(--forest-deep);
+}
+
+.history-nine-totals > div {
+  padding: 14px;
+  display: grid;
+  gap: 5px;
+  text-align: center;
+}
+
+.history-nine-totals > div + div {
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.history-nine-totals dt {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.history-nine-totals dd {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+}
+
+.history-nine-totals small {
+  color: rgba(255, 255, 255, 0.58);
+  font-family: inherit;
+  font-size: 8px;
+}
+
+.history-scorecard-empty {
+  padding: 20px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
 .history-state-card {
   max-width: 920px;
   min-height: 470px;
@@ -523,6 +639,15 @@
 
   .history-badges {
     justify-content: start;
+  }
+
+  .history-nine-totals {
+    grid-template-columns: 1fr;
+  }
+
+  .history-nine-totals > div + div {
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    border-left: 0;
   }
 }
 

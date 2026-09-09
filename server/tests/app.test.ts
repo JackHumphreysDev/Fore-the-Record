@@ -2003,6 +2003,62 @@ describe('GET /api/users/me', () => {
   })
 })
 
+describe('GET /api/users/me/handicap-progression', () => {
+  it('returns a progression derived from the authenticated player rounds', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          datePlayed: new Date('2026-09-08T00:00:00.000Z'),
+          createdAt: new Date('2026-09-08T12:00:00.000Z'),
+          scoreDifferential: '12.4',
+          isAcceptable: true,
+          tee: {
+            teeName: 'White',
+            course: {
+              name: 'Main Course',
+              club: { name: 'Example Golf Club' },
+            },
+          },
+        },
+      ],
+    })
+
+    const response = await request(app).get(
+      '/api/users/me/handicap-progression',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual([
+      {
+        roundId: '33333333-3333-4333-8333-333333333333',
+        datePlayed: '2026-09-08T00:00:00.000Z',
+        clubName: 'Example Golf Club',
+        courseName: 'Main Course',
+        teeName: 'White',
+        scoreDifferential: 12.4,
+        handicapIndex: 12.4,
+        countedAtTheTime: true,
+      },
+    ])
+    expect(userFindUniqueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      }),
+    )
+  })
+
+  it('returns 404 when the authenticated account has no profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get(
+      '/api/users/me/handicap-progression',
+    )
+
+    expect(response.status).toBe(404)
+  })
+})
+
 describe('GET /api/users/me/performance-summary', () => {
   it('should return a summary derived only from the authenticated profile', async () => {
     userFindUniqueMock.mockResolvedValueOnce({
@@ -2219,6 +2275,12 @@ describe('GET /api/users/me/rounds', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
 
   it('should return newest-first round history with course context', async () => {
+    const holeScores = Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1,
+      par: 4,
+      strokeIndex: index + 1,
+      strokesTaken: 5,
+    }))
     userFindUniqueMock.mockResolvedValueOnce({
       rounds: [
         {
@@ -2242,6 +2304,7 @@ describe('GET /api/users/me/rounds', () => {
           usedInHandicapCalc: true,
           scorecardStatus: 'VERIFIED',
           createdAt: new Date('2026-08-30T12:00:00.000Z'),
+          holeScores,
           tee: {
             id: '44444444-4444-4444-8444-444444444444',
             teeName: 'Championship',
@@ -2286,6 +2349,7 @@ describe('GET /api/users/me/rounds', () => {
         usedInHandicapCalc: true,
         scorecardStatus: 'VERIFIED',
         createdAt: '2026-08-30T12:00:00.000Z',
+        holeScores,
         tee: {
           id: '44444444-4444-4444-8444-444444444444',
           teeName: 'Championship',

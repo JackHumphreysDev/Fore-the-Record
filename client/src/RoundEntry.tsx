@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
 import {
   buildCatalogueCoursesPath,
@@ -14,6 +14,8 @@ import {
   type WeatherCondition,
 } from './roundRecordValidation.ts'
 import './RoundEntry.css'
+import HandicapProgressionChart from './HandicapProgressionChart.tsx'
+import { calculateRoundScoreTotals } from './roundScorecardTotals.ts'
 
 type RoundEntryProfile = {
   id: string
@@ -252,10 +254,8 @@ function RoundEntry({
     const strokes = Number(strokesTaken)
     return strokesTaken.trim() !== '' && Number.isInteger(strokes) && strokes > 0
   }).length
-  const holeScoreTotal = holeEntries.reduce((total, hole) => {
-    const strokes = Number(hole.strokesTaken)
-    return total + (Number.isInteger(strokes) && strokes > 0 ? strokes : 0)
-  }, 0)
+  const scoreTotals = calculateRoundScoreTotals(holeEntries)
+  const holeScoreTotal = scoreTotals.total ?? 0
   const declaredGrossScore = Number(form.grossScore)
   const scoreDifference =
     completedStrokeCount === 18 &&
@@ -802,6 +802,8 @@ function RoundEntry({
         </p>
       </header>
 
+      <HandicapProgressionChart profileId={profile.id} />
+
       <form className="round-course-search" onSubmit={handleCourseSearch} noValidate>
         <div>
           <label>
@@ -1212,7 +1214,8 @@ function RoundEntry({
                     </thead>
                     <tbody>
                       {holeEntries.map((hole) => (
-                        <tr key={hole.holeNumber}>
+                        <Fragment key={hole.holeNumber}>
+                        <tr>
                           <th scope="row">{hole.holeNumber}</th>
                           <td>
                             {scorecardStatus === 'manual_required' ? (
@@ -1283,6 +1286,25 @@ function RoundEntry({
                             />
                           </td>
                         </tr>
+                        {hole.holeNumber === 9 ? (
+                          <tr className="round-nine-total">
+                            <th scope="row" colSpan={4}>Front 9 total</th>
+                            <td>{scoreTotals.frontNine ?? '—'}</td>
+                          </tr>
+                        ) : null}
+                        {hole.holeNumber === 18 ? (
+                          <>
+                            <tr className="round-nine-total">
+                              <th scope="row" colSpan={4}>Back 9 total</th>
+                              <td>{scoreTotals.backNine ?? '—'}</td>
+                            </tr>
+                            <tr className="round-nine-total round-eighteen-total">
+                              <th scope="row" colSpan={4}>18-hole total</th>
+                              <td>{scoreTotals.total ?? '—'}</td>
+                            </tr>
+                          </>
+                        ) : null}
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>

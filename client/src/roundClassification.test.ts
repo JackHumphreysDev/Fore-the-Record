@@ -22,6 +22,7 @@ const teamRound = {
   isAcceptable: false,
   usedInHandicapCalc: false,
   scorecardStatus: 'NOT_REQUIRED',
+  holeScores: [],
 }
 
 const tee = {

@@ -1,0 +1,53 @@
+.handicap-chart {
+  margin-top: clamp(42px, 6vw, 72px);
+  padding: clamp(26px, 4vw, 44px);
+  border: 1px solid var(--line);
+  border-radius: 22px 22px 4px 22px;
+  background: rgba(255, 253, 247, 0.82);
+  box-shadow: 0 18px 45px rgba(12, 40, 29, 0.06);
+}
+
+.handicap-chart > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.handicap-chart .form-kicker { margin-bottom: 7px; }
+.handicap-chart h2 { margin: 0; color: var(--forest-deep); font-family: Georgia, "Times New Roman", serif; font-size: clamp(32px, 4vw, 48px); font-weight: 400; letter-spacing: -1.4px; }
+.handicap-chart > header > p { max-width: 330px; margin: 0 0 5px; color: var(--ink-muted); font-size: 11px; line-height: 1.6; }
+.handicap-chart-legend { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 18px; color: var(--ink-muted); font-size: 9px; font-weight: 750; }
+.handicap-chart-legend span { display: flex; align-items: center; gap: 7px; }
+.handicap-chart-key { width: 11px; height: 11px; display: inline-block; border-radius: 50%; }
+.handicap-chart-key-counting { background: var(--lime); border: 2px solid var(--forest-deep); }
+.handicap-chart-key-other { background: white; border: 2px solid #c77a1a; }
+.handicap-chart-key-index { height: 3px; border-radius: 2px; background: var(--forest-soft); }
+.handicap-chart-scroll { margin-top: 12px; overflow-x: auto; }
+.handicap-chart svg { width: 100%; min-width: 700px; display: block; overflow: visible; }
+.handicap-chart-grid { stroke: rgba(23, 56, 42, 0.1); stroke-width: 1; }
+.handicap-chart-axis, .handicap-chart-date { fill: var(--ink-muted); font-size: 9px; font-weight: 700; }
+.handicap-chart-differential-line, .handicap-chart-index-line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.handicap-chart-differential-line { stroke: var(--forest-deep); stroke-width: 3; }
+.handicap-chart-index-line { stroke: var(--forest-soft); stroke-width: 4; }
+.handicap-chart-point { stroke-width: 3; cursor: pointer; }
+.handicap-chart-point:focus { outline: none; stroke-width: 5; }
+.handicap-chart-point-counting { fill: var(--lime); stroke: var(--forest-deep); }
+.handicap-chart-point-other { fill: white; stroke: #c77a1a; }
+.handicap-chart-index-point { fill: var(--forest-soft); stroke: white; stroke-width: 1.5; pointer-events: none; }
+.handicap-chart-detail { margin-top: 8px; padding: 18px; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, 0.8fr); gap: 24px; border-radius: 10px; color: white; background: var(--forest-deep); }
+.handicap-chart-detail > div { display: grid; gap: 4px; }
+.handicap-chart-detail small, .handicap-chart-detail span, .handicap-chart-detail dt { color: rgba(255, 255, 255, 0.58); font-size: 8px; }
+.handicap-chart-detail strong { font-size: 12px; }
+.handicap-chart-detail dl { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
+.handicap-chart-detail dl div { padding-left: 15px; display: grid; gap: 5px; border-left: 1px solid rgba(255, 255, 255, 0.14); }
+.handicap-chart-detail dd { margin: 0; color: var(--lime); font-family: Georgia, "Times New Roman", serif; font-size: 19px; }
+.handicap-chart-state { min-height: 210px; margin-top: 24px; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--ink-muted); font-size: 11px; text-align: center; }
+.handicap-chart-state strong { color: var(--forest-deep); font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 400; }
+.handicap-chart-state button { min-height: 42px; padding: 0 16px; border: 0; border-radius: 7px; color: white; background: var(--forest); font-weight: 800; }
+
+@media (max-width: 720px) {
+  .handicap-chart > header { align-items: start; flex-direction: column; gap: 12px; }
+  .handicap-chart-detail { grid-template-columns: 1fr; }
+  .handicap-chart-detail dl div:first-child { padding-left: 0; border-left: 0; }
+}
