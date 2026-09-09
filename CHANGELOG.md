@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.16.0 - 2026-09-09
+
+### User-facing changes
+
+- Added automatic Front 9, Back 9, and 18-hole totals to the Round Entry scorecard.
+- Added expandable round-history cards containing each saved hole, par, stroke index, score, score to par, and nine-hole totals.
+- Added a responsive Handicap Index journey chart to the Rounds screen for the latest 20 verified eligible rounds.
+- Distinguished differentials that counted at the time of each round and showed the resulting Handicap Index with accessible round details.
+- Added clear empty and unavailable-scorecard states for new players, team rounds, and older records without hole data.
+
+### Developer and admin changes
+
+- Added an authenticated progression endpoint derived from the player linked to the verified session.
+- Reused the central handicap calculator for each historical point and limited the query to the 39 records required to accurately plot the latest 20-round journey.
+- Added progression calculation, endpoint, response validation, subtotal, and history scorecard regression coverage.
+
 ## 0.15.0 - 2026-09-09
 
 ### User-facing changes

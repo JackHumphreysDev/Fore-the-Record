@@ -442,6 +442,35 @@
   font-size: 16px;
 }
 
+.round-scorecard .round-nine-total th,
+.round-scorecard .round-nine-total td {
+  padding-block: 11px;
+  color: var(--forest-deep);
+  background: rgba(215, 255, 79, 0.18);
+  font-family: inherit;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 850;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.round-scorecard .round-nine-total th {
+  text-align: right;
+}
+
+.round-scorecard .round-nine-total td {
+  color: var(--forest-soft);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+}
+
+.round-scorecard .round-eighteen-total th,
+.round-scorecard .round-eighteen-total td {
+  color: white;
+  background: var(--forest-deep);
+}
+
 .round-scorecard input {
   width: 70px;
   min-height: 38px;

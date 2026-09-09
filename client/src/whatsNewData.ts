@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'round-insights',
+    publishedAt: '2026-09-09',
+    title: 'See the story behind every round',
+    summary:
+      'Round Entry and History now give you a clearer view of how each score contributes to your record.',
+    highlights: [
+      'Follow your score with automatic Front 9, Back 9, and full-round totals as you enter each hole.',
+      'Open any saved round in History to review its complete hole-by-hole scorecard.',
+      'Use the Handicap Index journey chart to compare differentials with the index produced after each eligible round.',
+    ],
+  },
+  {
     id: 'player-performance-summary',
     publishedAt: '2026-09-09',
     title: 'See your game at a glance',

@@ -14,7 +14,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 8. User-facing **What's New** section. Completed in `0.11.0`.
 9. Player performance summary. Completed in `0.14.0`.
 10. Admin course catalogue management. Completed in `0.15.0`.
-11. Handicap progression chart on the Rounds screen. A visual reference will be supplied before implementation.
+11. Round insights, including the Handicap Index progression chart, automatic nine-hole totals, and expandable history scorecards. Completed in `0.16.0`.
 12. Favourite courses and default tees.
 13. Personal milestones.
 14. Account settings.
@@ -30,6 +30,10 @@ The order may change as product needs become clearer, but security and data owne
 ## Administrator course catalogue management — completed in 0.15.0
 
 The protected administrator portal can search and maintain clubs, courses, rated tees, and complete 18-hole scorecards. Creates, edits, scorecard replacements, and deletes are audited. Permanent removal requires typed confirmation and is refused while a record is referenced. Once a round uses a tee, its ratings, par, and scorecard remain immutable so existing differentials and Handicap Index history cannot change silently; safe descriptive and distance corrections remain available.
+
+## Round insights — completed in 0.16.0
+
+The Rounds screen plots the latest 20 verified acceptable individual rounds with each score differential, whether it counted at that point, and the Handicap Index produced after that round. Historical values are rebuilt using the central handicap calculator and enough preceding rounds to preserve the correct 20-round window. Round Entry shows automatic Front 9, Back 9, and overall totals, while each History card can reveal the saved hole scores, pars, stroke indexes, score-to-par values, and nine-hole summaries. Team rounds and legacy records without a complete card show a clear unavailable state.
 
 ## Player performance summary — completed in 0.14.0
 

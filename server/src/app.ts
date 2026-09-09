@@ -42,6 +42,7 @@ import {
 import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
 import { buildPerformanceSummary } from './performanceSummary.js'
+import { buildHandicapProgression } from './handicapProgression.js'
 import {
   SubmissionStatus,
   type SubmissionStatus as SubmissionStatusValue,
@@ -2310,6 +2311,70 @@ app.get('/api/users/me/rounds', async (_request, response) => {
         courseRating: Number(round.tee.courseRating),
       },
     })),
+  )
+})
+
+app.get('/api/users/me/handicap-progression', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      rounds: {
+        where: {
+          participation: RoundParticipation.INDIVIDUAL,
+          scorecardStatus: RoundScorecardStatus.VERIFIED,
+          isAcceptable: true,
+          scoreDifferential: { not: null },
+        },
+        orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+        take: 39,
+        select: {
+          id: true,
+          datePlayed: true,
+          createdAt: true,
+          scoreDifferential: true,
+          isAcceptable: true,
+          tee: {
+            select: {
+              teeName: true,
+              course: {
+                select: {
+                  name: true,
+                  club: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  response.status(200).json(
+    buildHandicapProgression(
+      user.rounds.flatMap((round) =>
+        round.scoreDifferential === null
+          ? []
+          : [
+              {
+                id: round.id,
+                datePlayed: round.datePlayed,
+                createdAt: round.createdAt,
+                scoreDifferential: Number(round.scoreDifferential),
+                isAcceptable: round.isAcceptable,
+                clubName: round.tee.course.club.name,
+                courseName: round.tee.course.name,
+                teeName: round.tee.teeName,
+              },
+            ],
+      ),
+    ),
   )
 })
 

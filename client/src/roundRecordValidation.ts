@@ -32,6 +32,12 @@ export type HistoryRound = ClassifiedRound & {
   pccAdjustment: number
   isAcceptable: boolean
   usedInHandicapCalc: boolean
+  holeScores: Array<{
+    holeNumber: number
+    par: number
+    strokeIndex: number
+    strokesTaken: number
+  }>
   tee: {
     id: string
     teeName: string
@@ -164,6 +170,20 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
     value.isAcceptable === false &&
     value.usedInHandicapCalc === false &&
     value.scorecardStatus === 'NOT_REQUIRED'
+  const hasValidHoleScores =
+    Array.isArray(value.holeScores) &&
+    (value.holeScores.length === 0 || value.holeScores.length === 18) &&
+    value.holeScores.every(
+      (hole) =>
+        isRecord(hole) &&
+        Number.isInteger(hole.holeNumber) &&
+        Number(hole.holeNumber) >= 1 &&
+        Number(hole.holeNumber) <= 18 &&
+        Number.isInteger(hole.par) &&
+        Number.isInteger(hole.strokeIndex) &&
+        Number.isInteger(hole.strokesTaken) &&
+        Number(hole.strokesTaken) > 0,
+    )
 
   return (
     typeof value.id === 'string' &&
@@ -174,6 +194,7 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
     isFiniteNumber(value.pccAdjustment) &&
     typeof value.isAcceptable === 'boolean' &&
     typeof value.usedInHandicapCalc === 'boolean' &&
+    hasValidHoleScores &&
     typeof tee.id === 'string' &&
     typeof tee.teeName === 'string' &&
     isFiniteNumber(tee.courseRating) &&

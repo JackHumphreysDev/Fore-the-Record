@@ -6,6 +6,7 @@ import {
   type WeatherCondition,
 } from './roundRecordValidation.ts'
 import './RoundHistory.css'
+import { calculateRoundScoreTotals } from './roundScorecardTotals.ts'
 
 type RoundHistoryProfile = {
   id: string
@@ -79,6 +80,62 @@ function getRoundTypeLabel(round: HistoryRound): string {
     : 'Casual round'
 }
 
+function scoreToPar(strokes: number, par: number): string {
+  const difference = strokes - par
+  if (difference === 0) return 'E'
+  return difference > 0 ? `+${difference}` : String(difference)
+}
+
+function RoundScorecard({ round }: { round: HistoryRound }) {
+  if (round.holeScores.length !== 18) {
+    return (
+      <div className="history-scorecard-empty">
+        No individual hole-by-hole scorecard is available for this round.
+      </div>
+    )
+  }
+
+  const frontNine = round.holeScores.slice(0, 9)
+  const backNine = round.holeScores.slice(9)
+  const totals = calculateRoundScoreTotals(round.holeScores)
+  const parTotal = (holes: typeof round.holeScores) =>
+    holes.reduce((sum, hole) => sum + hole.par, 0)
+
+  return (
+    <div className="history-scorecard">
+      <div className="history-scorecard-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Hole</th>
+              <th scope="col">Par</th>
+              <th scope="col">SI</th>
+              <th scope="col">Score</th>
+              <th scope="col">To par</th>
+            </tr>
+          </thead>
+          <tbody>
+            {round.holeScores.map((hole) => (
+              <tr key={hole.holeNumber}>
+                <th scope="row">{hole.holeNumber}</th>
+                <td>{hole.par}</td>
+                <td>{hole.strokeIndex}</td>
+                <td>{hole.strokesTaken}</td>
+                <td>{scoreToPar(hole.strokesTaken, hole.par)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <dl className="history-nine-totals">
+        <div><dt>Front 9</dt><dd>{totals.frontNine} <small>Par {parTotal(frontNine)}</small></dd></div>
+        <div><dt>Back 9</dt><dd>{totals.backNine} <small>Par {parTotal(backNine)}</small></dd></div>
+        <div><dt>Total</dt><dd>{totals.total} <small>Par {parTotal(round.holeScores)}</small></dd></div>
+      </dl>
+    </div>
+  )
+}
+
 function RoundHistory({
   profile,
   onGoToProfile,
@@ -88,6 +145,7 @@ function RoundHistory({
   const [isLoading, setIsLoading] = useState(Boolean(profile))
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
+  const [expandedRoundId, setExpandedRoundId] = useState('')
   const profileId = profile?.id
 
   useEffect(() => {
@@ -367,6 +425,25 @@ function RoundHistory({
                         ? 'Course and tee retained for your playing record. No score differential was created.'
                         : `Course rating ${round.tee.courseRating.toFixed(1)} · Slope ${round.tee.slopeRating} · Par ${round.tee.par ?? '—'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}`}
                     </p>
+
+                    <button
+                      className="history-scorecard-toggle"
+                      type="button"
+                      aria-expanded={expandedRoundId === round.id}
+                      aria-controls={`history-scorecard-${round.id}`}
+                      onClick={() => setExpandedRoundId(
+                        expandedRoundId === round.id ? '' : round.id,
+                      )}
+                    >
+                      {expandedRoundId === round.id
+                        ? 'Hide scorecard'
+                        : 'View scorecard'}
+                    </button>
+                    {expandedRoundId === round.id ? (
+                      <div id={`history-scorecard-${round.id}`}>
+                        <RoundScorecard round={round} />
+                      </div>
+                    ) : null}
                   </div>
                 </article>
               </li>
