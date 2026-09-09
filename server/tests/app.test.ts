@@ -19,6 +19,7 @@ const {
   clubFindManyMock,
   clubUpdateMock,
   courseCountMock,
+  courseFindUniqueMock,
   courseFindManyMock,
   courseUpdateMock,
   getCourseRatingsMock,
@@ -26,6 +27,7 @@ const {
   searchCourseProviderClubsMock,
   getProviderTeeScorecardMock,
   teeFindUniqueMock,
+  teeFindFirstMock,
   teeUpdateMock,
   teeHoleCreateManyMock,
   teeHoleDeleteManyMock,
@@ -57,6 +59,11 @@ const {
   userFindUniqueMock,
   userUpdateMock,
   userDeleteMock,
+  userCoursePreferenceFindManyMock,
+  userCoursePreferenceFindUniqueMock,
+  userCoursePreferenceUpsertMock,
+  userCoursePreferenceUpdateMock,
+  userCoursePreferenceDeleteManyMock,
 } = vi.hoisted(() => ({
   getAuthenticatedUserMock: vi.fn(),
   getVerifiedTokenSubjectMock: vi.fn(),
@@ -75,6 +82,7 @@ const {
   clubFindManyMock: vi.fn(),
   clubUpdateMock: vi.fn(),
   courseCountMock: vi.fn(),
+  courseFindUniqueMock: vi.fn(),
   courseFindManyMock: vi.fn(),
   courseUpdateMock: vi.fn(),
   getCourseRatingsMock: vi.fn(),
@@ -82,6 +90,7 @@ const {
   searchCourseProviderClubsMock: vi.fn(),
   getProviderTeeScorecardMock: vi.fn(),
   teeFindUniqueMock: vi.fn(),
+  teeFindFirstMock: vi.fn(),
   teeUpdateMock: vi.fn(),
   teeHoleCreateManyMock: vi.fn(),
   teeHoleDeleteManyMock: vi.fn(),
@@ -113,6 +122,11 @@ const {
   userFindUniqueMock: vi.fn(),
   userUpdateMock: vi.fn(),
   userDeleteMock: vi.fn(),
+  userCoursePreferenceFindManyMock: vi.fn(),
+  userCoursePreferenceFindUniqueMock: vi.fn(),
+  userCoursePreferenceUpsertMock: vi.fn(),
+  userCoursePreferenceUpdateMock: vi.fn(),
+  userCoursePreferenceDeleteManyMock: vi.fn(),
 }))
 
 vi.mock('../src/database.js', () => ({
@@ -128,10 +142,12 @@ vi.mock('../src/database.js', () => ({
     },
     course: {
       count: courseCountMock,
+      findUnique: courseFindUniqueMock,
       findMany: courseFindManyMock,
       update: courseUpdateMock,
     },
     tee: {
+      findFirst: teeFindFirstMock,
       findUnique: teeFindUniqueMock,
       update: teeUpdateMock,
     },
@@ -151,6 +167,13 @@ vi.mock('../src/database.js', () => ({
       findUnique: userFindUniqueMock,
       update: userUpdateMock,
       delete: userDeleteMock,
+    },
+    userCoursePreference: {
+      findMany: userCoursePreferenceFindManyMock,
+      findUnique: userCoursePreferenceFindUniqueMock,
+      upsert: userCoursePreferenceUpsertMock,
+      update: userCoursePreferenceUpdateMock,
+      deleteMany: userCoursePreferenceDeleteManyMock,
     },
     round: {
       count: roundCountMock,
@@ -277,6 +300,7 @@ beforeEach(() => {
   clubFindManyMock.mockResolvedValue([])
   clubUpdateMock.mockReset()
   courseCountMock.mockReset()
+  courseFindUniqueMock.mockReset()
   courseFindManyMock.mockReset()
   courseUpdateMock.mockReset()
   getCourseRatingsMock.mockReset()
@@ -284,6 +308,7 @@ beforeEach(() => {
   searchCourseProviderClubsMock.mockReset()
   getProviderTeeScorecardMock.mockReset()
   teeFindUniqueMock.mockReset()
+  teeFindFirstMock.mockReset()
   teeUpdateMock.mockReset()
   teeHoleCreateManyMock.mockReset()
   teeHoleDeleteManyMock.mockReset()
@@ -326,6 +351,13 @@ beforeEach(() => {
   userUpdateMock.mockReset()
   userDeleteMock.mockReset()
   userDeleteMock.mockResolvedValue({})
+  userCoursePreferenceFindManyMock.mockReset()
+  userCoursePreferenceFindManyMock.mockResolvedValue([])
+  userCoursePreferenceFindUniqueMock.mockReset()
+  userCoursePreferenceUpsertMock.mockReset()
+  userCoursePreferenceUpdateMock.mockReset()
+  userCoursePreferenceDeleteManyMock.mockReset()
+  userCoursePreferenceDeleteManyMock.mockResolvedValue({ count: 0 })
 })
 
 describe('GET /api/health', () => {
@@ -1939,6 +1971,97 @@ describe('submission conversations', () => {
     })
     expect(submissionUpdateMock).not.toHaveBeenCalled()
     expect(adminAuditLogCreateMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('player course preferences', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const courseId = '22222222-2222-4222-8222-222222222222'
+  const teeId = '33333333-3333-4333-8333-333333333333'
+  const preference = {
+    id: '44444444-4444-4444-8444-444444444444',
+    defaultTeeId: teeId,
+    createdAt: new Date('2026-09-09T10:00:00.000Z'),
+    updatedAt: new Date('2026-09-09T10:05:00.000Z'),
+    course: {
+      id: courseId,
+      name: 'Old Course',
+      holes: 18,
+      par: 70,
+      designedBy: null,
+      yearOpened: null,
+      club: {
+        id: '55555555-5555-4555-8555-555555555555',
+        name: 'Example Golf Club',
+        city: null,
+        county: null,
+      },
+      tees: [
+        {
+          id: teeId,
+          teeName: 'White',
+          colour: 'white',
+          gender: 'male',
+          totalYardage: 6500,
+          totalMetres: null,
+          par: 70,
+          courseRating: '71.2',
+          slopeRating: 128,
+        },
+      ],
+    },
+  }
+
+  it('returns only the authenticated player favourites', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    userCoursePreferenceFindManyMock.mockResolvedValueOnce([preference])
+
+    const response = await request(app).get(
+      '/api/users/me/course-preferences',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.favourites[0].course.tees[0].courseRating).toBe(71.2)
+    expect(userCoursePreferenceFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId } }),
+    )
+  })
+
+  it('adds a shared course to the authenticated player favourites', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    courseFindUniqueMock.mockResolvedValueOnce({ id: courseId })
+    userCoursePreferenceUpsertMock.mockResolvedValueOnce(preference)
+
+    const response = await request(app)
+      .post('/api/users/me/course-preferences')
+      .send({ courseId })
+
+    expect(response.status).toBe(200)
+    expect(response.body.course.id).toBe(courseId)
+    expect(userCoursePreferenceUpsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId_courseId: { userId, courseId } },
+        create: { userId, courseId },
+      }),
+    )
+  })
+
+  it('rejects a default tee that does not belong to the favourite course', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    userCoursePreferenceFindUniqueMock.mockResolvedValueOnce({
+      id: preference.id,
+    })
+    teeFindFirstMock.mockResolvedValueOnce(null)
+
+    const response = await request(app)
+      .patch(`/api/users/me/course-preferences/${courseId}`)
+      .send({ defaultTeeId: teeId })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: 'The default tee must belong to this course',
+    })
+    expect(userCoursePreferenceUpdateMock).not.toHaveBeenCalled()
   })
 })
 

@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'favourite-courses-default-tees',
+    publishedAt: '2026-09-09',
+    title: 'Keep your regular courses close',
+    summary:
+      'Save the courses you play most often and choose the tee you normally use.',
+    highlights: [
+      'Manage favourite courses and their default tees above catalogue search.',
+      'See favourite courses first when recording a round.',
+      'Start each matching round with your default tee already selected, while keeping the freedom to change it.',
+    ],
+  },
+  {
     id: 'round-insights',
     publishedAt: '2026-09-09',
     title: 'See the story behind every round',

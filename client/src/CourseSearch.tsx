@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
 import {
   buildCatalogueCoursesPath,
@@ -14,6 +14,12 @@ import {
   type ProviderClubCandidate,
   type ProviderCourseSearchResult,
 } from './courseCatalogueApi.ts'
+import {
+  buildCoursePreferencePath,
+  isCoursePreference,
+  isCoursePreferencesResponse,
+  type CoursePreference,
+} from './coursePreferencesApi.ts'
 import './CourseSearch.css'
 
 type CourseSearchProps = {
@@ -78,6 +84,173 @@ function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
   const [providerNotice, setProviderNotice] = useState('')
   const [isProviderSearching, setIsProviderSearching] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [favourites, setFavourites] = useState<CoursePreference[]>([])
+  const [favouritesError, setFavouritesError] = useState('')
+  const [isLoadingFavourites, setIsLoadingFavourites] = useState(true)
+  const [pendingFavouriteId, setPendingFavouriteId] = useState('')
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadFavourites() {
+      setIsLoadingFavourites(true)
+      setFavouritesError('')
+
+      try {
+        const apiResponse = await authenticatedFetch(
+          buildCoursePreferencePath(),
+          { signal: controller.signal },
+        )
+
+        if (!apiResponse.ok) {
+          throw new Error(
+            await readApiError(
+              apiResponse,
+              'We could not load your favourite courses.',
+            ),
+          )
+        }
+
+        const body: unknown = await apiResponse.json()
+
+        if (!isCoursePreferencesResponse(body)) {
+          throw new Error('Your favourite-course details were incomplete.')
+        }
+
+        setFavourites(body.favourites)
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return
+        }
+
+        setFavouritesError(
+          error instanceof Error
+            ? error.message
+            : 'We could not load your favourite courses.',
+        )
+      } finally {
+        setIsLoadingFavourites(false)
+      }
+    }
+
+    void loadFavourites()
+    return () => controller.abort()
+  }, [])
+
+  async function addFavourite(courseId: string) {
+    setPendingFavouriteId(courseId)
+    setFavouritesError('')
+
+    try {
+      const apiResponse = await authenticatedFetch(
+        buildCoursePreferencePath(),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ courseId }),
+        },
+      )
+
+      if (!apiResponse.ok) {
+        throw new Error(
+          await readApiError(apiResponse, 'We could not save this favourite.'),
+        )
+      }
+
+      const body: unknown = await apiResponse.json()
+      if (!isCoursePreference(body)) {
+        throw new Error('The saved favourite details were incomplete.')
+      }
+
+      setFavourites((current) => [
+        body,
+        ...current.filter(({ course }) => course.id !== courseId),
+      ])
+    } catch (error: unknown) {
+      setFavouritesError(
+        error instanceof Error
+          ? error.message
+          : 'We could not save this favourite.',
+      )
+    } finally {
+      setPendingFavouriteId('')
+    }
+  }
+
+  async function updateDefaultTee(courseId: string, defaultTeeId: string) {
+    setPendingFavouriteId(courseId)
+    setFavouritesError('')
+
+    try {
+      const apiResponse = await authenticatedFetch(
+        buildCoursePreferencePath(courseId),
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ defaultTeeId: defaultTeeId || null }),
+        },
+      )
+
+      if (!apiResponse.ok) {
+        throw new Error(
+          await readApiError(
+            apiResponse,
+            'We could not update your default tee.',
+          ),
+        )
+      }
+
+      const body: unknown = await apiResponse.json()
+      if (!isCoursePreference(body)) {
+        throw new Error('The updated favourite details were incomplete.')
+      }
+
+      setFavourites((current) =>
+        current.map((item) => (item.course.id === courseId ? body : item)),
+      )
+    } catch (error: unknown) {
+      setFavouritesError(
+        error instanceof Error
+          ? error.message
+          : 'We could not update your default tee.',
+      )
+    } finally {
+      setPendingFavouriteId('')
+    }
+  }
+
+  async function removeFavourite(courseId: string) {
+    setPendingFavouriteId(courseId)
+    setFavouritesError('')
+
+    try {
+      const apiResponse = await authenticatedFetch(
+        buildCoursePreferencePath(courseId),
+        { method: 'DELETE' },
+      )
+
+      if (!apiResponse.ok) {
+        throw new Error(
+          await readApiError(
+            apiResponse,
+            'We could not remove this favourite.',
+          ),
+        )
+      }
+
+      setFavourites((current) =>
+        current.filter(({ course }) => course.id !== courseId),
+      )
+    } catch (error: unknown) {
+      setFavouritesError(
+        error instanceof Error
+          ? error.message
+          : 'We could not remove this favourite.',
+      )
+    } finally {
+      setPendingFavouriteId('')
+    }
+  }
 
   async function searchCatalogue(
     filters: SearchFilters,
@@ -313,6 +486,74 @@ function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
         </p>
       </header>
 
+      <section className="favourite-courses" aria-labelledby="favourites-title">
+        <header>
+          <div>
+            <p className="form-kicker">Your regular courses</p>
+            <h2 id="favourites-title">Favourite courses</h2>
+          </div>
+          <span>{favourites.length} saved</span>
+        </header>
+
+        {isLoadingFavourites ? (
+          <p className="favourite-course-state" role="status">
+            Loading your favourites…
+          </p>
+        ) : favourites.length === 0 ? (
+          <p className="favourite-course-state">
+            No favourites yet. Search the catalogue and save a course you play
+            regularly.
+          </p>
+        ) : (
+          <div className="favourite-course-list">
+            {favourites.map((favourite) => (
+              <article key={favourite.id} className="favourite-course-card">
+                <div>
+                  <small>{favourite.course.club.name}</small>
+                  <strong>{favourite.course.name}</strong>
+                </div>
+                <label>
+                  Default tee
+                  <select
+                    value={favourite.defaultTeeId ?? ''}
+                    disabled={pendingFavouriteId === favourite.course.id}
+                    onChange={(event) =>
+                      void updateDefaultTee(
+                        favourite.course.id,
+                        event.target.value,
+                      )
+                    }
+                  >
+                    <option value="">Choose each round</option>
+                    {favourite.course.tees.map((tee) => (
+                      <option key={tee.id} value={tee.id}>
+                        {tee.teeName} · {tee.courseRating.toFixed(1)} /{' '}
+                        {tee.slopeRating}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={pendingFavouriteId === favourite.course.id}
+                  onClick={() => void removeFavourite(favourite.course.id)}
+                >
+                  {pendingFavouriteId === favourite.course.id
+                    ? 'Saving…'
+                    : 'Remove'}
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+
+        {favouritesError ? (
+          <p className="favourite-course-error" role="alert">
+            {favouritesError}
+          </p>
+        ) : null}
+      </section>
+
       <form className="course-search-form" onSubmit={handleSearch} noValidate>
         <div className="course-search-fields">
           <label>
@@ -469,6 +710,24 @@ function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
                           {location ? ` · ${location}` : ''}
                         </p>
                         <h3>{result.name}</h3>
+                        <button
+                          className="catalogue-favourite-button"
+                          type="button"
+                          disabled={
+                            favourites.some(
+                              ({ course }) => course.id === result.id,
+                            ) || pendingFavouriteId === result.id
+                          }
+                          onClick={() => void addFavourite(result.id)}
+                        >
+                          {favourites.some(
+                            ({ course }) => course.id === result.id,
+                          )
+                            ? '★ Favourited'
+                            : pendingFavouriteId === result.id
+                              ? 'Saving…'
+                              : '☆ Add to favourites'}
+                        </button>
                       </div>
                       <dl>
                         <div>

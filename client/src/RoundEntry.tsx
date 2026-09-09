@@ -7,6 +7,11 @@ import {
   type CatalogueTee,
 } from './courseCatalogueApi.ts'
 import {
+  buildCoursePreferencePath,
+  isCoursePreferencesResponse,
+  type CoursePreference,
+} from './coursePreferencesApi.ts'
+import {
   isRoundResult,
   type RoundCategory,
   type RoundParticipation,
@@ -24,8 +29,10 @@ type RoundEntryProfile = {
 }
 
 type TeeOption = CatalogueTee & {
+  courseId: string
   clubName: string
   courseName: string
+  isFavourite: boolean
 }
 
 type RoundForm = {
@@ -175,14 +182,36 @@ function getHoleEntries(holes: ScorecardHole[]): HoleEntry[] {
   }))
 }
 
-function getTeeOptions(response: CatalogueCoursesResponse | null): TeeOption[] {
-  return (response?.courses ?? []).flatMap((course) =>
-    course.tees.map((tee) => ({
-      ...tee,
-      clubName: course.club.name,
-      courseName: course.name,
-    })),
+function getTeeOptions(
+  response: CatalogueCoursesResponse | null,
+  favourites: CoursePreference[],
+): TeeOption[] {
+  const favouriteOrder = new Map(
+    favourites.map((favourite, index) => [favourite.course.id, index]),
   )
+
+  return (response?.courses ?? [])
+    .flatMap((course) =>
+      course.tees.map((tee) => ({
+        ...tee,
+        courseId: course.id,
+        clubName: course.club.name,
+        courseName: course.name,
+        isFavourite: favouriteOrder.has(course.id),
+      })),
+    )
+    .sort((left, right) => {
+      const leftOrder = favouriteOrder.get(left.courseId)
+      const rightOrder = favouriteOrder.get(right.courseId)
+
+      if (leftOrder !== undefined || rightOrder !== undefined) {
+        if (leftOrder === undefined) return 1
+        if (rightOrder === undefined) return -1
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder
+      }
+
+      return 0
+    })
 }
 
 async function readApiError(
@@ -244,8 +273,11 @@ function RoundEntry({
   >(null)
   const [holeEntries, setHoleEntries] = useState<HoleEntry[]>([])
   const [scorecardLoadError, setScorecardLoadError] = useState('')
+  const [favourites, setFavourites] = useState<CoursePreference[]>([])
+  const [favouritesError, setFavouritesError] = useState('')
+  const [isLoadingFavourites, setIsLoadingFavourites] = useState(true)
 
-  const teeOptions = getTeeOptions(catalogueResponse)
+  const teeOptions = getTeeOptions(catalogueResponse, favourites)
   const selectedTee = teeOptions.find((option) => option.id === form.teeId)
   const isCompetition = form.category === 'COMPETITION'
   const isTeamRound =
@@ -263,6 +295,51 @@ function RoundEntry({
     declaredGrossScore > 0
       ? holeScoreTotal - declaredGrossScore
       : 0
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadFavourites() {
+      setIsLoadingFavourites(true)
+      try {
+        const response = await authenticatedFetch(buildCoursePreferencePath(), {
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(
+            await readApiError(
+              response,
+              'We could not load your favourite courses.',
+            ),
+          )
+        }
+
+        const body: unknown = await response.json()
+        if (!isCoursePreferencesResponse(body)) {
+          throw new Error('Your favourite-course details were incomplete.')
+        }
+
+        setFavourites(body.favourites)
+        setFavouritesError('')
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return
+        }
+
+        setFavouritesError(
+          error instanceof Error
+            ? error.message
+            : 'We could not load your favourite courses.',
+        )
+      } finally {
+        setIsLoadingFavourites(false)
+      }
+    }
+
+    void loadFavourites()
+    return () => controller.abort()
+  }, [])
 
   useEffect(() => {
     if (!form.teeId || isTeamRound) {
@@ -362,13 +439,22 @@ function RoundEntry({
         throw new Error('The course search results returned were incomplete.')
       }
 
-      const nextOptions = getTeeOptions(body)
+      const nextOptions = getTeeOptions(body, favourites)
+      const defaultTeeId = favourites.find(
+        (favourite) =>
+          favourite.defaultTeeId &&
+          nextOptions.some(
+            (option) => option.id === favourite.defaultTeeId,
+          ),
+      )?.defaultTeeId
       setCatalogueResponse(body)
       setForm((current) => ({
         ...current,
-        teeId: nextOptions.some((option) => option.id === current.teeId)
-          ? current.teeId
-          : (nextOptions[0]?.id ?? ''),
+        teeId:
+          defaultTeeId ??
+          (nextOptions.some((option) => option.id === current.teeId)
+            ? current.teeId
+            : (nextOptions[0]?.id ?? '')),
       }))
       setErrors((current) => ({ ...current, teeId: undefined }))
     } catch (error: unknown) {
@@ -836,12 +922,25 @@ function RoundEntry({
               }}
             />
           </label>
-          <button type="submit" disabled={isSearching}>
-            {isSearching ? 'Searching…' : 'Find tees'}
+          <button type="submit" disabled={isSearching || isLoadingFavourites}>
+            {isLoadingFavourites
+              ? 'Loading favourites…'
+              : isSearching
+                ? 'Searching…'
+                : 'Find tees'}
           </button>
         </div>
-        <small>Use either field or combine both for a narrower result.</small>
+        <small>
+          Use either field or combine both for a narrower result. Favourite
+          courses appear first and their default tee is selected automatically.
+        </small>
       </form>
+
+      {favouritesError ? (
+        <p className="round-course-search-error" role="alert">
+          {favouritesError} You can still choose a tee normally.
+        </p>
+      ) : null}
 
       {courseSearchError ? (
         <p className="round-course-search-error" role="alert">
@@ -913,6 +1012,7 @@ function RoundEntry({
               >
                 {teeOptions.map((option) => (
                   <option key={option.id} value={option.id}>
+                    {option.isFavourite ? '★ ' : ''}
                     {option.clubName} — {option.courseName} — {option.teeName}
                   </option>
                 ))}

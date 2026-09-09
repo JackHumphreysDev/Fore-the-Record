@@ -321,6 +321,14 @@ const CATALOGUE_COURSE_SELECT = {
   },
 } as const
 
+const COURSE_PREFERENCE_SELECT = {
+  id: true,
+  defaultTeeId: true,
+  createdAt: true,
+  updatedAt: true,
+  course: { select: CATALOGUE_COURSE_SELECT },
+} as const
+
 type AdminProfile = {
   id: string
   name: string
@@ -390,6 +398,25 @@ function serializeProfile<
     ...profile,
     handicapIndex:
       profile.handicapIndex === null ? null : Number(profile.handicapIndex),
+  }
+}
+
+function serializeCoursePreference<
+  T extends {
+    course: {
+      tees: Array<{ courseRating: unknown }>
+    }
+  },
+>(preference: T) {
+  return {
+    ...preference,
+    course: {
+      ...preference.course,
+      tees: preference.course.tees.map((tee) => ({
+        ...tee,
+        courseRating: Number(tee.courseRating),
+      })),
+    },
   }
 }
 
@@ -2417,6 +2444,177 @@ app.get('/api/users/me/performance-summary', async (_request, response) => {
     ),
   )
 })
+
+app.get('/api/users/me/course-preferences', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const favourites = await prisma.userCoursePreference.findMany({
+    where: { userId: user.id },
+    orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    select: COURSE_PREFERENCE_SELECT,
+  })
+
+  response.status(200).json({
+    favourites: favourites.map(serializeCoursePreference),
+  })
+})
+
+app.post('/api/users/me/course-preferences', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const body: unknown = request.body
+  const courseId = isRecord(body) ? body.courseId : undefined
+
+  if (typeof courseId !== 'string' || !UUID_PATTERN.test(courseId.trim())) {
+    response.status(400).json({ error: 'Invalid course ID' })
+    return
+  }
+
+  const [user, course] = await Promise.all([
+    prisma.user.findUnique({
+      where: { authUserId: authenticatedUser.id },
+      select: { id: true },
+    }),
+    prisma.course.findUnique({
+      where: { id: courseId.trim() },
+      select: { id: true },
+    }),
+  ])
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  if (!course) {
+    response.status(404).json({ error: 'Course not found' })
+    return
+  }
+
+  const favourite = await prisma.userCoursePreference.upsert({
+    where: {
+      userId_courseId: { userId: user.id, courseId: course.id },
+    },
+    create: { userId: user.id, courseId: course.id },
+    update: {},
+    select: COURSE_PREFERENCE_SELECT,
+  })
+
+  response.status(200).json(serializeCoursePreference(favourite))
+})
+
+app.patch(
+  '/api/users/me/course-preferences/:courseId',
+  async (request, response) => {
+    const authenticatedUser = getRequestUser(response.locals)
+    const courseId = request.params.courseId
+    const body: unknown = request.body
+    const requestedDefaultTeeId = isRecord(body)
+      ? body.defaultTeeId
+      : undefined
+
+    if (!UUID_PATTERN.test(courseId)) {
+      response.status(400).json({ error: 'Invalid course ID' })
+      return
+    }
+
+    if (
+      requestedDefaultTeeId !== null &&
+      (typeof requestedDefaultTeeId !== 'string' ||
+        !UUID_PATTERN.test(requestedDefaultTeeId.trim()))
+    ) {
+      response.status(400).json({ error: 'Invalid default tee ID' })
+      return
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { authUserId: authenticatedUser.id },
+      select: { id: true },
+    })
+
+    if (!user) {
+      response.status(404).json({ error: 'User not found' })
+      return
+    }
+
+    const preference = await prisma.userCoursePreference.findUnique({
+      where: { userId_courseId: { userId: user.id, courseId } },
+      select: { id: true },
+    })
+
+    if (!preference) {
+      response.status(404).json({ error: 'Favourite course not found' })
+      return
+    }
+
+    const defaultTeeId =
+      requestedDefaultTeeId === null ? null : requestedDefaultTeeId.trim()
+
+    if (defaultTeeId !== null) {
+      const tee = await prisma.tee.findFirst({
+        where: { id: defaultTeeId, courseId },
+        select: { id: true },
+      })
+
+      if (!tee) {
+        response.status(400).json({
+          error: 'The default tee must belong to this course',
+        })
+        return
+      }
+    }
+
+    const updatedPreference = await prisma.userCoursePreference.update({
+      where: { id: preference.id },
+      data: { defaultTeeId },
+      select: COURSE_PREFERENCE_SELECT,
+    })
+
+    response.status(200).json(serializeCoursePreference(updatedPreference))
+  },
+)
+
+app.delete(
+  '/api/users/me/course-preferences/:courseId',
+  async (request, response) => {
+    const authenticatedUser = getRequestUser(response.locals)
+    const courseId = request.params.courseId
+
+    if (!UUID_PATTERN.test(courseId)) {
+      response.status(400).json({ error: 'Invalid course ID' })
+      return
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { authUserId: authenticatedUser.id },
+      select: { id: true },
+    })
+
+    if (!user) {
+      response.status(404).json({ error: 'User not found' })
+      return
+    }
+
+    const deletion = await prisma.userCoursePreference.deleteMany({
+      where: { userId: user.id, courseId },
+    })
+
+    if (deletion.count === 0) {
+      response.status(404).json({ error: 'Favourite course not found' })
+      return
+    }
+
+    response.status(204).send()
+  },
+)
 
 app.get('/api/users/me', async (_request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
