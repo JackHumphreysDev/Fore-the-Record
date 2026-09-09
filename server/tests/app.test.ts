@@ -45,6 +45,7 @@ const {
   submissionFindManyMock,
   submissionUpdateMock,
   submissionDeleteManyMock,
+  submissionMessageCountMock,
   submissionMessageCreateMock,
   submissionMessageFindManyMock,
   submissionMessageDeleteManyMock,
@@ -100,6 +101,7 @@ const {
   submissionFindManyMock: vi.fn(),
   submissionUpdateMock: vi.fn(),
   submissionDeleteManyMock: vi.fn(),
+  submissionMessageCountMock: vi.fn(),
   submissionMessageCreateMock: vi.fn(),
   submissionMessageFindManyMock: vi.fn(),
   submissionMessageDeleteManyMock: vi.fn(),
@@ -167,6 +169,7 @@ vi.mock('../src/database.js', () => ({
       deleteMany: submissionDeleteManyMock,
     },
     submissionMessage: {
+      count: submissionMessageCountMock,
       create: submissionMessageCreateMock,
       findMany: submissionMessageFindManyMock,
       deleteMany: submissionMessageDeleteManyMock,
@@ -299,6 +302,7 @@ beforeEach(() => {
   roundDeleteManyMock.mockReset()
   roundDeleteManyMock.mockResolvedValue({ count: 0 })
   submissionCountMock.mockReset()
+  submissionCountMock.mockResolvedValue(0)
   submissionCreateMock.mockReset()
   submissionFindFirstMock.mockReset()
   submissionFindUniqueMock.mockReset()
@@ -306,6 +310,8 @@ beforeEach(() => {
   submissionUpdateMock.mockReset()
   submissionDeleteManyMock.mockReset()
   submissionDeleteManyMock.mockResolvedValue({ count: 0 })
+  submissionMessageCountMock.mockReset()
+  submissionMessageCountMock.mockResolvedValue(0)
   submissionMessageCreateMock.mockReset()
   submissionMessageFindManyMock.mockReset()
   submissionMessageDeleteManyMock.mockReset()
@@ -1007,6 +1013,13 @@ describe('player submissions', () => {
       where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
       select: { id: true },
     })
+    expect(submissionCountMock).toHaveBeenCalledWith({
+      where: {
+        userId,
+        type: { not: 'SCORECARD_REVIEW' },
+        createdAt: { gte: expect.any(Date) },
+      },
+    })
     expect(submissionCreateMock).toHaveBeenCalledWith({
       data: {
         userId,
@@ -1023,6 +1036,26 @@ describe('player submissions', () => {
       },
       select: submissionSelect,
     })
+  })
+
+  it('should rate limit repeated support requests from one profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    submissionCountMock.mockResolvedValueOnce(5)
+
+    const response = await request(app).post('/api/submissions').send({
+      type: 'ISSUE',
+      subject: 'Another support problem',
+      message: 'This is another valid request within the same hour.',
+    })
+
+    expect(response.status).toBe(429)
+    expect(response.headers['retry-after']).toBe('3600')
+    expect(response.body).toEqual({
+      error:
+        'You have sent 5 support requests within the last hour. Please wait before sending another.',
+      retryAfterSeconds: 3600,
+    })
+    expect(submissionCreateMock).not.toHaveBeenCalled()
   })
 
   it('should return a validation message without writing invalid data', async () => {
@@ -1503,6 +1536,12 @@ describe('submission conversations', () => {
       },
       select: { id: true, userId: true, status: true },
     })
+    expect(submissionMessageCountMock).toHaveBeenCalledWith({
+      where: {
+        senderUserId: playerId,
+        createdAt: { gte: expect.any(Date) },
+      },
+    })
     expect(submissionMessageCreateMock).toHaveBeenCalledWith({
       data: {
         submissionId,
@@ -1516,6 +1555,29 @@ describe('submission conversations', () => {
       data: { playerHasUnread: false, adminHasUnread: true },
       select: { id: true },
     })
+  })
+
+  it('should rate limit repeated player replies', async () => {
+    submissionFindFirstMock.mockResolvedValueOnce({
+      id: submissionId,
+      userId: playerId,
+      status: 'IN_PROGRESS',
+    })
+    submissionMessageCountMock.mockResolvedValueOnce(20)
+
+    const response = await request(app)
+      .post(`/api/submissions/${submissionId}/messages`)
+      .send({ message: 'One more piece of information for this request.' })
+
+    expect(response.status).toBe(429)
+    expect(response.headers['retry-after']).toBe('3600')
+    expect(response.body).toEqual({
+      error:
+        'You have sent 20 support replies within the last hour. Please wait before sending another.',
+      retryAfterSeconds: 3600,
+    })
+    expect(submissionMessageCreateMock).not.toHaveBeenCalled()
+    expect(submissionUpdateMock).not.toHaveBeenCalled()
   })
 
   it('should not reveal another player submission conversation', async () => {

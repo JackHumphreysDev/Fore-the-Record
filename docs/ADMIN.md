@@ -1,6 +1,6 @@
 # Administration
 
-Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, version `0.9.0` adds guarded player-account management, version `0.10.0` adds audited round correction and deletion, version `0.12.0` links correction requests to affected rounds, and version `0.13.0` adds participant-specific unread indicators.
+Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, version `0.9.0` adds guarded player-account management, version `0.10.0` adds audited round correction and deletion, version `0.12.0` links correction requests to affected rounds, version `0.13.0` adds participant-specific unread indicators, and version `0.13.1` adds persistent player support rate limits.
 
 ## Security model
 
@@ -72,6 +72,8 @@ Before running it, the owner must already have registered, confirmed their email
 `GET /api/admin/scorecard-reviews` returns unresolved player-entered scorecard definitions with the associated player, tee, round, and locked hole strokes. `PATCH /api/admin/scorecard-reviews/:reviewId` accepts an approval with all 18 corrected hole definitions or a rejection. Approval stores the canonical tee scorecard, recalculates the adjusted gross score, differential, counting rounds, and Handicap Index, and writes an audit record. The player's submitted strokes are never editable or replaced.
 
 Players use the corresponding `/api/submissions/:submissionId/messages` routes. Those routes resolve ownership from the verified authentication account and return `404` for requests belonging to another player. Closed requests remain in the player's private history but cannot receive player or administrator replies until the administrator reopens them. In the administrator portal, closing a request moves it out of **Active requests** and into **Closed archive**; reopening it moves it back.
+
+Player-created support activity uses database-backed rolling limits: five new requests and twenty replies per hour for each profile. Automatic `SCORECARD_REVIEW` requests are excluded from the new-request count. A rejected write returns `429`, a one-hour `Retry-After` header, and a plain-language error for the player. Administrator replies are not limited so legitimate support work is not interrupted.
 
 The browser shows the **Admin** navigation item only after `/api/admin/me` confirms access. This is a convenience for the administrator, while the server guard remains the security boundary. The portal exposes no password, token, authentication-secret, impersonation, course-rating replacement, or participation-conversion controls.
 

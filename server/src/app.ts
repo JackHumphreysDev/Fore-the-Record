@@ -79,6 +79,13 @@ import {
   parseSubmissionStatusInput,
   SubmissionResponseValidationError,
 } from './submissionResponses.js'
+import {
+  getSupportRateLimitError,
+  getSupportRateLimitWindowStart,
+  SUPPORT_RATE_LIMIT_WINDOW_SECONDS,
+  SUPPORT_REPLY_LIMIT,
+  SUPPORT_REQUEST_LIMIT,
+} from './supportRateLimits.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -1974,6 +1981,26 @@ app.post('/api/submissions', async (request, response) => {
     }
   }
 
+  const recentSubmissionCount = await prisma.submission.count({
+    where: {
+      userId: user.id,
+      type: { not: SubmissionType.SCORECARD_REVIEW },
+      createdAt: { gte: getSupportRateLimitWindowStart() },
+    },
+  })
+
+  if (recentSubmissionCount >= SUPPORT_REQUEST_LIMIT) {
+    response.set(
+      'Retry-After',
+      String(SUPPORT_RATE_LIMIT_WINDOW_SECONDS),
+    )
+    response.status(429).json({
+      error: getSupportRateLimitError('request'),
+      retryAfterSeconds: SUPPORT_RATE_LIMIT_WINDOW_SECONDS,
+    })
+    return
+  }
+
   const submission = await prisma.submission.create({
     data: {
       userId: user.id,
@@ -2155,6 +2182,25 @@ app.post(
     if (submission.status === SubmissionStatus.CLOSED) {
       response.status(409).json({
         error: 'Closed submissions cannot receive replies',
+      })
+      return
+    }
+
+    const recentReplyCount = await prisma.submissionMessage.count({
+      where: {
+        senderUserId: submission.userId,
+        createdAt: { gte: getSupportRateLimitWindowStart() },
+      },
+    })
+
+    if (recentReplyCount >= SUPPORT_REPLY_LIMIT) {
+      response.set(
+        'Retry-After',
+        String(SUPPORT_RATE_LIMIT_WINDOW_SECONDS),
+      )
+      response.status(429).json({
+        error: getSupportRateLimitError('reply'),
+        retryAfterSeconds: SUPPORT_RATE_LIMIT_WINDOW_SECONDS,
       })
       return
     }
