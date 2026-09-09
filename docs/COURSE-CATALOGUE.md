@@ -15,6 +15,13 @@ cannot be reused for another. Later rounds reuse the saved data and spend no
 provider requests. An incomplete or missing provider card falls back to manual
 player entry and administrator review.
 
+Version `0.17.0` adds private player favourites without copying shared course
+or tee records. A favourite can hold one optional default tee, and the API
+rejects a default that does not belong to that course. Matching favourites are
+prioritized in Round Entry and their default tee is selected automatically.
+Deleting the favourite removes the preference while leaving the shared
+catalogue untouched.
+
 Clubs and tees saved before provider identifiers were introduced are upgraded
 on their first scorecard lookup. The server matches the legacy club, course,
 and tee by name and rating, stores the recovered identifiers, and then fetches

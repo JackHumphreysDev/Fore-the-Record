@@ -15,7 +15,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 9. Player performance summary. Completed in `0.14.0`.
 10. Admin course catalogue management. Completed in `0.15.0`.
 11. Round insights, including the Handicap Index progression chart, automatic nine-hole totals, and expandable history scorecards. Completed in `0.16.0`.
-12. Favourite courses and default tees.
+12. Favourite courses and default tees. Completed in `0.17.0`.
 13. Personal milestones.
 14. Account settings.
 15. Player goals.
@@ -26,6 +26,10 @@ This roadmap records agreed future work. Items are planned requirements, not com
 20. Installable mobile app.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Favourite courses and default tees — completed in 0.17.0
+
+Players can save shared catalogue courses to a private favourites list and choose one optional default tee for each. The Courses screen keeps favourites above catalogue search and allows the default to be changed or cleared. Round Entry prioritizes matching favourites and automatically selects their saved default tee while retaining the ability to choose another tee for any round. The server derives ownership from the verified session and verifies that every selected default tee belongs to its course.
 
 ## Administrator course catalogue management — completed in 0.15.0
 

@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.17.0 - 2026-09-09
+
+### User-facing changes
+
+- Added a favourite-course section above catalogue search.
+- Added an optional default tee for every favourite course.
+- Prioritized favourite courses in Round Entry and automatically selected a matching saved default tee.
+- Kept per-round tee choice available and cleared a course's default when the favourite is removed.
+
+### Developer and admin changes
+
+- Added authenticated, player-owned course-preference APIs and database relationships.
+- Enforced on the server that a default tee belongs to the selected course.
+- Added response-contract and preference-validation regression coverage.
+
 ## 0.16.0 - 2026-09-09
 
 ### User-facing changes
