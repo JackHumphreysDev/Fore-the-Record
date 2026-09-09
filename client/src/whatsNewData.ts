@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'player-performance-summary',
+    publishedAt: '2026-09-09',
+    title: 'See your game at a glance',
+    summary:
+      'Your Profile now brings together the key figures from your playing record in one clear summary.',
+    highlights: [
+      'Compare your current Handicap Index with your best and average verified score differentials.',
+      'See your casual, individual competition, team, scored, and counting-round totals.',
+      'Follow your five most recent verified differentials and see which are currently counting.',
+    ],
+  },
+  {
     id: 'support-unread-indicators',
     publishedAt: '2026-09-07',
     title: 'See when a support reply is waiting',

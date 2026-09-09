@@ -236,6 +236,8 @@ model Round {
   scorecardStatus    RoundScorecardStatus @default(VERIFIED)
   scorecardReview    ScorecardReview?
   correctionRequests Submission[]
+
+  @@index([userId, datePlayed, createdAt])
 }
 
 model TeeHole {

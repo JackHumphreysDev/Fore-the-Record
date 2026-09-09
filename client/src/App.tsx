@@ -11,6 +11,7 @@ import brandLogo from './assets/fore-the-record-logo.png'
 import CourseSearch from './CourseSearch.tsx'
 import HomeClubSelector from './HomeClubSelector.tsx'
 import PasswordRecovery from './PasswordRecovery.tsx'
+import PerformanceSummary from './PerformanceSummary.tsx'
 import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
 import Support from './Support.tsx'
@@ -615,6 +616,11 @@ function App() {
                     </dd>
                   </div>
                 </dl>
+
+                <PerformanceSummary
+                  profileId={profile.id}
+                  handicapIndex={profile.handicapIndex}
+                />
 
                 <HomeClubSelector
                   homeClubId={profile.homeClubId}

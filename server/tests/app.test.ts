@@ -1838,6 +1838,88 @@ describe('GET /api/users/me', () => {
   })
 })
 
+describe('GET /api/users/me/performance-summary', () => {
+  it('should return a summary derived only from the authenticated profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          datePlayed: new Date('2026-09-09T00:00:00.000Z'),
+          category: 'CASUAL',
+          participation: 'INDIVIDUAL',
+          scoreDifferential: '11.4',
+          isAcceptable: true,
+          usedInHandicapCalc: true,
+          scorecardStatus: 'VERIFIED',
+        },
+        {
+          id: '44444444-4444-4444-8444-444444444444',
+          datePlayed: new Date('2026-09-08T00:00:00.000Z'),
+          category: 'COMPETITION',
+          participation: 'TEAM',
+          scoreDifferential: null,
+          isAcceptable: false,
+          usedInHandicapCalc: false,
+          scorecardStatus: 'NOT_REQUIRED',
+        },
+      ],
+    })
+
+    const response = await request(app).get(
+      '/api/users/me/performance-summary',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      roundsLogged: 2,
+      scoredRounds: 1,
+      casualRounds: 1,
+      individualCompetitionRounds: 0,
+      teamCompetitionRounds: 1,
+      countingRounds: 1,
+      bestDifferential: 11.4,
+      averageDifferential: 11.4,
+      recentDifferentials: [
+        {
+          roundId: '33333333-3333-4333-8333-333333333333',
+          datePlayed: '2026-09-09T00:00:00.000Z',
+          scoreDifferential: 11.4,
+          usedInHandicapCalc: true,
+        },
+      ],
+    })
+    expect(userFindUniqueMock).toHaveBeenCalledWith({
+      where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      select: {
+        rounds: {
+          orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+          select: {
+            id: true,
+            datePlayed: true,
+            category: true,
+            participation: true,
+            scoreDifferential: true,
+            isAcceptable: true,
+            usedInHandicapCalc: true,
+            scorecardStatus: true,
+          },
+        },
+      },
+    })
+  })
+
+  it('should return 404 when the profile does not exist', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get(
+      '/api/users/me/performance-summary',
+    )
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'User not found' })
+  })
+})
+
 describe('PATCH /api/users/me', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
   const homeClubId = '22222222-2222-4222-8222-222222222222'
