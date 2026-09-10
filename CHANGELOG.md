@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.24.0 - 2026-09-10
+
+### User-facing changes
+
+- Added privacy choices for player-search discovery, new friend requests, and Handicap Index visibility.
+- Added a personal JSON data export covering profile details, rounds, goals, favourites, and support conversations.
+- Added guarded self-service account deletion with current-password and exact-email confirmation.
+- Kept the sole administrator account protected from self-service deletion.
+
+### Developer and admin changes
+
+- Added persistent privacy controls and enforced them in friend search, request creation, and player serialization.
+- Added authenticated export and deletion endpoints scoped to the current profile.
+- Added complete related-record cleanup for player-initiated deletion and removal of the Supabase login.
+- Added privacy parsing, friend-visibility, export, deletion, response-contract, and interface regression coverage.
+
 ## 0.23.0 - 2026-09-10
 
 ### User-facing changes

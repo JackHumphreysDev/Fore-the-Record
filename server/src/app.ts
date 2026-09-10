@@ -84,6 +84,10 @@ import {
   RoundNotesValidationError,
 } from './roundNotes.js'
 import {
+  parsePrivacySettings,
+  parseSelfDeleteConfirmation,
+} from './privacySettings.js'
+import {
   calculateAdjustedGrossScore,
   calculateCourseHandicap,
   calculateHandicap,
@@ -143,6 +147,8 @@ const FRIEND_PLAYER_SELECT = {
   id: true,
   name: true,
   handicapIndex: true,
+  friendRequestsEnabled: true,
+  showHandicapToFriends: true,
   homeClub: {
     select: {
       id: true,
@@ -445,12 +451,27 @@ function serializeProfile<
 }
 
 function serializeFriendPlayer<
-  T extends { handicapIndex: unknown | null },
+  T extends {
+    handicapIndex: unknown | null
+    friendRequestsEnabled?: boolean
+    showHandicapToFriends?: boolean
+  },
 >(player: T) {
+  const {
+    friendRequestsEnabled,
+    showHandicapToFriends,
+    ...safePlayer
+  } = player
+  const handicapVisible = showHandicapToFriends !== false
+
   return {
-    ...player,
+    ...safePlayer,
+    acceptsFriendRequests: friendRequestsEnabled !== false,
+    handicapVisible,
     handicapIndex:
-      player.handicapIndex === null ? null : Number(player.handicapIndex),
+      !handicapVisible || player.handicapIndex === null
+        ? null
+        : Number(player.handicapIndex),
   }
 }
 
@@ -3018,6 +3039,7 @@ app.get('/api/users/me/friends/search', async (request, response) => {
       id: { not: user.id },
       authUserId: { not: null },
       status: UserStatus.ACTIVE,
+      profileDiscoverable: true,
       AND: terms.map((term) => ({
         name: { contains: term, mode: 'insensitive' as const },
       })),
@@ -3096,6 +3118,8 @@ app.post('/api/users/me/friend-requests', async (request, response) => {
       id: addresseeId,
       authUserId: { not: null },
       status: UserStatus.ACTIVE,
+      profileDiscoverable: true,
+      friendRequestsEnabled: true,
     },
     select: FRIEND_PLAYER_SELECT,
   })
@@ -3263,6 +3287,169 @@ app.delete('/api/users/me/friends/:id', async (request, response) => {
     response.status(404).json({ error: 'Friendship not found' })
     return
   }
+  response.status(204).send()
+})
+
+const PRIVACY_SETTINGS_SELECT = {
+  profileDiscoverable: true,
+  friendRequestsEnabled: true,
+  showHandicapToFriends: true,
+} as const
+
+app.get('/api/users/me/settings/privacy', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const settings = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: PRIVACY_SETTINGS_SELECT,
+  })
+
+  if (!settings) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  response.status(200).json(settings)
+})
+
+app.patch('/api/users/me/settings/privacy', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const input = parsePrivacySettings(request.body)
+
+  if (!input) {
+    response.status(400).json({ error: 'Choose valid privacy settings' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const settings = await prisma.user.update({
+    where: { id: user.id },
+    data: input,
+    select: PRIVACY_SETTINGS_SELECT,
+  })
+  response.status(200).json(settings)
+})
+
+app.get('/api/users/me/settings/export', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      status: true,
+      handicapIndex: true,
+      createdAt: true,
+      updatedAt: true,
+      ...PRIVACY_SETTINGS_SELECT,
+      homeClub: { select: { id: true, name: true } },
+      rounds: {
+        orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+        include: {
+          holeScores: { orderBy: { holeNumber: 'asc' } },
+          tee: {
+            select: {
+              id: true,
+              teeName: true,
+              courseRating: true,
+              slopeRating: true,
+              par: true,
+              course: {
+                select: {
+                  id: true,
+                  name: true,
+                  club: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+      coursePreferences: {
+        include: {
+          course: { select: { id: true, name: true } },
+          defaultTee: { select: { id: true, teeName: true } },
+        },
+      },
+      playerGoals: true,
+      submissions: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          messages: {
+            orderBy: { createdAt: 'asc' },
+            select: { body: true, createdAt: true, senderUserId: true },
+          },
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  response.status(200).json({
+    exportedAt: new Date().toISOString(),
+    product: 'Fore the Record',
+    data: user,
+  })
+})
+
+app.delete('/api/users/me/settings/account', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true, authUserId: true, email: true, role: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+  if (user.role === UserRole.ADMIN) {
+    response.status(409).json({
+      error: 'The sole administrator account cannot be deleted.',
+    })
+    return
+  }
+  if (!parseSelfDeleteConfirmation(request.body, user.email)) {
+    response.status(400).json({
+      error: 'Enter your full email address to confirm account deletion',
+    })
+    return
+  }
+
+  if (user.authUserId) {
+    try {
+      await deleteAuthUser(user.authUserId)
+    } catch (error: unknown) {
+      const authError = getAdminAuthErrorResponse(error)
+      if (authError) {
+        response.status(authError.status).json({ error: authError.message })
+        return
+      }
+      throw error
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.scorecardReview.deleteMany({ where: { round: { userId: user.id } } }),
+    prisma.submissionMessage.deleteMany({ where: { senderUserId: user.id } }),
+    prisma.submission.deleteMany({ where: { userId: user.id } }),
+    prisma.round.deleteMany({ where: { userId: user.id } }),
+    prisma.user.delete({ where: { id: user.id } }),
+  ])
+
   response.status(204).send()
 })
 

@@ -93,6 +93,9 @@ model User {
   email                  String                 @unique
   role                   UserRole               @default(PLAYER)
   status                 UserStatus             @default(ACTIVE)
+  profileDiscoverable    Boolean                @default(true)
+  friendRequestsEnabled  Boolean                @default(true)
+  showHandicapToFriends  Boolean                @default(true)
   homeClubId             String?                @db.Uuid
   handicapIndex          Decimal?               @db.Decimal(4, 1)
   createdAt              DateTime               @default(now()) @db.Timestamptz(3)

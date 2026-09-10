@@ -8,6 +8,8 @@ import {
 const player = {
   id: 'player-id',
   name: 'Tiger Woods',
+  acceptsFriendRequests: true,
+  handicapVisible: true,
   handicapIndex: 1.2,
   homeClub: { id: 'club-id', name: 'Example Golf Club' },
 }
@@ -43,6 +45,18 @@ describe('friends API contracts', () => {
     expect(isFriendsResponse({ friends: [player] })).toBe(false)
     expect(
       isFriendSearchResponse({ players: [{ ...player, relationship: false }] }),
+    ).toBe(false)
+    expect(
+      isFriendSearchResponse({
+        players: [
+          {
+            ...player,
+            acceptsFriendRequests: undefined,
+            handicapVisible: undefined,
+            relationship: null,
+          },
+        ],
+      }),
     ).toBe(false)
   })
 

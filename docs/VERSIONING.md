@@ -1,6 +1,6 @@
 # Versioning and release notes
 
-Fore the Record uses one application version across the root, client, and server packages. The current version is `0.23.0`.
+Fore the Record uses one application version across the root, client, and server packages. The current version is `0.24.0`.
 
 ## Version format
 
@@ -34,6 +34,7 @@ Examples:
 - `0.20.0` → `0.21.0` for player goals and automatic progress.
 - `0.21.0` → `0.22.0` for combined round-history filters.
 - `0.22.0` → `0.23.0` for private round notes and History editing.
+- `0.23.0` → `0.24.0` for privacy choices, data export, and self-service account deletion.
 - `0.x.x` → `1.0.0` when the product is ready for its first stable release.
 
 Do not increase the version for every commit. Increase it once for a coherent release.

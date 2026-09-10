@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'privacy-account-controls',
+    publishedAt: '2026-09-10',
+    title: 'Put your account choices in your hands',
+    summary:
+      'Account Settings now gives you clearer control over how other players find you and what happens to your information.',
+    highlights: [
+      'Choose whether you appear in player search, accept friend requests, or show your Handicap Index.',
+      'Download a copy of your profile, rounds, goals, favourites, and support conversations.',
+      'Permanently delete your account with password and email confirmation when you decide to leave.',
+    ],
+  },
+  {
     id: 'round-notes',
     publishedAt: '2026-09-10',
     title: 'Remember the story behind the score',

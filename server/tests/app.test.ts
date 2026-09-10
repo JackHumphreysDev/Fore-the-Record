@@ -2271,6 +2271,8 @@ describe('friend connections API', () => {
     id: otherUserId,
     name: 'Tiger Woods',
     handicapIndex: '1.4',
+    friendRequestsEnabled: true,
+    showHandicapToFriends: true,
     homeClub: { id: '44444444-4444-4444-8444-444444444444', name: 'Medinah' },
   }
 
@@ -2282,7 +2284,14 @@ describe('friend connections API', () => {
         status: 'ACCEPTED',
         createdAt: new Date('2026-09-10T09:00:00.000Z'),
         updatedAt: new Date('2026-09-10T10:00:00.000Z'),
-        requester: { id: currentUserId, name: 'Jack', handicapIndex: null, homeClub: null },
+        requester: {
+          id: currentUserId,
+          name: 'Jack',
+          handicapIndex: null,
+          friendRequestsEnabled: true,
+          showHandicapToFriends: true,
+          homeClub: null,
+        },
         addressee: otherPlayer,
       },
     ])
@@ -2292,8 +2301,12 @@ describe('friend connections API', () => {
     expect(response.status).toBe(200)
     expect(response.body.friends).toHaveLength(1)
     expect(response.body.friends[0].player).toEqual({
-      ...otherPlayer,
+      id: otherPlayer.id,
+      name: otherPlayer.name,
+      acceptsFriendRequests: true,
       handicapIndex: 1.4,
+      handicapVisible: true,
+      homeClub: otherPlayer.homeClub,
     })
     expect(response.body.friends[0].player).not.toHaveProperty('email')
     expect(response.body.incoming).toEqual([])
@@ -2311,8 +2324,12 @@ describe('friend connections API', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.players[0]).toEqual({
-      ...otherPlayer,
+      id: otherPlayer.id,
+      name: otherPlayer.name,
+      acceptsFriendRequests: true,
       handicapIndex: 1.4,
+      handicapVisible: true,
+      homeClub: otherPlayer.homeClub,
       relationship: null,
     })
     expect(userFindManyMock).toHaveBeenCalledWith(
@@ -2329,6 +2346,33 @@ describe('friend connections API', () => {
         take: 20,
       }),
     )
+  })
+
+  it('does not expose a handicap when the player has hidden it', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    userFindManyMock.mockResolvedValueOnce([
+      {
+        ...otherPlayer,
+        friendRequestsEnabled: false,
+        showHandicapToFriends: false,
+      },
+    ])
+    friendshipFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).get(
+      '/api/users/me/friends/search?q=Tiger',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.players[0]).toEqual({
+      id: otherPlayer.id,
+      name: otherPlayer.name,
+      acceptsFriendRequests: false,
+      handicapIndex: null,
+      handicapVisible: false,
+      homeClub: otherPlayer.homeClub,
+      relationship: null,
+    })
   })
 
   it('creates one direction-independent friend request', async () => {
@@ -4219,6 +4263,104 @@ describe('POST /api/users', () => {
       error: 'This profile is already linked to another account',
     })
     expect(userUpdateMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('privacy and account controls', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const authUserId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+
+  it('loads and updates only the authenticated player privacy settings', async () => {
+    const original = {
+      profileDiscoverable: true,
+      friendRequestsEnabled: true,
+      showHandicapToFriends: true,
+    }
+    const updated = {
+      profileDiscoverable: false,
+      friendRequestsEnabled: false,
+      showHandicapToFriends: false,
+    }
+    userFindUniqueMock
+      .mockResolvedValueOnce(original)
+      .mockResolvedValueOnce({ id: userId })
+    userUpdateMock.mockResolvedValueOnce(updated)
+
+    const getResponse = await request(app).get('/api/users/me/settings/privacy')
+    const patchResponse = await request(app)
+      .patch('/api/users/me/settings/privacy')
+      .send(updated)
+
+    expect(getResponse.status).toBe(200)
+    expect(getResponse.body).toEqual(original)
+    expect(patchResponse.status).toBe(200)
+    expect(patchResponse.body).toEqual(updated)
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: userId },
+      data: updated,
+      select: {
+        profileDiscoverable: true,
+        friendRequestsEnabled: true,
+        showHandicapToFriends: true,
+      },
+    })
+  })
+
+  it('exports the authenticated player data', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: userId,
+      name: 'Player One',
+      email: 'player@example.com',
+      rounds: [],
+      coursePreferences: [],
+      playerGoals: [],
+      submissions: [],
+    })
+
+    const response = await request(app).get('/api/users/me/settings/export')
+
+    expect(response.status).toBe(200)
+    expect(response.body.product).toBe('Fore the Record')
+    expect(response.body.exportedAt).toEqual(expect.any(String))
+    expect(response.body.data).toMatchObject({
+      id: userId,
+      email: 'player@example.com',
+    })
+  })
+
+  it('permanently deletes a verified non-admin account', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: userId,
+      authUserId,
+      email: 'player@example.com',
+      role: 'PLAYER',
+    })
+    userDeleteMock.mockResolvedValueOnce({ id: userId })
+
+    const response = await request(app)
+      .delete('/api/users/me/settings/account')
+      .send({ confirmation: 'player@example.com' })
+
+    expect(response.status).toBe(204)
+    expect(deleteAuthUserMock).toHaveBeenCalledWith(authUserId)
+    expect(userDeleteMock).toHaveBeenCalledWith({ where: { id: userId } })
+  })
+
+  it('protects the sole administrator from self-service deletion', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: userId,
+      authUserId,
+      email: 'jackhumphreys.dev@gmail.com',
+      role: 'ADMIN',
+    })
+
+    const response = await request(app)
+      .delete('/api/users/me/settings/account')
+      .send({ confirmation: 'jackhumphreys.dev@gmail.com' })
+
+    expect(response.status).toBe(409)
+    expect(deleteAuthUserMock).not.toHaveBeenCalled()
+    expect(userDeleteMock).not.toHaveBeenCalled()
   })
 })
 

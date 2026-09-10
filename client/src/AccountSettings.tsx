@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   checkEmailAvailability,
   normalizeEmail,
@@ -10,12 +10,20 @@ import {
 } from './accountSettingsApi.ts'
 import { getAuthErrorMessage } from './authErrors.ts'
 import { createCredentialVerificationClient } from './supabase.ts'
+import {
+  deleteOwnAccount,
+  getPersonalDataExport,
+  getPrivacySettings,
+  savePrivacySettings,
+  type PrivacySettings,
+} from './privacySettingsApi.ts'
 import './AccountSettings.css'
 
 type AccountSettingsProps = {
   profile: AccountProfile
   onBack: () => void
   onProfileUpdated: (profile: AccountProfile) => void
+  onAccountDeleted: () => Promise<void>
 }
 
 async function verifyCurrentPassword(email: string, password: string) {
@@ -36,6 +44,7 @@ function AccountSettings({
   profile,
   onBack,
   onProfileUpdated,
+  onAccountDeleted,
 }: AccountSettingsProps) {
   const [name, setName] = useState(profile.name)
   const [nameError, setNameError] = useState('')
@@ -54,6 +63,36 @@ function AccountSettings({
   const [passwordError, setPasswordError] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const [isSavingPassword, setIsSavingPassword] = useState(false)
+  const [privacy, setPrivacy] = useState<PrivacySettings | null>(null)
+  const [privacyError, setPrivacyError] = useState('')
+  const [privacyMessage, setPrivacyMessage] = useState('')
+  const [isSavingPrivacy, setIsSavingPrivacy] = useState(false)
+  const [exportError, setExportError] = useState('')
+  const [isExporting, setIsExporting] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void getPrivacySettings()
+      .then((settings) => {
+        if (!cancelled) setPrivacy(settings)
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setPrivacyError(
+            error instanceof Error
+              ? error.message
+              : 'We could not load your privacy settings.',
+          )
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function saveName(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -187,6 +226,78 @@ function AccountSettings({
     }
   }
 
+  async function savePrivacy(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!privacy) return
+    setIsSavingPrivacy(true)
+    setPrivacyError('')
+    setPrivacyMessage('')
+    try {
+      setPrivacy(await savePrivacySettings(privacy))
+      setPrivacyMessage('Your privacy choices have been saved.')
+    } catch (error: unknown) {
+      setPrivacyError(
+        error instanceof Error
+          ? error.message
+          : 'We could not save your privacy settings.',
+      )
+    } finally {
+      setIsSavingPrivacy(false)
+    }
+  }
+
+  async function downloadData() {
+    setIsExporting(true)
+    setExportError('')
+    try {
+      const data = await getPersonalDataExport()
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `fore-the-record-data-${new Date().toISOString().slice(0, 10)}.json`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (error: unknown) {
+      setExportError(
+        error instanceof Error
+          ? error.message
+          : 'We could not prepare your data export.',
+      )
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  async function deleteAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (deleteConfirmation.trim().toLowerCase() !== profile.email.toLowerCase()) {
+      setDeleteError('Enter your full email address exactly as shown')
+      return
+    }
+    if (!deletePassword) {
+      setDeleteError('Enter your current password')
+      return
+    }
+
+    setIsDeleting(true)
+    setDeleteError('')
+    try {
+      await verifyCurrentPassword(profile.email, deletePassword)
+      await deleteOwnAccount(deleteConfirmation)
+      await onAccountDeleted()
+    } catch (error: unknown) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : 'We could not delete your account.',
+      )
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <section className="settings-page" aria-labelledby="settings-title">
       <header className="settings-heading">
@@ -269,7 +380,7 @@ function AccountSettings({
           </button>
         </form>
 
-        <form className="settings-card" onSubmit={savePassword} noValidate>
+        <form className="settings-card settings-security-card" onSubmit={savePassword} noValidate>
           <div>
             <p className="form-kicker">Account security</p>
             <h2>Change your password</h2>
@@ -322,6 +433,108 @@ function AccountSettings({
           {passwordMessage ? <p className="settings-success" role="status">{passwordMessage}</p> : null}
           <button type="submit" disabled={isSavingPassword}>
             {isSavingPassword ? 'Updating…' : 'Update password'}
+          </button>
+        </form>
+
+        <form className="settings-card settings-privacy-card" onSubmit={savePrivacy}>
+          <div>
+            <p className="form-kicker">Privacy choices</p>
+            <h2>Control how players find you</h2>
+            <p>Your rounds, email address, notes, goals, and performance details always remain private.</p>
+          </div>
+          {!privacy && !privacyError ? <p>Loading your privacy choices…</p> : null}
+          {privacy ? (
+            <div className="settings-toggle-list">
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={privacy.profileDiscoverable}
+                  onChange={(event) => {
+                    setPrivacy({ ...privacy, profileDiscoverable: event.target.checked })
+                    setPrivacyMessage('')
+                  }}
+                />
+                <span><strong>Appear in player search</strong><small>Let other players find your name and home club.</small></span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={privacy.friendRequestsEnabled}
+                  onChange={(event) => {
+                    setPrivacy({ ...privacy, friendRequestsEnabled: event.target.checked })
+                    setPrivacyMessage('')
+                  }}
+                />
+                <span><strong>Allow new friend requests</strong><small>Existing friendships are not removed when this is switched off.</small></span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={privacy.showHandicapToFriends}
+                  onChange={(event) => {
+                    setPrivacy({ ...privacy, showHandicapToFriends: event.target.checked })
+                    setPrivacyMessage('')
+                  }}
+                />
+                <span><strong>Show my Handicap Index</strong><small>Choose whether other players can see your current Handicap Index.</small></span>
+              </label>
+            </div>
+          ) : null}
+          {privacyError ? <p className="settings-error" role="alert">{privacyError}</p> : null}
+          {privacyMessage ? <p className="settings-success" role="status">{privacyMessage}</p> : null}
+          <button type="submit" disabled={!privacy || isSavingPrivacy}>
+            {isSavingPrivacy ? 'Saving…' : 'Save privacy choices'}
+          </button>
+        </form>
+
+        <section className="settings-card settings-data-card">
+          <div>
+            <p className="form-kicker">Your information</p>
+            <h2>Download your data</h2>
+            <p>Save a JSON copy of your profile, rounds, goals, favourites, and support conversations.</p>
+          </div>
+          {exportError ? <p className="settings-error" role="alert">{exportError}</p> : null}
+          <button type="button" disabled={isExporting} onClick={() => void downloadData()}>
+            {isExporting ? 'Preparing…' : 'Download my data'}
+          </button>
+        </section>
+
+        <form className="settings-card settings-danger-card" onSubmit={deleteAccount} noValidate>
+          <div>
+            <p className="form-kicker">Permanent action</p>
+            <h2>Delete your account</h2>
+            <p>This permanently removes your login, profile, rounds, scorecards, goals, friendships, and support requests. It cannot be undone.</p>
+          </div>
+          <label>
+            Type your email address to confirm
+            <input
+              type="email"
+              autoComplete="off"
+              value={deleteConfirmation}
+              placeholder={profile.email}
+              aria-invalid={Boolean(deleteError)}
+              onChange={(event) => {
+                setDeleteConfirmation(event.target.value)
+                setDeleteError('')
+              }}
+            />
+          </label>
+          <label>
+            Current password
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={deletePassword}
+              aria-invalid={Boolean(deleteError)}
+              onChange={(event) => {
+                setDeletePassword(event.target.value)
+                setDeleteError('')
+              }}
+            />
+          </label>
+          {deleteError ? <p className="settings-error" role="alert">{deleteError}</p> : null}
+          <button type="submit" disabled={isDeleting}>
+            {isDeleting ? 'Deleting account…' : 'Permanently delete my account'}
           </button>
         </form>
       </div>

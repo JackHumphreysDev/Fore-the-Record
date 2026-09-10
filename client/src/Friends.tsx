@@ -32,9 +32,11 @@ function PlayerIdentity({ player }: { player: FriendPlayer }) {
       <div className="friend-handicap">
         <small>Handicap</small>
         <strong>
-          {player.handicapIndex === null
-            ? 'Awaiting handicap'
-            : player.handicapIndex.toFixed(1)}
+          {!player.handicapVisible
+            ? 'Handicap hidden'
+            : player.handicapIndex === null
+              ? 'Awaiting handicap'
+              : player.handicapIndex.toFixed(1)}
         </strong>
       </div>
     </div>
@@ -233,6 +235,8 @@ function Friends({ profileId }: FriendsProps) {
                       ? 'Request sent'
                       : 'Request received below'}
                   </span>
+                ) : !player.acceptsFriendRequests ? (
+                  <span className="friend-status">Not accepting requests</span>
                 ) : (
                   <button
                     type="button"
