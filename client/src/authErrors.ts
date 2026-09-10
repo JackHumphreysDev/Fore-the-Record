@@ -1,4 +1,14 @@
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  email_exists:
+    'That email address is already connected to another account.',
+  user_already_exists:
+    'That email address is already connected to another account.',
+  email_address_invalid: 'Enter a valid email address.',
+  invalid_credentials: 'Current password is incorrect.',
+  same_password: 'Your new password must be different.',
+  weak_password: 'Use a stronger password with at least 8 characters.',
+  reauthentication_needed:
+    'For security, sign out and sign in again before changing your password.',
   over_email_send_rate_limit:
     'Too many emails have been requested. Please wait before trying again.',
   over_request_rate_limit:

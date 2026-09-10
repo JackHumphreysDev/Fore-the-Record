@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'account-settings',
+    publishedAt: '2026-09-10',
+    title: 'Keep your account details up to date',
+    summary:
+      'A new Account Settings screen gives you a secure place to update your name, sign-in email, and password.',
+    highlights: [
+      'Open Account Settings directly from your Profile.',
+      'Confirm a new email address before it replaces your current sign-in email.',
+      'Verify your current password before changing sensitive sign-in details.',
+    ],
+  },
+  {
     id: 'personal-milestones',
     publishedAt: '2026-09-09',
     title: 'Celebrate every step of your golfing story',

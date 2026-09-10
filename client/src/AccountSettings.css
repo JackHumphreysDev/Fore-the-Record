@@ -1,0 +1,173 @@
+.settings-page {
+  padding: clamp(48px, 7vw, 92px) 0 72px;
+}
+
+.settings-heading {
+  max-width: 720px;
+  margin-bottom: 42px;
+}
+
+.settings-back {
+  margin-bottom: 38px;
+  padding: 0;
+  border: 0;
+  color: var(--forest);
+  background: transparent;
+  font-weight: 800;
+}
+
+.settings-back:hover {
+  text-decoration: underline;
+}
+
+.settings-back:focus-visible,
+.settings-card button:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
+.settings-heading h1 {
+  margin: 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(48px, 6vw, 82px);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -3px;
+}
+
+.settings-heading > p:last-child {
+  margin: 22px 0 0;
+  color: var(--ink-muted);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  align-items: start;
+}
+
+.settings-card {
+  padding: clamp(26px, 4vw, 42px);
+  display: grid;
+  gap: 20px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  color: var(--forest-deep);
+  background: var(--paper);
+  box-shadow: 0 18px 45px rgba(12, 40, 29, 0.07);
+}
+
+.settings-card:last-child {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.settings-card:last-child > div,
+.settings-card:last-child > button,
+.settings-card:last-child > .settings-error,
+.settings-card:last-child > .settings-success {
+  grid-column: 1 / -1;
+}
+
+.settings-card h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 32px;
+  font-weight: 400;
+}
+
+.settings-card div > p:last-child {
+  margin: 10px 0 0;
+  color: var(--ink-muted);
+  line-height: 1.55;
+}
+
+.settings-card label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.settings-card input {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 16px;
+  border: 1px solid rgba(23, 56, 42, 0.2);
+  border-radius: 8px;
+  outline: none;
+  color: var(--forest-deep);
+  background: white;
+  font: inherit;
+  font-size: 15px;
+}
+
+.settings-card input:focus {
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(49, 88, 68, 0.12);
+}
+
+.settings-card input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.settings-card button[type="submit"] {
+  min-height: 54px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: var(--forest);
+  font-weight: 800;
+}
+
+.settings-card button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.settings-error,
+.settings-success {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.settings-error {
+  color: #7e3026;
+  background: rgba(164, 63, 50, 0.09);
+}
+
+.settings-success {
+  color: var(--forest-deep);
+  background: rgba(104, 137, 0, 0.14);
+}
+
+@media (max-width: 820px) {
+  .settings-grid,
+  .settings-card:last-child {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-card:last-child > * {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .settings-page {
+    padding-top: 32px;
+  }
+
+  .settings-heading h1 {
+    font-size: 46px;
+    letter-spacing: -2px;
+  }
+}

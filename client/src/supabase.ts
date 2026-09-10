@@ -2,11 +2,10 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 let supabaseClient: SupabaseClient | null = null
 
-export function getSupabaseClient(): SupabaseClient {
-  if (supabaseClient) {
-    return supabaseClient
-  }
-
+function getSupabaseConfiguration(): {
+  supabaseUrl: string
+  publishableKey: string
+} {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
@@ -16,7 +15,29 @@ export function getSupabaseClient(): SupabaseClient {
     )
   }
 
+  return { supabaseUrl, publishableKey }
+}
+
+export function getSupabaseClient(): SupabaseClient {
+  if (supabaseClient) {
+    return supabaseClient
+  }
+
+  const { supabaseUrl, publishableKey } = getSupabaseConfiguration()
+
   supabaseClient = createClient(supabaseUrl, publishableKey)
 
   return supabaseClient
+}
+
+export function createCredentialVerificationClient(): SupabaseClient {
+  const { supabaseUrl, publishableKey } = getSupabaseConfiguration()
+
+  return createClient(supabaseUrl, publishableKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+  })
 }

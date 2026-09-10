@@ -17,15 +17,22 @@ This roadmap records agreed future work. Items are planned requirements, not com
 11. Round insights, including the Handicap Index progression chart, automatic nine-hole totals, and expandable history scorecards. Completed in `0.16.0`.
 12. Favourite courses and default tees. Completed in `0.17.0`.
 13. Personal milestones. Completed in `0.18.0`.
-14. Account settings.
-15. Player goals.
-16. Round-history filters.
-17. Round notes.
-18. Email notifications. Production delivery depends on the future custom domain and email configuration.
-19. Privacy and account controls.
-20. Installable mobile app.
+14. Account settings. Completed in `0.19.0`.
+15. Friends and player connections.
+16. Player goals.
+17. Round-history filters.
+18. Round notes.
+19. Email notifications. Production delivery depends on the future custom domain and email configuration.
+20. Privacy and account controls.
+21. Installable mobile app.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Account settings — completed in 0.19.0
+
+Signed-in players can open a dedicated Account Settings screen from Profile and change their displayed full name, confirmed sign-in email, or password. Sensitive changes require the current password. Email changes keep the current address active until the secure confirmation process is complete, after which the verified authentication identity is synchronised to the same player profile. Duplicate application emails are refused. Passwords are sent only to the authentication provider and are never accepted or stored by the Fore the Record API.
+
+Account deletion remains reserved for the separate privacy and account-controls feature. Friend connections and notification preferences also remain separate roadmap items.
 
 ## Favourite courses and default tees — completed in 0.17.0
 

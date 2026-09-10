@@ -28,6 +28,18 @@ describe('getAuthErrorMessage', () => {
     )
   })
 
+  it('gives clear account-settings errors without exposing provider details', () => {
+    expect(getAuthErrorMessage(createAuthError('email_exists'))).toBe(
+      'That email address is already connected to another account.',
+    )
+    expect(getAuthErrorMessage(createAuthError('invalid_credentials'))).toBe(
+      'Current password is incorrect.',
+    )
+    expect(getAuthErrorMessage(createAuthError('same_password'))).toBe(
+      'Your new password must be different.',
+    )
+  })
+
   it('does not expose an unexpected provider error', () => {
     expect(getAuthErrorMessage(new Error('Internal provider details'))).toBe(
       'We could not complete that request. Please try again.',

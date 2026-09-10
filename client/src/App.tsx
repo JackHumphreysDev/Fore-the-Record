@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import './App.css'
+import AccountSettings from './AccountSettings.tsx'
 import { fetchWithAccessToken } from './api.ts'
 import {
   isAdminIdentity,
@@ -28,6 +29,7 @@ type ActiveView =
   | 'courses'
   | 'rounds'
   | 'history'
+  | 'settings'
   | 'support'
   | 'whats-new'
   | 'admin'
@@ -192,7 +194,30 @@ function App() {
         )
       }
 
-      const nextProfile = (await response.json()) as Profile
+      let nextProfile = (await response.json()) as Profile
+
+      const authenticatedEmail = currentSession.user.email?.trim().toLowerCase()
+      if (
+        authenticatedEmail &&
+        authenticatedEmail !== nextProfile.email.trim().toLowerCase()
+      ) {
+        const syncResponse = await fetchWithAccessToken(
+          currentSession.access_token,
+          '/api/users/me/settings/sync-email',
+          { method: 'POST' },
+        )
+
+        if (!syncResponse.ok) {
+          throw new Error(
+            await getApiError(
+              syncResponse,
+              'We could not synchronise your confirmed email address.',
+            ),
+          )
+        }
+
+        nextProfile = (await syncResponse.json()) as Profile
+      }
       const nextAdminIdentity = await loadAdminIdentity(currentSession)
 
       if (currentRequest !== profileRequestNumber.current) {
@@ -232,14 +257,19 @@ function App() {
       return
     }
 
-      async function applySession(nextSession: Session | null) {
+      async function applySession(
+        nextSession: Session | null,
+        resetActiveView = true,
+      ) {
         if (isCancelled) {
           return
         }
 
         setSession(nextSession)
         setAdminIdentity(null)
-        setActiveView('profile')
+        if (resetActiveView) {
+          setActiveView('profile')
+        }
         setSupportUnreadCount(0)
         setAdminUnreadCount(0)
 
@@ -273,7 +303,10 @@ function App() {
         }
 
         window.setTimeout(() => {
-          void applySession(nextSession)
+          void applySession(
+            nextSession,
+            event === 'SIGNED_IN' || event === 'SIGNED_OUT',
+          )
         }, 0)
       })
 
@@ -377,6 +410,10 @@ function App() {
     homeClub: HomeClub | null
   }) {
     setProfile((current) => (current ? { ...current, ...update } : current))
+  }
+
+  function updateProfileDetails(nextProfile: Profile) {
+    setProfile(nextProfile)
   }
 
   if ((isPasswordRecovery || isInvitationSetup) && session) {
@@ -632,16 +669,31 @@ function App() {
                   onGoToCourses={() => setActiveView('courses')}
                 />
 
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => void signOut()}
-                >
-                  Sign out
-                </button>
+                <div className="profile-actions">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => setActiveView('settings')}
+                  >
+                    Account settings
+                  </button>
+                  <button
+                    className="profile-sign-out"
+                    type="button"
+                    onClick={() => void signOut()}
+                  >
+                    Sign out
+                  </button>
+                </div>
               </div>
             </div>
           </section>
+        ) : activeView === 'settings' ? (
+          <AccountSettings
+            profile={profile}
+            onBack={() => setActiveView('profile')}
+            onProfileUpdated={updateProfileDetails}
+          />
         ) : activeView === 'courses' ? (
           <CourseSearch
             onReportMissingCourse={() => {
