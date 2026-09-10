@@ -13,6 +13,11 @@ import {
   hasRoundHistoryFilters,
   type RoundHistoryFilters,
 } from './roundHistoryFilters.ts'
+import {
+  buildRoundNotesPath,
+  isRoundNotesResponse,
+  ROUND_NOTES_MAX_LENGTH,
+} from './roundNotesApi.ts'
 
 type RoundHistoryProfile = {
   id: string
@@ -37,14 +42,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-async function readApiError(response: Response): Promise<string> {
+async function readApiError(
+  response: Response,
+  fallback = 'We could not load your round history. Please try again.',
+): Promise<string> {
   const body: unknown = await response.json().catch(() => null)
 
   if (isRecord(body) && typeof body.error === 'string') {
     return body.error
   }
 
-  return 'We could not load your round history. Please try again.'
+  return fallback
 }
 
 function formatRoundDate(datePlayed: string): string {
@@ -152,6 +160,10 @@ function RoundHistory({
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [expandedRoundId, setExpandedRoundId] = useState('')
+  const [editingNoteRoundId, setEditingNoteRoundId] = useState('')
+  const [noteDraft, setNoteDraft] = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteError, setNoteError] = useState('')
   const [filters, setFilters] = useState<RoundHistoryFilters>({
     ...EMPTY_ROUND_HISTORY_FILTERS,
   })
@@ -173,6 +185,63 @@ function RoundHistory({
   function clearFilters() {
     setExpandedRoundId('')
     setFilters({ ...EMPTY_ROUND_HISTORY_FILTERS })
+  }
+
+  function startEditingNote(round: HistoryRound) {
+    setEditingNoteRoundId(round.id)
+    setNoteDraft(round.notes ?? '')
+    setNoteError('')
+  }
+
+  function stopEditingNote() {
+    setEditingNoteRoundId('')
+    setNoteDraft('')
+    setNoteError('')
+  }
+
+  async function saveRoundNote(roundId: string) {
+    if (noteDraft.length > ROUND_NOTES_MAX_LENGTH) {
+      setNoteError(`Keep your note to ${ROUND_NOTES_MAX_LENGTH.toLocaleString('en-GB')} characters or fewer.`)
+      return
+    }
+
+    setNoteSaving(true)
+    setNoteError('')
+    try {
+      const response = await authenticatedFetch(buildRoundNotesPath(roundId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: noteDraft }),
+      })
+      if (!response.ok) {
+        throw new Error(
+          await readApiError(
+            response,
+            'We could not save your round note. Please try again.',
+          ),
+        )
+      }
+
+      const body: unknown = await response.json()
+      if (!isRoundNotesResponse(body) || body.roundId !== roundId) {
+        throw new Error('The saved round note returned was incomplete.')
+      }
+
+      setRounds((current) => current.map((round) =>
+        round.id === roundId ? { ...round, notes: body.notes } : round,
+      ))
+      stopEditingNote()
+    } catch (error: unknown) {
+      setNoteError(
+        error instanceof TypeError
+          ? 'We could not reach the server. Check your connection and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'We could not save your round note. Please try again.',
+      )
+    } finally {
+      setNoteSaving(false)
+    }
   }
 
   useEffect(() => {
@@ -369,7 +438,7 @@ function RoundHistory({
 
             <div className="history-filter-grid">
               <label className="history-filter-search">
-                Club, course, tee, or competition
+                Club, course, tee, competition, or note
                 <input
                   type="search"
                   value={filters.search}
@@ -558,6 +627,48 @@ function RoundHistory({
                         ? 'Course and tee retained for your playing record. No score differential was created.'
                         : `Course rating ${round.tee.courseRating.toFixed(1)} · Slope ${round.tee.slopeRating} · Par ${round.tee.par ?? '—'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}`}
                     </p>
+
+                    <section className="history-round-notes" aria-label="Private round note">
+                      <header>
+                        <div>
+                          <strong>Round note</strong>
+                          <small>Private to your account</small>
+                        </div>
+                        {editingNoteRoundId !== round.id ? (
+                          <button type="button" disabled={noteSaving} onClick={() => startEditingNote(round)}>
+                            {round.notes ? 'Edit note' : 'Add note'}
+                          </button>
+                        ) : null}
+                      </header>
+                      {editingNoteRoundId === round.id ? (
+                        <div className="history-note-editor">
+                          <textarea
+                            rows={5}
+                            maxLength={ROUND_NOTES_MAX_LENGTH}
+                            aria-label="Round note"
+                            value={noteDraft}
+                            onChange={(event) => {
+                              setNoteDraft(event.target.value)
+                              setNoteError('')
+                            }}
+                          />
+                          <div className="history-note-editor-footer">
+                            <small>{noteDraft.length.toLocaleString('en-GB')} / {ROUND_NOTES_MAX_LENGTH.toLocaleString('en-GB')}</small>
+                            <div>
+                              <button type="button" disabled={noteSaving} onClick={stopEditingNote}>Cancel</button>
+                              <button type="button" disabled={noteSaving} onClick={() => void saveRoundNote(round.id)}>
+                                {noteSaving ? 'Saving…' : 'Save note'}
+                              </button>
+                            </div>
+                          </div>
+                          {noteError ? <p className="history-note-error" role="alert">{noteError}</p> : null}
+                        </div>
+                      ) : round.notes ? (
+                        <p>{round.notes}</p>
+                      ) : (
+                        <p className="history-note-empty">No note added for this round.</p>
+                      )}
+                    </section>
 
                     <button
                       className="history-scorecard-toggle"

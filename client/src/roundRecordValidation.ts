@@ -11,6 +11,7 @@ type ClassifiedRound = {
   competitionName: string | null
   competitionFormat: string | null
   numberOfPlayers: number | null
+  notes: string | null
   grossScore: number | null
   adjustedGrossScore: number | null
   isCapped: boolean
@@ -133,6 +134,9 @@ export function isRoundResult(value: unknown): value is RoundResult {
   return (
     typeof round.id === 'string' &&
     typeof round.datePlayed === 'string' &&
+    (round.notes === undefined ||
+      round.notes === null ||
+      (typeof round.notes === 'string' && round.notes.length <= 2000)) &&
     hasValidClassification(round) &&
     typeof round.isCapped === 'boolean' &&
     (hasValidScoredResult || hasValidTeamResult)
@@ -188,6 +192,9 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
   return (
     typeof value.id === 'string' &&
     typeof value.datePlayed === 'string' &&
+    (value.notes === undefined ||
+      value.notes === null ||
+      (typeof value.notes === 'string' && value.notes.length <= 2000)) &&
     hasValidClassification(value) &&
     (hasValidIndividualScore || hasValidTeamRecord) &&
     typeof value.isCapped === 'boolean' &&

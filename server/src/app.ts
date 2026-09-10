@@ -80,6 +80,10 @@ import {
   RoundReferenceNotFoundError,
 } from './rounds.js'
 import {
+  parseRoundNotes,
+  RoundNotesValidationError,
+} from './roundNotes.js'
+import {
   calculateAdjustedGrossScore,
   calculateCourseHandicap,
   calculateHandicap,
@@ -2324,6 +2328,7 @@ app.get('/api/users/me/rounds', async (_request, response) => {
           competitionName: true,
           competitionFormat: true,
           numberOfPlayers: true,
+          notes: true,
           grossScore: true,
           adjustedGrossScore: true,
           isCapped: true,
@@ -2388,6 +2393,52 @@ app.get('/api/users/me/rounds', async (_request, response) => {
       },
     })),
   )
+})
+
+app.patch('/api/users/me/rounds/:roundId/notes', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const roundId = request.params.roundId
+
+  if (!UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round reference' })
+    return
+  }
+
+  if (!isRecord(request.body) || !Object.hasOwn(request.body, 'notes')) {
+    response.status(400).json({ error: 'Round notes are required' })
+    return
+  }
+
+  let notes: string | null
+  try {
+    notes = parseRoundNotes(request.body.notes)
+  } catch (error: unknown) {
+    if (error instanceof RoundNotesValidationError) {
+      response.status(400).json({ error: error.message })
+      return
+    }
+    throw error
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const update = await prisma.round.updateMany({
+    where: { id: roundId, userId: user.id },
+    data: { notes },
+  })
+  if (update.count === 0) {
+    response.status(404).json({ error: 'Round not found' })
+    return
+  }
+
+  response.status(200).json({ roundId, notes })
 })
 
 app.get('/api/users/me/handicap-progression', async (_request, response) => {

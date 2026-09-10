@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'round-notes',
+    publishedAt: '2026-09-10',
+    title: 'Remember the story behind the score',
+    summary:
+      'Add your own private thoughts to every round and return to them whenever you review your playing history.',
+    highlights: [
+      'Write an optional note while recording an individual or team round.',
+      'Add, edit, or clear notes later from Round History.',
+      'Search your notes alongside clubs, courses, tees, and competitions.',
+    ],
+  },
+  {
     id: 'round-history-filters',
     publishedAt: '2026-09-10',
     title: 'Find the round you are looking for',

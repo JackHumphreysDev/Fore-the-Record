@@ -17,6 +17,7 @@ import {
   calculateHandicapStrokesReceived,
   calculateScoreDifferential,
 } from './handicap.js'
+import { parseRoundNotes, RoundNotesValidationError } from './roundNotes.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -50,6 +51,7 @@ type LogRoundBase = {
   competitionName: string | null
   competitionFormat: string | null
   numberOfPlayers: number | null
+  notes: string | null
 }
 
 export type LogIndividualRoundInput = LogRoundBase & {
@@ -230,6 +232,16 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   const timePlayed = getTimePlayed(value.timePlayed)
   const category = getRoundCategory(value.category)
   const participation = getRoundParticipation(value.participation)
+  let notes: string | null
+
+  try {
+    notes = parseRoundNotes(value.notes)
+  } catch (error: unknown) {
+    if (error instanceof RoundNotesValidationError) {
+      return null
+    }
+    throw error
+  }
 
   if (
     typeof value.userId !== 'string' ||
@@ -296,6 +308,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       competitionName,
       competitionFormat,
       numberOfPlayers,
+      notes,
       grossScore: null,
       weatherCondition: null,
       pccAdjustment: 0,
@@ -341,6 +354,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     competitionFormat,
     numberOfPlayers:
       typeof numberOfPlayers === 'number' ? numberOfPlayers : null,
+    notes,
     grossScore,
     weatherCondition,
     pccAdjustment,
@@ -405,6 +419,7 @@ export async function logRound(input: LogRoundInput) {
           competitionName: input.competitionName,
           competitionFormat: input.competitionFormat,
           numberOfPlayers: input.numberOfPlayers,
+          notes: input.notes,
           grossScore: null,
           adjustedGrossScore: null,
           isCapped: false,
@@ -509,6 +524,7 @@ export async function logRound(input: LogRoundInput) {
         competitionName: input.competitionName,
         competitionFormat: input.competitionFormat,
         numberOfPlayers: input.numberOfPlayers,
+        notes: input.notes,
         grossScore: input.grossScore,
         adjustedGrossScore,
         isCapped,
