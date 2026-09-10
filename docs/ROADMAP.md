@@ -18,7 +18,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 12. Favourite courses and default tees. Completed in `0.17.0`.
 13. Personal milestones. Completed in `0.18.0`.
 14. Account settings. Completed in `0.19.0`.
-15. Friends and player connections.
+15. Friends and player connections. Completed in `0.20.0`.
 16. Player goals.
 17. Round-history filters.
 18. Round notes.
@@ -27,6 +27,10 @@ This roadmap records agreed future work. Items are planned requirements, not com
 21. Installable mobile app.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Friends and player connections — completed in 0.20.0
+
+Signed-in players can search active, linked profiles by first or last name and use the displayed home club to distinguish people with the same name. A player can send one direction-independent request, accept or decline an incoming request, cancel an outgoing request, and remove an accepted friend. Search and connection cards show only the player's name, home club, and current Handicap Index; email addresses, rounds, and private statistics remain hidden. Self-connections, duplicate relationships, suspended profiles, and unlinked profiles are refused by the server.
 
 ## Account settings — completed in 0.19.0
 

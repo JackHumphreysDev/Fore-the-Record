@@ -58,6 +58,11 @@ enum UserStatus {
   SUSPENDED
 }
 
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
 enum SubmissionType {
   IDEA
   ISSUE
@@ -91,8 +96,25 @@ model User {
   adminAuditLogs         AdminAuditLog[]        @relation("AdminAuditActor")
   reviewedScorecards     ScorecardReview[]      @relation("ScorecardReviewer")
   coursePreferences      UserCoursePreference[]
+  sentFriendships        Friendship[]           @relation("FriendshipRequester")
+  receivedFriendships    Friendship[]           @relation("FriendshipAddressee")
 
   @@index([status, createdAt])
+}
+
+model Friendship {
+  id          String           @id @default(uuid()) @db.Uuid
+  pairKey     String           @unique @db.VarChar(73)
+  requesterId String           @db.Uuid
+  addresseeId String           @db.Uuid
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @db.Timestamptz(3)
+  requester   User             @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User             @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId, status, updatedAt])
+  @@index([addresseeId, status, updatedAt])
 }
 
 model AdminAuditLog {

@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.20.0 - 2026-09-10
+
+### User-facing changes
+
+- Added a Friends screen where signed-in players can find other active profiles by first or last name.
+- Added home-club and current Handicap Index details to help identify the correct player without exposing email addresses, rounds, or private statistics.
+- Added friend requests with accept, decline, cancel, and remove controls.
+
+### Developer and admin changes
+
+- Added authenticated, player-owned friendship endpoints and direction-independent duplicate prevention.
+- Added database constraints and cascade cleanup for pending requests and accepted friendships.
+- Excluded unlinked, suspended, and self profiles from player search and connection creation.
+- Added server authorization, privacy, validation, response-contract, and browser interaction regression coverage.
+
 ## 0.19.0 - 2026-09-10
 
 ### User-facing changes
