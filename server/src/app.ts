@@ -51,6 +51,13 @@ import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
 import { buildPerformanceSummary } from './performanceSummary.js'
 import { buildPersonalMilestones } from './personalMilestones.js'
+import {
+  buildPlayerGoalMetrics,
+  buildPlayerGoalProgress,
+  parsePlayerGoalInput,
+  parsePlayerGoalType,
+  PlayerGoalValidationError,
+} from './playerGoals.js'
 import { buildHandicapProgression } from './handicapProgression.js'
 import {
   SubmissionStatus,
@@ -62,6 +69,7 @@ import {
   UserRole,
   UserStatus,
   FriendshipStatus,
+  PlayerGoalType,
   ScorecardSource,
   RoundParticipation,
   RoundScorecardStatus,
@@ -2541,6 +2549,170 @@ app.get('/api/users/me/personal-milestones', async (_request, response) => {
       })),
     ),
   )
+})
+
+app.get('/api/users/me/goals', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      id: true,
+      handicapIndex: true,
+      rounds: {
+        orderBy: [{ datePlayed: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          datePlayed: true,
+          createdAt: true,
+          category: true,
+          participation: true,
+          grossScore: true,
+          scoreDifferential: true,
+          isAcceptable: true,
+          scorecardStatus: true,
+          holeScores: {
+            orderBy: { holeNumber: 'asc' },
+            select: {
+              holeNumber: true,
+              par: true,
+              strokesTaken: true,
+            },
+          },
+          tee: {
+            select: {
+              holes: {
+                orderBy: { holeNumber: 'asc' },
+                select: { holeNumber: true, yardage: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const goals = await prisma.playerGoal.findMany({
+    where: { userId: user.id },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: {
+      id: true,
+      type: true,
+      targetValue: true,
+      targetDate: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  })
+  const milestones = buildPersonalMilestones(
+    user.rounds.map(({ tee, ...round }) => ({
+      ...round,
+      scoreDifferential:
+        round.scoreDifferential === null
+          ? null
+          : Number(round.scoreDifferential),
+      teeHoles: tee.holes,
+    })),
+  )
+  const metrics = buildPlayerGoalMetrics(
+    user.handicapIndex === null ? null : Number(user.handicapIndex),
+    milestones,
+  )
+
+  response.status(200).json({
+    goals: goals.map((goal) => buildPlayerGoalProgress(goal, metrics)),
+  })
+})
+
+app.put('/api/users/me/goals/:type', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const goalType = parsePlayerGoalType(request.params.type)
+
+  if (!goalType) {
+    response.status(400).json({ error: 'Choose a supported goal type' })
+    return
+  }
+
+  let input: ReturnType<typeof parsePlayerGoalInput>
+  try {
+    input = parsePlayerGoalInput(goalType, request.body)
+  } catch (error: unknown) {
+    if (error instanceof PlayerGoalValidationError) {
+      response.status(400).json({ error: error.message })
+      return
+    }
+    throw error
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const goal = await prisma.playerGoal.upsert({
+    where: { userId_type: { userId: user.id, type: goalType } },
+    create: {
+      userId: user.id,
+      type: goalType,
+      targetValue: input.targetValue,
+      targetDate: input.targetDate,
+    },
+    update: {
+      targetValue: input.targetValue,
+      targetDate: input.targetDate,
+    },
+    select: {
+      id: true,
+      type: true,
+      targetValue: true,
+      targetDate: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  })
+
+  response.status(200).json({
+    ...goal,
+    targetValue: Number(goal.targetValue),
+    targetDate: goal.targetDate?.toISOString().slice(0, 10) ?? null,
+  })
+})
+
+app.delete('/api/users/me/goals/:type', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const goalType = parsePlayerGoalType(request.params.type)
+
+  if (!goalType) {
+    response.status(400).json({ error: 'Choose a supported goal type' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const deletion = await prisma.playerGoal.deleteMany({
+    where: { userId: user.id, type: goalType as PlayerGoalType },
+  })
+  if (deletion.count === 0) {
+    response.status(404).json({ error: 'Goal not found' })
+    return
+  }
+
+  response.status(204).send()
 })
 
 app.get('/api/users/me/course-preferences', async (_request, response) => {

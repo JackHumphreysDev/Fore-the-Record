@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'player-goals',
+    publishedAt: '2026-09-10',
+    title: 'Set your next golfing target',
+    summary:
+      'Player Goals turns the scores already in your record into clear progress towards what you want to achieve next.',
+    highlights: [
+      'Set targets for your Handicap Index, lowest gross score, rounds played, birdies, or pars.',
+      'Add an optional target date and see your progress update automatically from verified rounds.',
+      'Replace a target whenever your ambitions change or remove a goal you no longer need.',
+    ],
+  },
+  {
     id: 'friends-and-player-connections',
     publishedAt: '2026-09-10',
     title: 'Connect with your golfing friends',
