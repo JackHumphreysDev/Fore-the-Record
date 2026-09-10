@@ -2618,7 +2618,9 @@ app.patch(
     }
 
     const defaultTeeId =
-      requestedDefaultTeeId === null ? null : requestedDefaultTeeId.trim()
+      typeof requestedDefaultTeeId === 'string'
+        ? requestedDefaultTeeId.trim()
+        : null
 
     if (defaultTeeId !== null) {
       const tee = await prisma.tee.findFirst({
