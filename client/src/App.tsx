@@ -705,6 +705,7 @@ function App() {
             profile={profile}
             onBack={() => setActiveView('profile')}
             onProfileUpdated={updateProfileDetails}
+            onAccountDeleted={signOut}
           />
         ) : activeView === 'friends' ? (
           <Friends profileId={profile.id} />

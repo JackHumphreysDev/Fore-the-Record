@@ -38,6 +38,8 @@ Round History can be filtered by club, course, tee, competition text, round type
 
 Players can add a private note while recording any individual or team round, then read, edit, clear, or search that note from Round History. Notes remain inside the authenticated player's record and never affect scoring or Handicap Index calculations.
 
+Account Settings includes privacy choices for player discovery, new friend requests, and Handicap Index visibility. Players can download a JSON copy of their own Fore the Record data and permanently delete a non-administrator account after password verification and exact email confirmation.
+
 Signed-in players can open Account Settings from Profile to change their displayed name, request a confirmed sign-in email change, or securely update their password. Sensitive changes require the current password, duplicate profile emails are blocked, and passwords never pass through the Fore the Record API.
 
 The Friends screen lets signed-in players find active profiles by first or last name, distinguish matching names by home club, and exchange friend requests. Accepted friends can see each other's current Handicap Index. Email addresses, rounds, and private performance statistics are never included in friend search or connection responses.
@@ -48,7 +50,7 @@ The application features are still under development. The core handicap calculat
 
 ## Roadmap and releases
 
-The current application version is `0.23.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.24.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)

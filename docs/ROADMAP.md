@@ -23,10 +23,14 @@ This roadmap records agreed future work. Items are planned requirements, not com
 17. Round-history filters. Completed in `0.22.0`.
 18. Round notes. Completed in `0.23.0`.
 19. Email notifications. Production delivery depends on the future custom domain and email configuration.
-20. Privacy and account controls.
+20. Privacy and account controls. Completed in `0.24.0`.
 21. Installable mobile app.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Privacy and account controls — completed in 0.24.0
+
+Account Settings lets players decide whether they appear in player search, accept new friend requests, and expose their current Handicap Index in player-facing connection data. Existing friendships remain intact when discovery or requests are disabled. Players can download a private JSON copy of their profile, rounds, goals, favourite courses, and support conversations. Non-administrator players can permanently delete their login and all related Fore the Record data only after current-password verification and exact email confirmation; the sole administrator remains protected.
 
 ## Round notes — completed in 0.23.0
 
