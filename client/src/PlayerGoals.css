@@ -1,0 +1,224 @@
+.player-goals {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.player-goals > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.player-goals h3,
+.player-goal-card h4 {
+  margin: 0;
+  color: var(--forest-deep);
+}
+
+.player-goals h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 25px;
+  font-weight: 400;
+}
+
+.player-goals > header > span,
+.player-goal-card header small,
+.player-goal-values span,
+.player-goal-card footer {
+  color: var(--ink-muted);
+  font-size: 8px;
+}
+
+.player-goals > header > span,
+.player-goal-card header small {
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.player-goals-intro {
+  margin: 10px 0 16px;
+  color: var(--ink-muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.player-goal-form {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.3fr) minmax(90px, 0.7fr) minmax(125px, 0.9fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-dark);
+}
+
+.player-goal-form label {
+  display: grid;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.player-goal-form label > span,
+.player-goal-form label em {
+  font-weight: 500;
+}
+
+.player-goal-form label em {
+  opacity: 0.7;
+}
+
+.player-goal-form input,
+.player-goal-form select {
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  color: white;
+  background: rgba(255, 255, 255, 0.06);
+  font: inherit;
+  font-size: 9px;
+}
+
+.player-goal-form button,
+.player-goal-remove,
+.player-goal-alert button {
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.player-goal-form > button {
+  height: 38px;
+  padding: 0 14px;
+  color: white;
+  background: var(--lime);
+}
+
+.player-goal-form button:disabled,
+.player-goal-remove:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.player-goal-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.player-goal-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+}
+
+.player-goal-card.is-complete {
+  border-color: rgba(113, 143, 0, 0.35);
+  background: rgba(113, 143, 0, 0.08);
+}
+
+.player-goal-card > header,
+.player-goal-values,
+.player-goal-card footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.player-goal-card h4 {
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.player-goal-remove {
+  align-self: flex-start;
+  padding: 5px 7px;
+  color: var(--ink-muted);
+  background: transparent;
+  font-size: 8px;
+}
+
+.player-goal-values {
+  margin: 14px 0 10px;
+}
+
+.player-goal-values span {
+  display: grid;
+  gap: 4px;
+}
+
+.player-goal-values span:last-child {
+  text-align: right;
+}
+
+.player-goal-values strong {
+  color: var(--forest-deep);
+  font-size: 11px;
+}
+
+.player-goal-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(9, 55, 39, 0.1);
+}
+
+.player-goal-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--lime);
+}
+
+.player-goal-card footer {
+  margin-top: 7px;
+}
+
+.player-goal-alert,
+.player-goal-state {
+  margin: 12px 0 0;
+  padding: 10px;
+  border-radius: 9px;
+  color: var(--forest-deep);
+  background: rgba(113, 143, 0, 0.1);
+  font-size: 9px;
+}
+
+.player-goal-alert.is-error {
+  color: var(--danger);
+  background: rgba(179, 61, 43, 0.1);
+}
+
+.player-goal-alert button {
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  text-decoration: underline;
+}
+
+.player-goal-state {
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .player-goal-form,
+  .player-goal-list {
+    grid-template-columns: 1fr;
+  }
+
+  .player-goal-form > button {
+    width: 100%;
+  }
+}

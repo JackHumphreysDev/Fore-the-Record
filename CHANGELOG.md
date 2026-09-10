@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.21.0 - 2026-09-10
+
+### User-facing changes
+
+- Added a Player Goals section to the signed-in Profile.
+- Added targets for Handicap Index, lowest gross score, rounds played, lifetime birdies, and lifetime pars.
+- Added optional target dates, automatic progress percentages, reached-goal states, target replacement, and removal controls.
+
+### Developer and admin changes
+
+- Added authenticated, player-owned goal storage with one target per goal category.
+- Derived all progress from the player's verified rounds, current Handicap Index, and existing milestone calculations rather than editable counters.
+- Added server-side goal-type, numeric-range, decimal-precision, and date validation.
+- Added ownership, upsert, deletion, progress-calculation, response-contract, and interface regression coverage.
+
 ## 0.20.0 - 2026-09-10
 
 ### User-facing changes

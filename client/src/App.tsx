@@ -15,6 +15,7 @@ import HomeClubSelector from './HomeClubSelector.tsx'
 import PasswordRecovery from './PasswordRecovery.tsx'
 import PerformanceSummary from './PerformanceSummary.tsx'
 import PersonalMilestones from './PersonalMilestones.tsx'
+import PlayerGoals from './PlayerGoals.tsx'
 import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
 import Support from './Support.tsx'
@@ -670,6 +671,8 @@ function App() {
                 />
 
                 <PersonalMilestones profileId={profile.id} />
+
+                <PlayerGoals profileId={profile.id} />
 
                 <HomeClubSelector
                   homeClubId={profile.homeClubId}

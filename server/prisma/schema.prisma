@@ -63,6 +63,14 @@ enum FriendshipStatus {
   ACCEPTED
 }
 
+enum PlayerGoalType {
+  HANDICAP_INDEX
+  LOWEST_GROSS_SCORE
+  ROUNDS_PLAYED
+  BIRDIES
+  PARS
+}
+
 enum SubmissionType {
   IDEA
   ISSUE
@@ -98,8 +106,23 @@ model User {
   coursePreferences      UserCoursePreference[]
   sentFriendships        Friendship[]           @relation("FriendshipRequester")
   receivedFriendships    Friendship[]           @relation("FriendshipAddressee")
+  playerGoals            PlayerGoal[]
 
   @@index([status, createdAt])
+}
+
+model PlayerGoal {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
+  type        PlayerGoalType
+  targetValue Decimal        @db.Decimal(6, 1)
+  targetDate  DateTime?      @db.Date
+  createdAt   DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @db.Timestamptz(3)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId, updatedAt])
 }
 
 model Friendship {

@@ -19,7 +19,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 13. Personal milestones. Completed in `0.18.0`.
 14. Account settings. Completed in `0.19.0`.
 15. Friends and player connections. Completed in `0.20.0`.
-16. Player goals.
+16. Player goals. Completed in `0.21.0`.
 17. Round-history filters.
 18. Round notes.
 19. Email notifications. Production delivery depends on the future custom domain and email configuration.
@@ -27,6 +27,10 @@ This roadmap records agreed future work. Items are planned requirements, not com
 21. Installable mobile app.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Player goals — completed in 0.21.0
+
+The signed-in Profile lets each player maintain one target for Handicap Index, lowest verified gross score, total rounds played, lifetime birdies, and lifetime pars. Targets can include an optional date and can be replaced or removed. Current values, completion states, and progress percentages are calculated from the player's private verified round history, current Handicap Index, and existing milestone rules. Goal records are owned through the authenticated profile boundary and cannot be read or changed by another player.
 
 ## Friends and player connections — completed in 0.20.0
 

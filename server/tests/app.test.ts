@@ -71,6 +71,9 @@ const {
   friendshipUpdateMock,
   friendshipDeleteMock,
   friendshipDeleteManyMock,
+  playerGoalFindManyMock,
+  playerGoalUpsertMock,
+  playerGoalDeleteManyMock,
 } = vi.hoisted(() => ({
   getAuthenticatedUserMock: vi.fn(),
   getVerifiedTokenSubjectMock: vi.fn(),
@@ -141,6 +144,9 @@ const {
   friendshipUpdateMock: vi.fn(),
   friendshipDeleteMock: vi.fn(),
   friendshipDeleteManyMock: vi.fn(),
+  playerGoalFindManyMock: vi.fn(),
+  playerGoalUpsertMock: vi.fn(),
+  playerGoalDeleteManyMock: vi.fn(),
 }))
 
 vi.mock('../src/database.js', () => ({
@@ -197,6 +203,11 @@ vi.mock('../src/database.js', () => ({
       update: friendshipUpdateMock,
       delete: friendshipDeleteMock,
       deleteMany: friendshipDeleteManyMock,
+    },
+    playerGoal: {
+      findMany: playerGoalFindManyMock,
+      upsert: playerGoalUpsertMock,
+      deleteMany: playerGoalDeleteManyMock,
     },
     round: {
       count: roundCountMock,
@@ -390,6 +401,11 @@ beforeEach(() => {
   friendshipDeleteMock.mockReset()
   friendshipDeleteManyMock.mockReset()
   friendshipDeleteManyMock.mockResolvedValue({ count: 0 })
+  playerGoalFindManyMock.mockReset()
+  playerGoalFindManyMock.mockResolvedValue([])
+  playerGoalUpsertMock.mockReset()
+  playerGoalDeleteManyMock.mockReset()
+  playerGoalDeleteManyMock.mockResolvedValue({ count: 0 })
 })
 
 describe('GET /api/health', () => {
@@ -2060,6 +2076,95 @@ describe('GET /api/users/me/personal-milestones', () => {
     )
 
     expect(response.status).toBe(404)
+  })
+})
+
+describe('player goals API', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const goalId = '22222222-2222-4222-8222-222222222222'
+  const createdAt = new Date('2026-09-10T10:00:00.000Z')
+
+  it('returns progress derived from the authenticated player record', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: userId,
+      handicapIndex: '18.0',
+      rounds: [],
+    })
+    playerGoalFindManyMock.mockResolvedValueOnce([
+      {
+        id: goalId,
+        type: 'HANDICAP_INDEX',
+        targetValue: '15.0',
+        targetDate: new Date('2026-12-31T00:00:00.000Z'),
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ])
+
+    const response = await request(app).get('/api/users/me/goals')
+
+    expect(response.status).toBe(200)
+    expect(response.body.goals[0]).toMatchObject({
+      id: goalId,
+      type: 'HANDICAP_INDEX',
+      currentValue: 18,
+      targetValue: 15,
+      progressPercent: 83,
+      isComplete: false,
+      targetDate: '2026-12-31',
+    })
+    expect(playerGoalFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId } }),
+    )
+  })
+
+  it('creates or replaces one player-owned goal per type', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    playerGoalUpsertMock.mockResolvedValueOnce({
+      id: goalId,
+      type: 'ROUNDS_PLAYED',
+      targetValue: '25.0',
+      targetDate: null,
+      createdAt,
+      updatedAt: createdAt,
+    })
+
+    const response = await request(app)
+      .put('/api/users/me/goals/ROUNDS_PLAYED')
+      .send({ targetValue: 25 })
+
+    expect(response.status).toBe(200)
+    expect(response.body.targetValue).toBe(25)
+    expect(playerGoalUpsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId_type: { userId, type: 'ROUNDS_PLAYED' } },
+        create: expect.objectContaining({ userId, type: 'ROUNDS_PLAYED' }),
+      }),
+    )
+  })
+
+  it('rejects an invalid target before writing a goal', async () => {
+    const response = await request(app)
+      .put('/api/users/me/goals/BIRDIES')
+      .send({ targetValue: 2.5 })
+
+    expect(response.status).toBe(400)
+    expect(playerGoalUpsertMock).not.toHaveBeenCalled()
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+
+  it('removes only a goal owned by the authenticated player', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    playerGoalDeleteManyMock.mockResolvedValueOnce({ count: 1 })
+
+    const response = await request(app).delete(
+      '/api/users/me/goals/LOWEST_GROSS_SCORE',
+    )
+
+    expect(response.status).toBe(204)
+    expect(playerGoalDeleteManyMock).toHaveBeenCalledWith({
+      where: { userId, type: 'LOWEST_GROSS_SCORE' },
+    })
   })
 })
 
