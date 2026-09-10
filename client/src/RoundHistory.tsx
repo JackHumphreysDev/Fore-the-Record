@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { authenticatedFetch } from './api.ts'
 import {
   isHistoryRound,
@@ -7,6 +7,12 @@ import {
 } from './roundRecordValidation.ts'
 import './RoundHistory.css'
 import { calculateRoundScoreTotals } from './roundScorecardTotals.ts'
+import {
+  EMPTY_ROUND_HISTORY_FILTERS,
+  filterRoundHistory,
+  hasRoundHistoryFilters,
+  type RoundHistoryFilters,
+} from './roundHistoryFilters.ts'
 
 type RoundHistoryProfile = {
   id: string
@@ -146,7 +152,28 @@ function RoundHistory({
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [expandedRoundId, setExpandedRoundId] = useState('')
+  const [filters, setFilters] = useState<RoundHistoryFilters>({
+    ...EMPTY_ROUND_HISTORY_FILTERS,
+  })
   const profileId = profile?.id
+  const filteredRounds = useMemo(
+    () => filterRoundHistory(rounds, filters),
+    [filters, rounds],
+  )
+  const filtersActive = hasRoundHistoryFilters(filters)
+
+  function updateFilter<Key extends keyof RoundHistoryFilters>(
+    key: Key,
+    value: RoundHistoryFilters[Key],
+  ) {
+    setExpandedRoundId('')
+    setFilters((current) => ({ ...current, [key]: value }))
+  }
+
+  function clearFilters() {
+    setExpandedRoundId('')
+    setFilters({ ...EMPTY_ROUND_HISTORY_FILTERS })
+  }
 
   useEffect(() => {
     if (!profileId) {
@@ -324,14 +351,120 @@ function RoundHistory({
             </button>
           </div>
 
-          <ol className="history-list" aria-label={`${profile.name}'s rounds`}>
-            {rounds.map((round, index) => (
+          <section className="history-filters" aria-labelledby="history-filters-title">
+            <header>
+              <div>
+                <p className="form-kicker">Narrow your record</p>
+                <h3 id="history-filters-title">Filter rounds</h3>
+              </div>
+              <div className="history-filter-summary" aria-live="polite">
+                <span>
+                  {filteredRounds.length} of {rounds.length} rounds
+                </span>
+                <button type="button" disabled={!filtersActive} onClick={clearFilters}>
+                  Clear all
+                </button>
+              </div>
+            </header>
+
+            <div className="history-filter-grid">
+              <label className="history-filter-search">
+                Club, course, tee, or competition
+                <input
+                  type="search"
+                  value={filters.search}
+                  placeholder="e.g. Hallamshire"
+                  onChange={(event) => updateFilter('search', event.target.value)}
+                />
+              </label>
+              <label>
+                Round type
+                <select
+                  value={filters.roundType}
+                  onChange={(event) =>
+                    updateFilter(
+                      'roundType',
+                      event.target.value as RoundHistoryFilters['roundType'],
+                    )
+                  }
+                >
+                  <option value="ALL">All round types</option>
+                  <option value="CASUAL">Casual rounds</option>
+                  <option value="INDIVIDUAL_COMPETITION">Individual competitions</option>
+                  <option value="TEAM_COMPETITION">Team competitions</option>
+                </select>
+              </label>
+              <label>
+                Handicap status
+                <select
+                  value={filters.handicapStatus}
+                  onChange={(event) =>
+                    updateFilter(
+                      'handicapStatus',
+                      event.target.value as RoundHistoryFilters['handicapStatus'],
+                    )
+                  }
+                >
+                  <option value="ALL">All handicap statuses</option>
+                  <option value="COUNTING">Counting rounds</option>
+                  <option value="NOT_COUNTING">Not counting</option>
+                </select>
+              </label>
+              <label>
+                Scorecard status
+                <select
+                  value={filters.scorecardStatus}
+                  onChange={(event) =>
+                    updateFilter(
+                      'scorecardStatus',
+                      event.target.value as RoundHistoryFilters['scorecardStatus'],
+                    )
+                  }
+                >
+                  <option value="ALL">All scorecard statuses</option>
+                  <option value="VERIFIED">Verified</option>
+                  <option value="PENDING_REVIEW">Awaiting review</option>
+                  <option value="REJECTED">Rejected</option>
+                  <option value="NOT_REQUIRED">Record only</option>
+                </select>
+              </label>
+              <label>
+                From
+                <input
+                  type="date"
+                  value={filters.dateFrom}
+                  max={filters.dateTo || undefined}
+                  onChange={(event) => updateFilter('dateFrom', event.target.value)}
+                />
+              </label>
+              <label>
+                To
+                <input
+                  type="date"
+                  value={filters.dateTo}
+                  min={filters.dateFrom || undefined}
+                  onChange={(event) => updateFilter('dateTo', event.target.value)}
+                />
+              </label>
+            </div>
+          </section>
+
+          {filteredRounds.length === 0 ? (
+            <div className="history-filter-empty">
+              <p>No rounds match those filters.</p>
+              <button type="button" onClick={clearFilters}>Clear filters</button>
+            </div>
+          ) : (
+          <ol className="history-list" aria-label={`${profile.name}'s filtered rounds`}>
+            {filteredRounds.map((round) => (
               <li key={round.id}>
                 <article className="history-round-card">
                   <div className="history-round-number" aria-hidden="true">
                     <span>Round</span>
                     <strong>
-                      {String(rounds.length - index).padStart(2, '0')}
+                      {String(
+                        rounds.length - rounds.findIndex(({ id }) => id === round.id),
+                      ).padStart(2, '0')}
                     </strong>
                   </div>
 
@@ -449,6 +582,7 @@ function RoundHistory({
               </li>
             ))}
           </ol>
+          )}
         </>
       ) : null}
     </section>

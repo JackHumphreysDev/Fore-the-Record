@@ -34,6 +34,8 @@ The protected administrator portal includes searchable course catalogue manageme
 
 The Rounds screen includes a Handicap Index journey for the latest 20 verified eligible rounds. Round Entry calculates Front 9, Back 9, and complete totals automatically, and saved History rounds can be expanded to inspect every recorded hole and score-to-par result.
 
+Round History can be filtered by club, course, tee, competition text, round type, Handicap Index counting status, scorecard status, and inclusive playing dates. Filters can be combined and cleared together while each result keeps its original position in the player's record.
+
 Signed-in players can open Account Settings from Profile to change their displayed name, request a confirmed sign-in email change, or securely update their password. Sensitive changes require the current password, duplicate profile emails are blocked, and passwords never pass through the Fore the Record API.
 
 The Friends screen lets signed-in players find active profiles by first or last name, distinguish matching names by home club, and exchange friend requests. Accepted friends can see each other's current Handicap Index. Email addresses, rounds, and private performance statistics are never included in friend search or connection responses.
@@ -44,7 +46,7 @@ The application features are still under development. The core handicap calculat
 
 ## Roadmap and releases
 
-The current application version is `0.21.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.22.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)

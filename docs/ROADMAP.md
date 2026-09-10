@@ -20,13 +20,17 @@ This roadmap records agreed future work. Items are planned requirements, not com
 14. Account settings. Completed in `0.19.0`.
 15. Friends and player connections. Completed in `0.20.0`.
 16. Player goals. Completed in `0.21.0`.
-17. Round-history filters.
+17. Round-history filters. Completed in `0.22.0`.
 18. Round notes.
 19. Email notifications. Production delivery depends on the future custom domain and email configuration.
 20. Privacy and account controls.
 21. Installable mobile app.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Round-history filters — completed in 0.22.0
+
+Players can narrow their authenticated Round History by club, course, tee, competition name or format, round type, Handicap Index counting status, scorecard-review status, and inclusive playing dates. Filters combine immediately, report the matching count, preserve original record numbers, and can be cleared together. Filtering operates only on the current player's already authorized history response and makes no external provider requests.
 
 ## Player goals — completed in 0.21.0
 

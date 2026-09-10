@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'round-history-filters',
+    publishedAt: '2026-09-10',
+    title: 'Find the round you are looking for',
+    summary:
+      'Round History now lets you narrow your record without losing the details behind each score.',
+    highlights: [
+      'Search by club, course, tee, competition name, or competition format.',
+      'Combine round type, handicap status, scorecard status, and date filters.',
+      'See the matching total immediately and clear every filter in one action.',
+    ],
+  },
+  {
     id: 'player-goals',
     publishedAt: '2026-09-10',
     title: 'Set your next golfing target',

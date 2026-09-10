@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.22.0 - 2026-09-10
+
+### User-facing changes
+
+- Added combined filters to Round History for club, course, tee, or competition text.
+- Added round-type, Handicap Index counting-status, scorecard-status, and inclusive date-range filters.
+- Added live matching-round totals, clear-all controls, and a useful no-matches state.
+- Preserved each round's original record number while a filtered subset is displayed.
+
+### Developer and admin changes
+
+- Added reusable, side-effect-free round filtering and active-filter detection.
+- Kept filtering inside the already authenticated, player-owned history data with no additional provider requests.
+- Added combined-filter, search-field, counting-status, date-range, and reset regression coverage.
+
 ## 0.21.0 - 2026-09-10
 
 ### User-facing changes
