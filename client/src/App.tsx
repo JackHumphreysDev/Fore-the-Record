@@ -10,6 +10,7 @@ import {
 import AuthScreen from './AuthScreen.tsx'
 import brandLogo from './assets/fore-the-record-logo.png'
 import CourseSearch from './CourseSearch.tsx'
+import Friends from './Friends.tsx'
 import HomeClubSelector from './HomeClubSelector.tsx'
 import PasswordRecovery from './PasswordRecovery.tsx'
 import PerformanceSummary from './PerformanceSummary.tsx'
@@ -26,6 +27,7 @@ const AdminPortal = lazy(() => import('./AdminPortal.tsx'))
 
 type ActiveView =
   | 'profile'
+  | 'friends'
   | 'courses'
   | 'rounds'
   | 'history'
@@ -521,6 +523,13 @@ function App() {
           </button>
           <button
             type="button"
+            aria-current={activeView === 'friends' ? 'page' : undefined}
+            onClick={() => setActiveView('friends')}
+          >
+            Friends
+          </button>
+          <button
+            type="button"
             aria-current={activeView === 'support' ? 'page' : undefined}
             onClick={() => {
               setSupportInitialType('IDEA')
@@ -694,6 +703,8 @@ function App() {
             onBack={() => setActiveView('profile')}
             onProfileUpdated={updateProfileDetails}
           />
+        ) : activeView === 'friends' ? (
+          <Friends profileId={profile.id} />
         ) : activeView === 'courses' ? (
           <CourseSearch
             onReportMissingCourse={() => {

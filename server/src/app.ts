@@ -2,6 +2,10 @@ import express from 'express'
 import { randomUUID } from 'node:crypto'
 import { getAccountStatusByAuthUserId } from './accountAccess.js'
 import {
+  buildFriendshipPairKey,
+  normalizeFriendSearch,
+} from './friendships.js'
+import {
   normalizeAccountEmail,
   parseProfileName,
 } from './accountSettings.js'
@@ -57,6 +61,7 @@ import {
   type TeeSource as TeeSourceValue,
   UserRole,
   UserStatus,
+  FriendshipStatus,
   ScorecardSource,
   RoundParticipation,
   RoundScorecardStatus,
@@ -120,6 +125,27 @@ const PROFILE_SELECT = {
       name: true,
     },
   },
+} as const
+
+const FRIEND_PLAYER_SELECT = {
+  id: true,
+  name: true,
+  handicapIndex: true,
+  homeClub: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+} as const
+
+const FRIENDSHIP_SELECT = {
+  id: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  requester: { select: FRIEND_PLAYER_SELECT },
+  addressee: { select: FRIEND_PLAYER_SELECT },
 } as const
 
 const ADMIN_PROFILE_SELECT = {
@@ -403,6 +429,16 @@ function serializeProfile<
     ...profile,
     handicapIndex:
       profile.handicapIndex === null ? null : Number(profile.handicapIndex),
+  }
+}
+
+function serializeFriendPlayer<
+  T extends { handicapIndex: unknown | null },
+>(player: T) {
+  return {
+    ...player,
+    handicapIndex:
+      player.handicapIndex === null ? null : Number(player.handicapIndex),
   }
 }
 
@@ -2679,6 +2715,333 @@ app.delete(
     response.status(204).send()
   },
 )
+
+app.get('/api/users/me/friends', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const friendships = await prisma.friendship.findMany({
+    where: {
+      OR: [{ requesterId: user.id }, { addresseeId: user.id }],
+      requester: { status: UserStatus.ACTIVE },
+      addressee: { status: UserStatus.ACTIVE },
+    },
+    orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    select: FRIENDSHIP_SELECT,
+  })
+
+  const result = {
+    friends: [] as unknown[],
+    incoming: [] as unknown[],
+    outgoing: [] as unknown[],
+  }
+
+  for (const friendship of friendships) {
+    const isRequester = friendship.requester.id === user.id
+    const otherPlayer = isRequester
+      ? friendship.addressee
+      : friendship.requester
+    const item = {
+      id: friendship.id,
+      createdAt: friendship.createdAt,
+      updatedAt: friendship.updatedAt,
+      player: serializeFriendPlayer(otherPlayer),
+    }
+
+    if (friendship.status === FriendshipStatus.ACCEPTED) {
+      result.friends.push(item)
+    } else if (isRequester) {
+      result.outgoing.push(item)
+    } else {
+      result.incoming.push(item)
+    }
+  }
+
+  response.status(200).json(result)
+})
+
+app.get('/api/users/me/friends/search', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const search = normalizeFriendSearch(request.query.q)
+
+  if (!search) {
+    response.status(400).json({
+      error: 'Enter at least 2 characters to search for a player',
+    })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const terms = search.split(' ')
+  const players = await prisma.user.findMany({
+    where: {
+      id: { not: user.id },
+      authUserId: { not: null },
+      status: UserStatus.ACTIVE,
+      AND: terms.map((term) => ({
+        name: { contains: term, mode: 'insensitive' as const },
+      })),
+    },
+    orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    take: 20,
+    select: FRIEND_PLAYER_SELECT,
+  })
+
+  const relationships = await prisma.friendship.findMany({
+    where: {
+      pairKey: {
+        in: players.map((player) =>
+          buildFriendshipPairKey(user.id, player.id),
+        ),
+      },
+    },
+    select: {
+      id: true,
+      pairKey: true,
+      requesterId: true,
+      status: true,
+    },
+  })
+  const relationshipByPair = new Map(
+    relationships.map((relationship) => [relationship.pairKey, relationship]),
+  )
+
+  response.status(200).json({
+    players: players.map((player) => {
+      const relationship = relationshipByPair.get(
+        buildFriendshipPairKey(user.id, player.id),
+      )
+      return {
+        ...serializeFriendPlayer(player),
+        relationship: relationship
+          ? {
+              id: relationship.id,
+              status: relationship.status,
+              direction:
+                relationship.requesterId === user.id ? 'OUTGOING' : 'INCOMING',
+            }
+          : null,
+      }
+    }),
+  })
+})
+
+app.post('/api/users/me/friend-requests', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const body: unknown = request.body
+  const addresseeId = isRecord(body) ? body.playerId : undefined
+
+  if (typeof addresseeId !== 'string' || !UUID_PATTERN.test(addresseeId)) {
+    response.status(400).json({ error: 'Invalid player ID' })
+    return
+  }
+
+  const requester = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!requester) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  if (requester.id === addresseeId) {
+    response.status(400).json({ error: 'You cannot add yourself as a friend' })
+    return
+  }
+
+  const addressee = await prisma.user.findFirst({
+    where: {
+      id: addresseeId,
+      authUserId: { not: null },
+      status: UserStatus.ACTIVE,
+    },
+    select: FRIEND_PLAYER_SELECT,
+  })
+
+  if (!addressee) {
+    response.status(404).json({ error: 'Player not found' })
+    return
+  }
+
+  const pairKey = buildFriendshipPairKey(requester.id, addressee.id)
+  const existing = await prisma.friendship.findUnique({
+    where: { pairKey },
+    select: { requesterId: true, status: true },
+  })
+
+  if (existing) {
+    const message =
+      existing.status === FriendshipStatus.ACCEPTED
+        ? 'You are already friends with this player'
+        : existing.requesterId === requester.id
+          ? 'You have already sent this player a friend request'
+          : 'This player has already sent you a friend request'
+    response.status(409).json({ error: message })
+    return
+  }
+
+  try {
+    const friendship = await prisma.friendship.create({
+      data: {
+        pairKey,
+        requesterId: requester.id,
+        addresseeId: addressee.id,
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+    response.status(201).json({
+      ...friendship,
+      player: serializeFriendPlayer(addressee),
+    })
+  } catch (error: unknown) {
+    if (isUniqueConstraintError(error)) {
+      response.status(409).json({ error: 'A friend request already exists' })
+      return
+    }
+    throw error
+  }
+})
+
+app.patch('/api/users/me/friend-requests/:id', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const friendshipId = request.params.id
+  const body: unknown = request.body
+  const action = isRecord(body) ? body.action : undefined
+
+  if (!UUID_PATTERN.test(friendshipId)) {
+    response.status(400).json({ error: 'Invalid friend request ID' })
+    return
+  }
+  if (action !== 'accept' && action !== 'decline') {
+    response.status(400).json({ error: 'Choose accept or decline' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const friendship = await prisma.friendship.findFirst({
+    where: {
+      id: friendshipId,
+      addresseeId: user.id,
+      status: FriendshipStatus.PENDING,
+      requester: {
+        authUserId: { not: null },
+        status: UserStatus.ACTIVE,
+      },
+    },
+    select: { id: true },
+  })
+  if (!friendship) {
+    response.status(404).json({ error: 'Friend request not found' })
+    return
+  }
+
+  if (action === 'decline') {
+    await prisma.friendship.delete({ where: { id: friendship.id } })
+    response.status(204).send()
+    return
+  }
+
+  await prisma.friendship.update({
+    where: { id: friendship.id },
+    data: { status: FriendshipStatus.ACCEPTED },
+  })
+  response.status(200).json({ status: FriendshipStatus.ACCEPTED })
+})
+
+app.delete('/api/users/me/friend-requests/:id', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const friendshipId = request.params.id
+
+  if (!UUID_PATTERN.test(friendshipId)) {
+    response.status(400).json({ error: 'Invalid friend request ID' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const deletion = await prisma.friendship.deleteMany({
+    where: {
+      id: friendshipId,
+      requesterId: user.id,
+      status: FriendshipStatus.PENDING,
+    },
+  })
+  if (deletion.count === 0) {
+    response.status(404).json({ error: 'Friend request not found' })
+    return
+  }
+  response.status(204).send()
+})
+
+app.delete('/api/users/me/friends/:id', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const friendshipId = request.params.id
+
+  if (!UUID_PATTERN.test(friendshipId)) {
+    response.status(400).json({ error: 'Invalid friendship ID' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const deletion = await prisma.friendship.deleteMany({
+    where: {
+      id: friendshipId,
+      status: FriendshipStatus.ACCEPTED,
+      OR: [{ requesterId: user.id }, { addresseeId: user.id }],
+    },
+  })
+  if (deletion.count === 0) {
+    response.status(404).json({ error: 'Friendship not found' })
+    return
+  }
+  response.status(204).send()
+})
 
 app.get('/api/users/me', async (_request, response) => {
   const authenticatedUser = getRequestUser(response.locals)

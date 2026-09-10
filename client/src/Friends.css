@@ -1,0 +1,255 @@
+.friends-page {
+  padding: clamp(48px, 7vw, 92px) 0 72px;
+}
+
+.friends-heading {
+  max-width: 760px;
+  margin-bottom: 36px;
+}
+
+.friends-heading h1 {
+  margin: 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(52px, 7vw, 86px);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -3px;
+}
+
+.friends-heading > p:last-child {
+  margin: 20px 0 0;
+  color: var(--ink-muted);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.friend-search {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  border-radius: 16px;
+  color: white;
+  background: var(--forest);
+}
+
+.friend-search label {
+  display: grid;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.friend-search input {
+  min-height: 56px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  outline: none;
+  color: white;
+  background: rgba(8, 25, 19, 0.62);
+  font-size: 16px;
+}
+
+.friend-search input:focus {
+  border-color: var(--lime);
+  box-shadow: 0 0 0 3px rgba(215, 255, 79, 0.18);
+}
+
+.friend-search button,
+.friend-card > button,
+.friend-actions button {
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--forest-deep);
+  background: var(--lime);
+  font-weight: 800;
+}
+
+.friend-search > button {
+  align-self: end;
+  min-height: 56px;
+}
+
+.friend-search small {
+  grid-column: 1 / -1;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.friends-alert,
+.friends-state,
+.friends-empty {
+  margin: 20px 0 0;
+  padding: 14px 16px;
+  border-radius: 9px;
+  color: var(--forest-deep);
+  background: rgba(104, 137, 0, 0.14);
+  font-weight: 700;
+}
+
+.friends-alert.is-error {
+  color: #7e3026;
+  background: rgba(164, 63, 50, 0.1);
+}
+
+.friend-sections {
+  display: grid;
+  gap: 30px;
+  margin-top: 30px;
+}
+
+.friend-section {
+  margin-top: 30px;
+}
+
+.friend-sections .friend-section {
+  margin-top: 0;
+}
+
+.friend-section h2 {
+  margin: 0 0 14px;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 29px;
+  font-weight: 400;
+}
+
+.friend-list {
+  display: grid;
+  gap: 10px;
+}
+
+.friend-card {
+  padding: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--paper);
+  box-shadow: 0 12px 28px rgba(12, 40, 29, 0.05);
+}
+
+.friend-identity {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+}
+
+.friend-identity > span {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: var(--forest);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.friend-identity > div:not(.friend-handicap) {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.friend-identity strong,
+.friend-identity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-identity small,
+.friend-status {
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+
+.friend-handicap {
+  min-width: 112px;
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  padding-left: 15px;
+  border-left: 1px solid var(--line);
+}
+
+.friend-handicap strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  font-weight: 400;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.friend-card .is-secondary {
+  border: 1px solid var(--line);
+  color: var(--forest);
+  background: transparent;
+}
+
+.friend-search button:disabled,
+.friend-card button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.friend-search button:focus-visible,
+.friend-card button:focus-visible {
+  outline: 3px solid var(--forest-soft);
+  outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .friend-search {
+    grid-template-columns: 1fr;
+  }
+
+  .friend-search > button,
+  .friend-search small {
+    grid-column: auto;
+  }
+
+  .friend-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .friend-actions,
+  .friend-card > button {
+    width: 100%;
+  }
+
+  .friend-actions button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 470px) {
+  .friend-identity {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .friend-handicap {
+    grid-column: 2;
+    min-width: 0;
+    justify-items: start;
+    padding: 8px 0 0;
+    border: 0;
+  }
+}

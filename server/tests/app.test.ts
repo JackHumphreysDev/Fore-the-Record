@@ -64,6 +64,13 @@ const {
   userCoursePreferenceUpsertMock,
   userCoursePreferenceUpdateMock,
   userCoursePreferenceDeleteManyMock,
+  friendshipFindManyMock,
+  friendshipFindUniqueMock,
+  friendshipFindFirstMock,
+  friendshipCreateMock,
+  friendshipUpdateMock,
+  friendshipDeleteMock,
+  friendshipDeleteManyMock,
 } = vi.hoisted(() => ({
   getAuthenticatedUserMock: vi.fn(),
   getVerifiedTokenSubjectMock: vi.fn(),
@@ -127,6 +134,13 @@ const {
   userCoursePreferenceUpsertMock: vi.fn(),
   userCoursePreferenceUpdateMock: vi.fn(),
   userCoursePreferenceDeleteManyMock: vi.fn(),
+  friendshipFindManyMock: vi.fn(),
+  friendshipFindUniqueMock: vi.fn(),
+  friendshipFindFirstMock: vi.fn(),
+  friendshipCreateMock: vi.fn(),
+  friendshipUpdateMock: vi.fn(),
+  friendshipDeleteMock: vi.fn(),
+  friendshipDeleteManyMock: vi.fn(),
 }))
 
 vi.mock('../src/database.js', () => ({
@@ -174,6 +188,15 @@ vi.mock('../src/database.js', () => ({
       upsert: userCoursePreferenceUpsertMock,
       update: userCoursePreferenceUpdateMock,
       deleteMany: userCoursePreferenceDeleteManyMock,
+    },
+    friendship: {
+      findMany: friendshipFindManyMock,
+      findUnique: friendshipFindUniqueMock,
+      findFirst: friendshipFindFirstMock,
+      create: friendshipCreateMock,
+      update: friendshipUpdateMock,
+      delete: friendshipDeleteMock,
+      deleteMany: friendshipDeleteManyMock,
     },
     round: {
       count: roundCountMock,
@@ -358,6 +381,15 @@ beforeEach(() => {
   userCoursePreferenceUpdateMock.mockReset()
   userCoursePreferenceDeleteManyMock.mockReset()
   userCoursePreferenceDeleteManyMock.mockResolvedValue({ count: 0 })
+  friendshipFindManyMock.mockReset()
+  friendshipFindManyMock.mockResolvedValue([])
+  friendshipFindUniqueMock.mockReset()
+  friendshipFindFirstMock.mockReset()
+  friendshipCreateMock.mockReset()
+  friendshipUpdateMock.mockReset()
+  friendshipDeleteMock.mockReset()
+  friendshipDeleteManyMock.mockReset()
+  friendshipDeleteManyMock.mockResolvedValue({ count: 0 })
 })
 
 describe('GET /api/health', () => {
@@ -2119,6 +2151,143 @@ describe('player course preferences', () => {
       error: 'The default tee must belong to this course',
     })
     expect(userCoursePreferenceUpdateMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('friend connections API', () => {
+  const currentUserId = '11111111-1111-4111-8111-111111111111'
+  const otherUserId = '22222222-2222-4222-8222-222222222222'
+  const friendshipId = '33333333-3333-4333-8333-333333333333'
+  const otherPlayer = {
+    id: otherUserId,
+    name: 'Tiger Woods',
+    handicapIndex: '1.4',
+    homeClub: { id: '44444444-4444-4444-8444-444444444444', name: 'Medinah' },
+  }
+
+  it('returns accepted and pending connections without private account data', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    friendshipFindManyMock.mockResolvedValueOnce([
+      {
+        id: friendshipId,
+        status: 'ACCEPTED',
+        createdAt: new Date('2026-09-10T09:00:00.000Z'),
+        updatedAt: new Date('2026-09-10T10:00:00.000Z'),
+        requester: { id: currentUserId, name: 'Jack', handicapIndex: null, homeClub: null },
+        addressee: otherPlayer,
+      },
+    ])
+
+    const response = await request(app).get('/api/users/me/friends')
+
+    expect(response.status).toBe(200)
+    expect(response.body.friends).toHaveLength(1)
+    expect(response.body.friends[0].player).toEqual({
+      ...otherPlayer,
+      handicapIndex: 1.4,
+    })
+    expect(response.body.friends[0].player).not.toHaveProperty('email')
+    expect(response.body.incoming).toEqual([])
+    expect(response.body.outgoing).toEqual([])
+  })
+
+  it('searches active linked profiles by each supplied name term', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    userFindManyMock.mockResolvedValueOnce([otherPlayer])
+    friendshipFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).get(
+      '/api/users/me/friends/search?q=Tiger%20Woods',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.players[0]).toEqual({
+      ...otherPlayer,
+      handicapIndex: 1.4,
+      relationship: null,
+    })
+    expect(userFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { not: currentUserId },
+          authUserId: { not: null },
+          status: 'ACTIVE',
+          AND: [
+            { name: { contains: 'Tiger', mode: 'insensitive' } },
+            { name: { contains: 'Woods', mode: 'insensitive' } },
+          ],
+        }),
+        take: 20,
+      }),
+    )
+  })
+
+  it('creates one direction-independent friend request', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    userFindFirstMock.mockResolvedValueOnce(otherPlayer)
+    friendshipFindUniqueMock.mockResolvedValueOnce(null)
+    friendshipCreateMock.mockResolvedValueOnce({
+      id: friendshipId,
+      createdAt: new Date('2026-09-10T10:00:00.000Z'),
+      updatedAt: new Date('2026-09-10T10:00:00.000Z'),
+    })
+
+    const response = await request(app)
+      .post('/api/users/me/friend-requests')
+      .send({ playerId: otherUserId })
+
+    expect(response.status).toBe(201)
+    expect(friendshipCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          pairKey: `${currentUserId}:${otherUserId}`,
+          requesterId: currentUserId,
+          addresseeId: otherUserId,
+        },
+      }),
+    )
+  })
+
+  it('prevents a player from sending a request to themselves', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+
+    const response = await request(app)
+      .post('/api/users/me/friend-requests')
+      .send({ playerId: currentUserId })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: 'You cannot add yourself as a friend',
+    })
+    expect(friendshipCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('only lets the receiving player accept a pending request', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    friendshipFindFirstMock.mockResolvedValueOnce({ id: friendshipId })
+    friendshipUpdateMock.mockResolvedValueOnce({})
+
+    const response = await request(app)
+      .patch(`/api/users/me/friend-requests/${friendshipId}`)
+      .send({ action: 'accept' })
+
+    expect(response.status).toBe(200)
+    expect(friendshipFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: friendshipId,
+        addresseeId: currentUserId,
+        status: 'PENDING',
+        requester: {
+          authUserId: { not: null },
+          status: 'ACTIVE',
+        },
+      },
+      select: { id: true },
+    })
+    expect(friendshipUpdateMock).toHaveBeenCalledWith({
+      where: { id: friendshipId },
+      data: { status: 'ACCEPTED' },
+    })
   })
 })
 

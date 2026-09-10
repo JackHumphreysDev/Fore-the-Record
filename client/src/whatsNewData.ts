@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'friends-and-player-connections',
+    publishedAt: '2026-09-10',
+    title: 'Connect with your golfing friends',
+    summary:
+      'Find other Fore the Record players by name and send them a friend request.',
+    highlights: [
+      'Use a player’s home club to identify the right account when names are similar.',
+      'See an accepted friend’s current Handicap Index or whether they are still awaiting one.',
+      'Accept, decline, cancel, or remove connections while emails, rounds, and private statistics stay hidden.',
+    ],
+  },
+  {
     id: 'account-settings',
     publishedAt: '2026-09-10',
     title: 'Keep your account details up to date',
