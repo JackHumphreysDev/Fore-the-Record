@@ -68,6 +68,7 @@ export function filterRoundHistory(
         round.tee.teeName,
         round.competitionName ?? '',
         round.competitionFormat ?? '',
+        round.notes ?? '',
       ].join(' '),
     )
 

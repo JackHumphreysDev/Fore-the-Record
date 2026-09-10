@@ -21,6 +21,7 @@ import {
 import './RoundEntry.css'
 import HandicapProgressionChart from './HandicapProgressionChart.tsx'
 import { calculateRoundScoreTotals } from './roundScorecardTotals.ts'
+import { ROUND_NOTES_MAX_LENGTH } from './roundNotesApi.ts'
 
 type RoundEntryProfile = {
   id: string
@@ -46,6 +47,7 @@ type RoundForm = {
   numberOfPlayers: string
   grossScore: string
   weatherCondition: WeatherCondition
+  notes: string
 }
 
 type RoundFormErrors = Partial<
@@ -57,7 +59,8 @@ type RoundFormErrors = Partial<
     | 'competitionFormat'
     | 'numberOfPlayers'
     | 'grossScore'
-    | 'scorecard',
+    | 'scorecard'
+    | 'notes',
     string
   >
 >
@@ -258,6 +261,7 @@ function RoundEntry({
     numberOfPlayers: '',
     grossScore: '',
     weatherCondition: 'DRY',
+    notes: '',
   })
   const [errors, setErrors] = useState<RoundFormErrors>({})
   const [courseSearchError, setCourseSearchError] = useState('')
@@ -546,6 +550,10 @@ function RoundEntry({
     const nextErrors: RoundFormErrors = {}
     const grossScore = Number(form.grossScore)
 
+    if (form.notes.length > ROUND_NOTES_MAX_LENGTH) {
+      nextErrors.notes = `Keep your round notes to ${ROUND_NOTES_MAX_LENGTH.toLocaleString('en-GB')} characters or fewer`
+    }
+
     if (!selectedTee) {
       nextErrors.teeId = 'Choose a saved tee'
     }
@@ -662,6 +670,7 @@ function RoundEntry({
           timePlayed: form.timePlayed,
           category: form.category,
           participation: form.participation,
+          notes: form.notes,
           ...(isCompetition
             ? {
                 competitionName: form.competitionName.trim(),
@@ -855,6 +864,7 @@ function RoundEntry({
                   competitionFormat: '',
                   numberOfPlayers: '',
                   grossScore: '',
+                  notes: '',
                   timePlayed: getCurrentTime(),
                 }))
                 setHoleEntries((current) =>
@@ -1464,6 +1474,25 @@ function RoundEntry({
                 </p>
               </div>
             )}
+
+            <div className="round-field round-notes-field">
+              <label htmlFor="round-notes">Round notes <span>Optional</span></label>
+              <textarea
+                id="round-notes"
+                rows={5}
+                maxLength={ROUND_NOTES_MAX_LENGTH}
+                placeholder="How did the round feel? Add memorable shots, lessons, or anything you want to revisit."
+                value={form.notes}
+                aria-invalid={Boolean(errors.notes)}
+                aria-describedby="round-notes-help"
+                onChange={(event) => updateField('notes', event.target.value)}
+              />
+              <div className="round-notes-help" id="round-notes-help">
+                <small>Private to your account. You can edit this later in Round History.</small>
+                <small>{form.notes.length.toLocaleString('en-GB')} / {ROUND_NOTES_MAX_LENGTH.toLocaleString('en-GB')}</small>
+              </div>
+              {errors.notes ? <span className="round-field-error">{errors.notes}</span> : null}
+            </div>
 
             {submitError ? (
               <div className="round-submit-error" role="alert">

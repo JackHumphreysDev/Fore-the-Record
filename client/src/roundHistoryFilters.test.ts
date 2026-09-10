@@ -42,6 +42,7 @@ function round(
       },
     },
     ...overrides,
+    notes: overrides.notes ?? null,
   }
 }
 
@@ -112,5 +113,14 @@ describe('round history filters', () => {
     }
     expect(hasRoundHistoryFilters(filters)).toBe(true)
     expect(filterRoundHistory([casual, competition], filters)).toEqual([casual])
+  })
+
+  it('searches the player’s private round notes', () => {
+    const memorable = round('memorable', { notes: 'Long birdie putt on seventeen' })
+
+    expect(filterRoundHistory([casual, memorable], {
+      ...EMPTY_ROUND_HISTORY_FILTERS,
+      search: 'birdie putt',
+    })).toEqual([memorable])
   })
 })

@@ -39,6 +39,7 @@ const {
   roundFindManyMock,
   roundFindFirstMock,
   roundFindUniqueMock,
+  roundUpdateManyMock,
   roundDeleteManyMock,
   submissionCountMock,
   submissionCreateMock,
@@ -112,6 +113,7 @@ const {
   roundFindManyMock: vi.fn(),
   roundFindFirstMock: vi.fn(),
   roundFindUniqueMock: vi.fn(),
+  roundUpdateManyMock: vi.fn(),
   roundDeleteManyMock: vi.fn(),
   submissionCountMock: vi.fn(),
   submissionCreateMock: vi.fn(),
@@ -214,6 +216,7 @@ vi.mock('../src/database.js', () => ({
       findFirst: roundFindFirstMock,
       findMany: roundFindManyMock,
       findUnique: roundFindUniqueMock,
+      updateMany: roundUpdateManyMock,
       deleteMany: roundDeleteManyMock,
     },
     submission: {
@@ -358,6 +361,7 @@ beforeEach(() => {
   roundFindFirstMock.mockReset()
   roundFindManyMock.mockReset()
   roundFindUniqueMock.mockReset()
+  roundUpdateManyMock.mockReset()
   roundDeleteManyMock.mockReset()
   roundDeleteManyMock.mockResolvedValue({ count: 0 })
   submissionCountMock.mockReset()
@@ -2857,6 +2861,7 @@ describe('GET /api/users/me/rounds', () => {
           competitionName: 'Captain’s Day',
           competitionFormat: 'Medal',
           numberOfPlayers: 84,
+          notes: 'Great recovery on the back nine.',
           grossScore: 90,
           adjustedGrossScore: 88,
           isCapped: true,
@@ -2901,7 +2906,8 @@ describe('GET /api/users/me/rounds', () => {
         participation: 'INDIVIDUAL',
         competitionName: 'Captain’s Day',
         competitionFormat: 'Medal',
-        numberOfPlayers: 84,
+          numberOfPlayers: 84,
+          notes: 'Great recovery on the back nine.',
         grossScore: 90,
         adjustedGrossScore: 88,
         isCapped: true,
@@ -3019,6 +3025,86 @@ describe('GET /api/users/me/rounds', () => {
     expect(response.body).toEqual({ error: 'User not found' })
   })
 
+})
+
+describe('PATCH /api/users/me/rounds/:roundId/notes', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const roundId = '33333333-3333-4333-8333-333333333333'
+
+  it('updates a note only through the authenticated round owner', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    roundUpdateManyMock.mockResolvedValueOnce({ count: 1 })
+
+    const response = await request(app)
+      .patch(`/api/users/me/rounds/${roundId}/notes`)
+      .send({ notes: '  Great recovery on the back nine.  ' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      roundId,
+      notes: 'Great recovery on the back nine.',
+    })
+    expect(roundUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: roundId, userId },
+      data: { notes: 'Great recovery on the back nine.' },
+    })
+  })
+
+  it('clears a blank note', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    roundUpdateManyMock.mockResolvedValueOnce({ count: 1 })
+
+    const response = await request(app)
+      .patch(`/api/users/me/rounds/${roundId}/notes`)
+      .send({ notes: '   ' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ roundId, notes: null })
+    expect(roundUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: roundId, userId },
+      data: { notes: null },
+    })
+  })
+
+  it('rejects invalid notes before accessing a round', async () => {
+    const response = await request(app)
+      .patch(`/api/users/me/rounds/${roundId}/notes`)
+      .send({ notes: 'x'.repeat(2001) })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: 'Round notes must be 2,000 characters or fewer',
+    })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+    expect(roundUpdateManyMock).not.toHaveBeenCalled()
+  })
+
+  it('requires an explicit note value', async () => {
+    const response = await request(app)
+      .patch(`/api/users/me/rounds/${roundId}/notes`)
+      .send({})
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Round notes are required' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+    expect(roundUpdateManyMock).not.toHaveBeenCalled()
+  })
+
+  it('does not reveal or update another player’s round', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    roundUpdateManyMock.mockResolvedValueOnce({ count: 0 })
+
+    const response = await request(app)
+      .patch(`/api/users/me/rounds/${roundId}/notes`)
+      .send({ notes: 'Private note' })
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'Round not found' })
+    expect(roundUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: roundId, userId },
+      data: { notes: 'Private note' },
+    })
+  })
 })
 
 describe('GET /api/catalogue/clubs', () => {

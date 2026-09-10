@@ -283,6 +283,7 @@ model Round {
   competitionName    String?              @db.VarChar(120)
   competitionFormat  String?              @db.VarChar(100)
   numberOfPlayers    Int?
+  notes              String?              @db.VarChar(2000)
   grossScore         Int?
   adjustedGrossScore Int?
   isCapped           Boolean              @default(false)

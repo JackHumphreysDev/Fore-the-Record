@@ -1,0 +1,2 @@
+ALTER TABLE "Round"
+ADD COLUMN "notes" VARCHAR(2000);

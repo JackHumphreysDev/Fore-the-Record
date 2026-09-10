@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.23.0 - 2026-09-10
+
+### User-facing changes
+
+- Added optional private notes while recording individual and team rounds.
+- Added round notes to every History card with clear empty states and character counts.
+- Added note editing, clearing, and saving directly from Round History.
+- Included private note text in the player's existing round-history search.
+
+### Developer and admin changes
+
+- Added nullable round-note storage with a 2,000-character database limit.
+- Added an authenticated owner-scoped note update endpoint that cannot access another player's round.
+- Kept notes separate from score, scorecard-review, and Handicap Index calculations.
+- Added note normalization, length validation, ownership, response-contract, and search regression coverage.
+
 ## 0.22.0 - 2026-09-10
 
 ### User-facing changes

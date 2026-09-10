@@ -21,12 +21,16 @@ This roadmap records agreed future work. Items are planned requirements, not com
 15. Friends and player connections. Completed in `0.20.0`.
 16. Player goals. Completed in `0.21.0`.
 17. Round-history filters. Completed in `0.22.0`.
-18. Round notes.
+18. Round notes. Completed in `0.23.0`.
 19. Email notifications. Production delivery depends on the future custom domain and email configuration.
 20. Privacy and account controls.
 21. Installable mobile app.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Round notes — completed in 0.23.0
+
+Players can add an optional private note to any individual or team round while recording it, then read, edit, or clear that note from Round History. Notes support multiple lines, are limited to 2,000 characters, and are included in the player's existing History search. Updates are scoped to the authenticated owner and do not change scores, scorecard reviews, or Handicap Index calculations.
 
 ## Round-history filters — completed in 0.22.0
 
