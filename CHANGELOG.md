@@ -14,6 +14,23 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.19.0 - 2026-09-10
+
+### User-facing changes
+
+- Added a dedicated Account Settings screen linked from the signed-in Profile.
+- Added validated full-name editing with immediate profile updates.
+- Added secure email changes that require the current password and confirmation before replacing the active sign-in email.
+- Added password changes that verify the current password and clear every password field after completion.
+- Added clear validation, duplicate-email, rate-limit, loading, success, and failure feedback.
+
+### Developer and admin changes
+
+- Added authenticated, player-owned profile-name and email-availability endpoints.
+- Added verified identity-to-profile email synchronisation after a confirmed authentication email change.
+- Kept all password verification and mutation between the browser and the authentication provider; passwords never enter the application API or database.
+- Added shared input normalisation and regression coverage for account settings validation, ownership, duplicate emails, and verified email synchronisation.
+
 ## 0.18.0 - 2026-09-09
 
 ### User-facing changes

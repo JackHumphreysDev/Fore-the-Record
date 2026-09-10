@@ -586,6 +586,26 @@
   background: var(--lime);
 }
 
+.profile-actions {
+  display: grid;
+  gap: 14px;
+}
+
+.profile-sign-out {
+  padding: 8px;
+  border: 0;
+  color: var(--forest);
+  background: transparent;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.profile-sign-out:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
 .site-footer {
   min-height: 65px;
   display: flex;

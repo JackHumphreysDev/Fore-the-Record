@@ -2183,6 +2183,115 @@ describe('GET /api/users/me', () => {
   })
 })
 
+describe('account settings profile API', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const profile = {
+    id: userId,
+    name: 'Jack Humphreys',
+    email: 'jack@example.com',
+    homeClubId: null,
+    handicapIndex: null,
+    createdAt: new Date('2026-08-29T12:00:00.000Z'),
+    homeClub: null,
+  }
+
+  it('updates only the authenticated profile with a normalized name', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    userUpdateMock.mockResolvedValueOnce({
+      ...profile,
+      name: "Jack O'Brien-Smith",
+    })
+
+    const response = await request(app)
+      .patch('/api/users/me/settings/profile')
+      .send({ name: "  Jack   O'Brien-Smith " })
+
+    expect(response.status).toBe(200)
+    expect(response.body.name).toBe("Jack O'Brien-Smith")
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: userId },
+      data: { name: "Jack O'Brien-Smith" },
+      select: expect.objectContaining({ id: true, name: true, email: true }),
+    })
+  })
+
+  it('rejects an invalid profile name before querying the database', async () => {
+    const response = await request(app)
+      .patch('/api/users/me/settings/profile')
+      .send({ name: 'Jack 123' })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toContain('Use letters')
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects an email already connected to another profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: userId,
+      email: 'jack@example.com',
+    })
+    userFindFirstMock.mockResolvedValueOnce({ id: 'another-user' })
+
+    const response = await request(app)
+      .post('/api/users/me/settings/email-availability')
+      .send({ email: ' Player@Example.com ' })
+
+    expect(response.status).toBe(409)
+    expect(response.body).toEqual({
+      error: 'That email address is already connected to another profile',
+    })
+    expect(userFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: { not: userId },
+        email: { equals: 'player@example.com', mode: 'insensitive' },
+      },
+      select: { id: true },
+    })
+  })
+
+  it('synchronizes only the verified email from the authenticated identity', async () => {
+    getAuthenticatedUserMock.mockResolvedValueOnce({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      email: 'New.Email@Example.com',
+      emailConfirmed: true,
+    })
+    userFindUniqueMock.mockResolvedValueOnce(profile)
+    userFindFirstMock.mockResolvedValueOnce(null)
+    userUpdateMock.mockResolvedValueOnce({
+      ...profile,
+      email: 'new.email@example.com',
+    })
+
+    const response = await request(app)
+      .post('/api/users/me/settings/sync-email')
+      .send({ email: 'attacker@example.com' })
+
+    expect(response.status).toBe(200)
+    expect(response.body.email).toBe('new.email@example.com')
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: userId },
+      data: { email: 'new.email@example.com' },
+      select: expect.objectContaining({ id: true, name: true, email: true }),
+    })
+  })
+
+  it('does not synchronize an unconfirmed identity email', async () => {
+    getAuthenticatedUserMock.mockResolvedValueOnce({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      email: 'new.email@example.com',
+      emailConfirmed: false,
+    })
+
+    const response = await request(app).post(
+      '/api/users/me/settings/sync-email',
+    )
+
+    expect(response.status).toBe(403)
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+    expect(userUpdateMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /api/users/me/handicap-progression', () => {
   it('returns a progression derived from the authenticated player rounds', async () => {
     userFindUniqueMock.mockResolvedValueOnce({

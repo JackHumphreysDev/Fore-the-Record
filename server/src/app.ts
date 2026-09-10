@@ -2,6 +2,10 @@ import express from 'express'
 import { randomUUID } from 'node:crypto'
 import { getAccountStatusByAuthUserId } from './accountAccess.js'
 import {
+  normalizeAccountEmail,
+  parseProfileName,
+} from './accountSettings.js'
+import {
   AdminRoundError,
   deleteRoundAsAdmin,
   updateRoundAsAdmin,
@@ -2688,6 +2692,146 @@ app.get('/api/users/me', async (_request, response) => {
   }
 
   response.status(200).json(serializeProfile(user))
+})
+
+app.patch('/api/users/me/settings/profile', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const body: unknown = request.body
+
+  let name: string
+  try {
+    name = parseProfileName(isRecord(body) ? body.name : undefined)
+  } catch (error: unknown) {
+    response.status(400).json({
+      error: error instanceof Error ? error.message : 'Enter your full name',
+    })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: user.id },
+    data: { name },
+    select: PROFILE_SELECT,
+  })
+
+  response.status(200).json(serializeProfile(updatedUser))
+})
+
+app.post(
+  '/api/users/me/settings/email-availability',
+  async (request, response) => {
+    const authenticatedUser = getRequestUser(response.locals)
+    const body: unknown = request.body
+    const email = normalizeAccountEmail(
+      isRecord(body) ? body.email : undefined,
+    )
+
+    if (!email) {
+      response.status(400).json({ error: 'Enter a valid email address' })
+      return
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { authUserId: authenticatedUser.id },
+      select: { id: true, email: true },
+    })
+
+    if (!user) {
+      response.status(404).json({ error: 'User not found' })
+      return
+    }
+
+    if (user.email.toLowerCase() === email) {
+      response.status(409).json({ error: 'Enter a different email address' })
+      return
+    }
+
+    const existingProfile = await prisma.user.findFirst({
+      where: {
+        id: { not: user.id },
+        email: { equals: email, mode: 'insensitive' },
+      },
+      select: { id: true },
+    })
+
+    if (existingProfile) {
+      response.status(409).json({
+        error: 'That email address is already connected to another profile',
+      })
+      return
+    }
+
+    response.status(200).json({ available: true })
+  },
+)
+
+app.post('/api/users/me/settings/sync-email', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const email = normalizeAccountEmail(authenticatedUser.email)
+
+  if (!authenticatedUser.emailConfirmed || !email) {
+    response
+      .status(403)
+      .json({ error: 'Confirm your new email before continuing' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: PROFILE_SELECT,
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  if (user.email.toLowerCase() === email) {
+    response.status(200).json(serializeProfile(user))
+    return
+  }
+
+  const existingProfile = await prisma.user.findFirst({
+    where: {
+      id: { not: user.id },
+      email: { equals: email, mode: 'insensitive' },
+    },
+    select: { id: true },
+  })
+
+  if (existingProfile) {
+    response.status(409).json({
+      error: 'That email address is already connected to another profile',
+    })
+    return
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { email },
+      select: PROFILE_SELECT,
+    })
+    response.status(200).json(serializeProfile(updatedUser))
+  } catch (error: unknown) {
+    if (isUniqueConstraintError(error)) {
+      response.status(409).json({
+        error: 'That email address is already connected to another profile',
+      })
+      return
+    }
+    throw error
+  }
 })
 
 app.patch('/api/users/me', async (request, response) => {
