@@ -2425,7 +2425,10 @@ app.patch('/api/users/me/rounds/:roundId/notes', async (request, response) => {
     return
   }
 
-  if (!isRecord(request.body) || !Object.hasOwn(request.body, 'notes')) {
+  if (
+    !isRecord(request.body) ||
+    !Object.prototype.hasOwnProperty.call(request.body, 'notes')
+  ) {
     response.status(400).json({ error: 'Round notes are required' })
     return
   }
