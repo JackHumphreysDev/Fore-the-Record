@@ -14,6 +14,16 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.24.1 - 2026-09-12
+
+### User-facing changes
+
+- No changes to player-facing behaviour.
+
+### Developer and admin changes
+
+- Replaced `Object.hasOwn` in round-note validation with an equivalent compatible with Vercel's TypeScript deployment target.
+
 ## 0.24.0 - 2026-09-10
 
 ### User-facing changes
