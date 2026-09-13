@@ -476,13 +476,13 @@ function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
             <span aria-hidden="true" /> Courses and tees
           </p>
           <h1>
-            Find your course.
-            <span>Choose your line.</span>
+            Courses worth
+            <span>returning to.</span>
           </h1>
         </div>
         <p>
-          Search the saved UK catalogue by club, course, or both. If a club is
-          missing, a one-off provider check can add its available rated tees.
+          Every course you play, remembered in one place. Search the UK
+          catalogue and keep your regular tees close at hand.
         </p>
       </header>
 

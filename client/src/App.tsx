@@ -23,6 +23,7 @@ import type { SubmissionType } from './submissionApi.ts'
 import { isSubmissionUnreadCountResponse } from './submissionApi.ts'
 import { getSupabaseClient } from './supabase.ts'
 import WhatsNew from './WhatsNew.tsx'
+import './LedgerTheme.css'
 
 const AdminPortal = lazy(() => import('./AdminPortal.tsx'))
 
@@ -493,79 +494,91 @@ function App() {
           <img className="brand-logo" src={brandLogo} alt="" />
         </a>
 
-        <nav className="site-nav" aria-label="Primary navigation">
-          <button
-            type="button"
-            aria-current={activeView === 'profile' ? 'page' : undefined}
-            onClick={() => setActiveView('profile')}
-          >
-            Profile
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'courses' ? 'page' : undefined}
-            onClick={() => setActiveView('courses')}
-          >
-            Courses
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'rounds' ? 'page' : undefined}
-            onClick={() => setActiveView('rounds')}
-          >
-            Rounds
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'history' ? 'page' : undefined}
-            onClick={() => setActiveView('history')}
-          >
-            History
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'friends' ? 'page' : undefined}
-            onClick={() => setActiveView('friends')}
-          >
-            Friends
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'support' ? 'page' : undefined}
-            onClick={() => {
-              setSupportInitialType('IDEA')
-              setActiveView('support')
-            }}
-          >
-            Support
-            {supportUnreadCount > 0 ? (
-              <span className="nav-unread-count" aria-label={`${supportUnreadCount} unread support requests`}>
-                {supportUnreadCount > 99 ? '99+' : supportUnreadCount}
-              </span>
-            ) : null}
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'whats-new' ? 'page' : undefined}
-            onClick={() => setActiveView('whats-new')}
-          >
-            What’s New
-          </button>
-          {adminIdentity ? (
+        <div className="site-header-navigation">
+          <nav className="site-nav" aria-label="Primary navigation">
             <button
               type="button"
-              aria-current={activeView === 'admin' ? 'page' : undefined}
-              onClick={() => setActiveView('admin')}
+              aria-current={activeView === 'profile' ? 'page' : undefined}
+              onClick={() => setActiveView('profile')}
             >
-              Admin
-              {adminUnreadCount > 0 ? (
-                <span className="nav-unread-count" aria-label={`${adminUnreadCount} unread support requests`}>
-                  {adminUnreadCount > 99 ? '99+' : adminUnreadCount}
+              Profile
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'courses' ? 'page' : undefined}
+              onClick={() => setActiveView('courses')}
+            >
+              Courses
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'rounds' ? 'page' : undefined}
+              onClick={() => setActiveView('rounds')}
+            >
+              Rounds
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'history' ? 'page' : undefined}
+              onClick={() => setActiveView('history')}
+            >
+              History
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'friends' ? 'page' : undefined}
+              onClick={() => setActiveView('friends')}
+            >
+              Friends
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'support' ? 'page' : undefined}
+              onClick={() => {
+                setSupportInitialType('IDEA')
+                setActiveView('support')
+              }}
+            >
+              Support
+              {supportUnreadCount > 0 ? (
+                <span
+                  className="nav-unread-count"
+                  aria-label={`${supportUnreadCount} unread support requests`}
+                >
+                  {supportUnreadCount > 99 ? '99+' : supportUnreadCount}
                 </span>
               ) : null}
             </button>
-          ) : null}
-        </nav>
+            <button
+              type="button"
+              aria-current={activeView === 'whats-new' ? 'page' : undefined}
+              onClick={() => setActiveView('whats-new')}
+            >
+              What’s New
+            </button>
+            {adminIdentity ? (
+              <button
+                type="button"
+                aria-current={activeView === 'admin' ? 'page' : undefined}
+                onClick={() => setActiveView('admin')}
+              >
+                Admin
+                {adminUnreadCount > 0 ? (
+                  <span
+                    className="nav-unread-count"
+                    aria-label={`${adminUnreadCount} unread support requests`}
+                  >
+                    {adminUnreadCount > 99 ? '99+' : adminUnreadCount}
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
+          </nav>
+          <p className="site-edition" aria-hidden="true">
+            Your game,
+            <span>in focus</span>
+          </p>
+        </div>
       </header>
 
       <main>
@@ -754,8 +767,9 @@ function App() {
       </main>
 
       <footer className="site-footer">
-        <span>Fore the Record</span>
-        <span>Built for the next round</span>
+        <span>Fore the Record — Est. 2024</span>
+        <em>Golf leaves a mark. So do you.</em>
+        <span>The Clubhouse Ledger</span>
       </footer>
     </div>
   )

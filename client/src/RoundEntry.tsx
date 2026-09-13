@@ -888,8 +888,8 @@ function RoundEntry({
             <span aria-hidden="true" /> Round entry
           </p>
           <h1>
-            Put the round.
-            <span>On the record.</span>
+            Every round,
+            <span>on the record.</span>
           </h1>
         </div>
         <p>

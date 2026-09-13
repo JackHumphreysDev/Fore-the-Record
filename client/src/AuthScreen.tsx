@@ -158,14 +158,15 @@ function AuthScreen({ notice = '' }: AuthScreenProps) {
           <p className="auth-eyebrow">Your game, safely kept</p>
           <h1>
             Every round.
-            <span>Yours alone.</span>
+            <span>Worth remembering.</span>
           </h1>
           <p>
-            Sign in wherever you play and keep your profile, courses and
-            Handicap Index connected to you.
+            Your profile, courses and Handicap Index—kept together for the
+            next round.
           </p>
         </div>
-        <small>Fore the Record · Built for the next round</small>
+        <div className="auth-story-art" aria-hidden="true" />
+        <small>Fore the Record — Est. 2024</small>
       </section>
 
       <section className="auth-panel" aria-labelledby="auth-title">
