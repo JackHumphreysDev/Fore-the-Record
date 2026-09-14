@@ -9,6 +9,7 @@
   --forest-deep: #0a2a1e;
   --forest-soft: #476454;
   --lime: #e4f57b;
+  --illustration-sun: #e9edb8;
   --cream: #f3f1e9;
   --paper: #faf8f1;
   --paper-bright: #fffdf7;
@@ -1411,13 +1412,14 @@ button {
   width: 132px;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: var(--lime);
-  opacity: 0.82;
+  background: var(--illustration-sun);
+  opacity: 0.62;
 }
 
 .auth-story-art > span {
-  top: 70px;
+  top: 112px;
   right: 86px;
+  width: 108px;
 }
 
 .auth-story-art img,
@@ -1431,6 +1433,12 @@ button {
   height: 100%;
   display: block;
   object-fit: contain;
+  filter: grayscale(1) contrast(0.8);
+  opacity: 0.74;
+}
+
+.favourite-course-engraving > span {
+  display: none;
 }
 
 .auth-page:not(.auth-recovery-page) .auth-panel {
@@ -1616,15 +1624,15 @@ button {
 .profile-landscape {
   position: relative;
   align-self: center;
-  width: 116%;
+  width: 100%;
   height: 310px;
-  margin: 28px 0 0 -16%;
+  margin: 50px 0 0;
 }
 
 .profile-landscape > span {
-  top: 8px;
-  right: 34px;
-  width: 146px;
+  top: 44px;
+  right: 16px;
+  width: 112px;
 }
 
 .player-signature {
@@ -1825,6 +1833,7 @@ button {
   position: relative;
   border-right: 0 !important;
   border-left: 0 !important;
+  background: transparent !important;
 }
 
 .favourite-courses::after {
@@ -1893,67 +1902,85 @@ button {
 
 .rounds-hero,
 .history-hero {
-  min-height: 365px;
-  overflow: hidden;
+  min-height: 330px;
+  align-items: start;
 }
 
 .rounds-hero > div:first-child,
-.history-hero > div:first-child,
-.rounds-hero > p,
-.history-hero > p {
-  position: relative;
-  z-index: 2;
+.history-hero > div:first-child {
+  grid-column: 1;
+  grid-row: 1 / 3;
 }
 
 .rounds-hero > p,
 .history-hero > p {
-  align-self: start;
+  grid-column: 2;
+  grid-row: 1;
   max-width: 340px;
-  margin-top: 55px;
+  margin: 0;
 }
 
 .rounds-hero-engraving,
 .history-hero-engraving {
-  position: absolute;
-  z-index: 1;
-  right: -2%;
-  bottom: -24px;
-  width: min(47%, 650px);
-  height: 265px;
+  position: relative;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+  width: 100%;
+  height: 170px;
 }
 
 .rounds-hero-engraving > span,
 .history-hero-engraving > span {
-  top: 0;
-  right: 14%;
-  width: 112px;
+  top: 22px;
+  right: 12%;
+  width: 76px;
 }
 
-/* Every remaining product tab keeps the same illustrated record-book cover. */
+/* Secondary page art stays in the margin, never underneath copy or cards. */
 
-:is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero, .admin-hero) {
-  min-height: 300px;
+:is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero) {
+  min-height: 330px;
   overflow: hidden;
 }
 
-:is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero, .admin-hero)::after {
+:is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero)::after {
   content: "";
   position: absolute;
   z-index: 0;
-  right: -1%;
-  bottom: -36px;
-  width: min(43%, 590px);
-  height: 250px;
-  background:
-    radial-gradient(circle at 75% 18%, rgba(228, 245, 123, 0.88) 0 54px, transparent 55px),
-    url("./assets/ledger-green-engraving.png") right bottom / contain no-repeat;
-  opacity: 0.82;
+  right: 0;
+  bottom: 16px;
+  width: min(36%, 470px);
+  height: 170px;
+  background: url("./assets/ledger-green-engraving.png") right bottom / contain no-repeat;
+  filter: grayscale(1) contrast(0.8);
+  opacity: 0.55;
   pointer-events: none;
 }
 
-:is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero, .admin-hero) > * {
+:is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero) > * {
   position: relative;
   z-index: 1;
+}
+
+:is(.friends-heading, .settings-heading) > :not(.eyebrow) {
+  max-width: 60%;
+}
+
+:is(.support-hero, .whats-new-hero) {
+  align-items: start;
+}
+
+:is(.support-hero, .whats-new-hero)::after {
+  width: min(24%, 300px);
+}
+
+:is(.support-hero, .whats-new-hero) > p {
+  margin-top: 0;
+}
+
+.admin-hero {
+  min-height: 0;
 }
 
 @media (max-width: 1120px) {
@@ -1980,11 +2007,40 @@ button {
   }
 
   .profile-landscape {
-    position: absolute;
-    right: 2%;
-    bottom: 160px;
-    width: 50%;
-    opacity: 0.45;
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: min(100%, 530px);
+    height: 220px;
+    margin: 20px 0 0 auto;
+  }
+
+  .rounds-hero,
+  .history-hero {
+    min-height: 0;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .rounds-hero > div:first-child,
+  .history-hero > div:first-child,
+  .rounds-hero > p,
+  .history-hero > p,
+  .rounds-hero-engraving,
+  .history-hero-engraving {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .rounds-hero-engraving,
+  .history-hero-engraving {
+    justify-self: end;
+    width: min(70%, 510px);
+  }
+
+  :is(.support-hero, .whats-new-hero) {
+    min-height: 0;
+    padding-bottom: 210px;
   }
 
   .favourite-course-card {
@@ -2056,9 +2112,17 @@ button {
     grid-column: 2;
   }
 
-  .rounds-hero-engraving,
-  .history-hero-engraving {
-    opacity: 0.36;
+  :is(.friends-heading, .settings-heading) {
+    min-height: 0;
+    padding-bottom: 205px;
+  }
+
+  :is(.friends-heading, .settings-heading) > :not(.eyebrow) {
+    max-width: 100%;
+  }
+
+  :is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero)::after {
+    width: min(68%, 430px);
   }
 }
 
@@ -2089,15 +2153,16 @@ button {
   }
 
   .auth-page:not(.auth-recovery-page) .auth-story h1 {
-    font-size: clamp(50px, 15.7vw, 70px);
+    font-size: clamp(42px, 12.5vw, 58px);
   }
 
   .auth-page:not(.auth-recovery-page) .auth-story-art {
-    right: -18%;
-    bottom: 5px;
-    width: 88%;
-    height: 300px;
-    opacity: 0.58;
+    right: 0;
+    bottom: 10px;
+    width: min(100%, 360px);
+    height: 235px;
+    display: block;
+    opacity: 1;
   }
 
   .auth-story-art > span {
@@ -2139,10 +2204,9 @@ button {
   }
 
   .profile-landscape {
-    right: -15%;
-    bottom: 160px;
-    width: 90%;
-    opacity: 0.58;
+    width: 100%;
+    height: 185px;
+    margin-top: 10px;
   }
 
   .player-signature {
@@ -2193,7 +2257,12 @@ button {
   .favourite-courses::after,
   .rounds-hero-engraving,
   .history-hero-engraving,
-  :is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero, .admin-hero)::after {
+  :is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero)::after {
     display: none;
+  }
+
+  :is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero) {
+    min-height: 0;
+    padding-bottom: 40px;
   }
 }
