@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { authenticatedFetch } from './api.ts'
+import ledgerGreen from './assets/ledger-green-engraving.png'
 import {
   isHistoryRound,
   type HistoryRound,
@@ -336,6 +337,10 @@ function RoundHistory({
           Follow every round from newest to oldest and see which scores are
           shaping your current Handicap Index.
         </p>
+        <div className="history-hero-engraving" aria-hidden="true">
+          <span />
+          <img src={ledgerGreen} alt="" />
+        </div>
       </header>
 
       {isLoading ? (

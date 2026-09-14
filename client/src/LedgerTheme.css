@@ -1200,3 +1200,1000 @@ button {
     display: none;
   }
 }
+
+/* parity pass -------------------------------------------------- */
+
+.ledger-rule {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px minmax(36px, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  color: var(--forest-soft);
+  font-family: var(--ledger-serif);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.ledger-rule i {
+  height: 1px;
+  background: var(--line-strong);
+}
+
+.ledger-rule strong {
+  font-family: var(--ledger-sans);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+/* Signed-out cover */
+
+.auth-page:not(.auth-recovery-page) {
+  width: min(1600px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0 clamp(24px, 4vw, 62px);
+  display: grid;
+  grid-template: 148px minmax(710px, 1fr) 64px / 1fr;
+  color: var(--forest-deep);
+  background: transparent;
+}
+
+.auth-masthead {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.auth-masthead > img {
+  width: clamp(220px, 18vw, 282px);
+  height: 104px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.auth-masthead-navigation {
+  display: flex;
+  align-items: center;
+  gap: clamp(30px, 4vw, 64px);
+  color: var(--forest-deep);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.auth-masthead-navigation > span:first-child {
+  position: relative;
+}
+
+.auth-masthead-navigation > span:first-child::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -15px;
+  left: 0;
+  height: 2px;
+  background: var(--forest-deep);
+}
+
+.auth-masthead-navigation p {
+  min-width: 172px;
+  margin: 0 0 0 2px;
+  padding: 9px 0 9px 62px;
+  border-left: 1px solid var(--line-strong);
+  color: var(--forest-soft);
+  font-size: 9px;
+  letter-spacing: 0.34em;
+  line-height: 1.8;
+}
+
+.auth-masthead-navigation strong {
+  display: block;
+}
+
+.auth-ledger {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(420px, 1fr);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.auth-page:not(.auth-recovery-page) .auth-story {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 49px clamp(42px, 5vw, 78px) 49px 4px;
+  display: block;
+  overflow: hidden;
+  border-right: 1px solid var(--line-strong);
+  color: var(--forest-deep);
+  background: transparent;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-story::before,
+.auth-page:not(.auth-recovery-page) .auth-story::after {
+  content: none;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-story > .ledger-rule {
+  max-width: none;
+  margin-top: 0;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-story > .auth-story-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 790px;
+  margin-top: 39px;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-story h1 {
+  max-width: 760px;
+  margin: 0;
+  color: var(--forest-deep);
+  font-family: var(--ledger-serif);
+  font-size: clamp(72px, 6.6vw, 106px);
+  font-weight: 400;
+  line-height: 0.88;
+  letter-spacing: -0.067em;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-story h1 span {
+  display: block;
+  color: var(--forest-soft);
+  font-style: italic;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-story-copy > p {
+  max-width: 570px;
+  margin: 38px 0 0;
+  color: var(--ink-muted);
+  font-size: clamp(15px, 1.2vw, 19px);
+  line-height: 1.6;
+}
+
+.auth-story-note {
+  position: absolute;
+  z-index: 3;
+  bottom: 74px;
+  left: 4px;
+  display: grid;
+  gap: 6px;
+  color: var(--forest-soft);
+  font-family: var(--ledger-serif);
+  font-size: 10px;
+  letter-spacing: 0.34em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.auth-story-note > span {
+  width: 38px;
+  height: 2px;
+  margin-bottom: 17px;
+  background: var(--forest-soft);
+}
+
+.auth-story-note strong {
+  font-weight: 400;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-story-art {
+  position: absolute;
+  z-index: 1;
+  right: 1.5%;
+  bottom: 33px;
+  width: min(61%, 680px);
+  height: 440px;
+  opacity: 1;
+  background: none;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-story-art::before {
+  content: none;
+}
+
+.auth-story-art > span,
+.profile-landscape > span,
+.favourite-course-engraving > span,
+.rounds-hero-engraving > span,
+.history-hero-engraving > span {
+  position: absolute;
+  z-index: 0;
+  width: 132px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--lime);
+  opacity: 0.82;
+}
+
+.auth-story-art > span {
+  top: 70px;
+  right: 86px;
+}
+
+.auth-story-art img,
+.profile-landscape img,
+.favourite-course-engraving img,
+.rounds-hero-engraving img,
+.history-hero-engraving img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-panel {
+  min-width: 0;
+  min-height: 0;
+  padding: 49px 0 42px clamp(44px, 4.8vw, 76px);
+  display: block;
+  background: transparent;
+}
+
+.auth-panel > .ledger-rule {
+  margin-bottom: 44px;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-card {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-card h2 {
+  max-width: 430px;
+  color: var(--forest-deep);
+  font-family: var(--ledger-serif);
+  font-size: clamp(49px, 4vw, 65px);
+  font-weight: 400;
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+}
+
+.auth-page:not(.auth-recovery-page) .form-kicker {
+  display: none;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-intro {
+  max-width: 440px;
+  margin-top: 14px;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-form {
+  max-width: none;
+  margin-top: 36px;
+  gap: 25px;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-form label {
+  gap: 10px;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-form input {
+  min-height: 64px;
+  padding-inline: 20px;
+  border-color: var(--line-strong);
+  background: rgba(255, 253, 247, 0.55);
+  font-size: 15px;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-submit {
+  min-height: 66px;
+  margin-top: 7px;
+  color: white;
+  background: linear-gradient(105deg, var(--forest-deep), #1b4937);
+  font-size: 13px;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-submit::after,
+.profile-edit-button strong {
+  content: "→";
+  float: right;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 0.6;
+}
+
+.auth-page:not(.auth-recovery-page) .auth-text-button {
+  margin-top: 23px;
+  color: var(--forest-deep);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.auth-account-links {
+  margin-top: 30px;
+  padding-top: 22px;
+  display: flex;
+  align-items: center;
+  gap: 6px 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line-strong);
+  color: var(--forest-deep);
+  font-size: 11px;
+}
+
+.auth-account-links button {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-account-links button + button {
+  margin-left: auto;
+  color: var(--forest-soft);
+}
+
+.auth-page:not(.auth-recovery-page) .auth-switcher {
+  max-width: 320px;
+  margin: 0 0 25px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.auth-folio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--forest-soft);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.auth-folio em {
+  font-family: var(--ledger-serif);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Signed-in player dossier */
+
+.profile-layout.concept-profile {
+  min-height: 764px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(410px, 1fr);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.profile-dossier {
+  min-width: 0;
+  padding: 50px clamp(40px, 5vw, 76px) 34px 4px;
+  border-right: 1px solid var(--line-strong);
+}
+
+.profile-dossier-hero {
+  min-height: 390px;
+  margin-top: 42px;
+  display: grid;
+  grid-template-columns: minmax(390px, 1.05fr) minmax(300px, 0.95fr);
+  align-items: start;
+}
+
+.profile-dossier-hero h1 {
+  max-width: 620px;
+  margin: 0;
+  font-family: var(--ledger-serif);
+  font-size: clamp(68px, 6.4vw, 101px);
+  font-weight: 400;
+  line-height: 0.88;
+  letter-spacing: -0.068em;
+}
+
+.profile-dossier-hero h1 span {
+  display: block;
+  color: var(--forest-soft);
+  font-style: italic;
+}
+
+.profile-dossier-hero p {
+  max-width: 430px;
+  margin: 35px 0 0;
+  color: var(--ink-muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.profile-landscape {
+  position: relative;
+  align-self: center;
+  width: 116%;
+  height: 310px;
+  margin: 28px 0 0 -16%;
+}
+
+.profile-landscape > span {
+  top: 8px;
+  right: 34px;
+  width: 146px;
+}
+
+.player-signature {
+  min-height: 84px;
+  display: grid;
+  grid-template-columns: auto 1px 1fr;
+  align-items: center;
+  gap: 34px;
+}
+
+.player-signature > span {
+  min-width: 86px;
+  font-family: var(--ledger-serif);
+  font-size: 82px;
+  font-style: italic;
+  line-height: 0.9;
+}
+
+.player-signature > i {
+  width: 1px;
+  height: 52px;
+  background: var(--line-strong);
+}
+
+.player-signature > strong {
+  font-family: var(--ledger-serif);
+  font-size: clamp(36px, 3.2vw, 51px);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+}
+
+.profile-table-label {
+  margin: 20px 0 9px;
+  color: var(--forest-soft);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.profile-record,
+.profile-index-details {
+  margin: 0;
+}
+
+.profile-record > div,
+.profile-index-details > div {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.65fr) 1fr;
+  align-items: center;
+  border-top: 1px solid var(--line-strong);
+}
+
+.profile-record > div:last-child,
+.profile-index-details > div:last-child {
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.profile-record dt,
+.profile-record dd,
+.profile-index-details dt,
+.profile-index-details dd {
+  margin: 0;
+  font-size: 12px;
+}
+
+.profile-record dd,
+.profile-index-details dd {
+  color: var(--forest-soft);
+}
+
+.profile-index {
+  min-width: 0;
+  padding: 50px 0 44px clamp(44px, 4.8vw, 76px);
+}
+
+.profile-index-value {
+  margin-top: 53px;
+  display: block;
+  font-family: var(--ledger-serif);
+  font-size: clamp(150px, 15vw, 238px);
+  font-weight: 400;
+  line-height: 0.8;
+  letter-spacing: -0.08em;
+}
+
+.profile-index-caption {
+  margin: 30px 0 37px;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+.profile-index-details > div {
+  min-height: 73px;
+  grid-template-columns: 1fr auto;
+}
+
+.profile-index-details dd {
+  max-width: 220px;
+  text-align: right;
+}
+
+.profile-edit-button {
+  width: 100%;
+  min-height: 68px;
+  margin-top: 48px;
+  padding: 0 27px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  color: white;
+  background: linear-gradient(105deg, var(--forest-deep), #1b4937);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.profile-dashboard {
+  padding: clamp(70px, 7vw, 108px) 0;
+}
+
+.profile-dashboard > header {
+  max-width: 700px;
+  margin-bottom: 46px;
+}
+
+.profile-dashboard > header h2 {
+  margin: 0;
+  font-family: var(--ledger-serif);
+  font-size: clamp(48px, 5vw, 78px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+}
+
+.profile-dashboard > header > p:last-child {
+  max-width: 570px;
+  color: var(--ink-muted);
+  line-height: 1.65;
+}
+
+.profile-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 28px;
+}
+
+.profile-dashboard-column {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 22px;
+}
+
+.profile-dashboard-column > :is(.performance-summary, .personal-milestones, .player-goals, .home-club-selector) {
+  margin: 0;
+}
+
+.profile-dashboard .profile-actions {
+  max-width: 480px;
+  margin-top: 32px;
+}
+
+/* Course register and engraved rows */
+
+.courses-page {
+  position: relative;
+}
+
+.courses-page .courses-hero {
+  min-height: 292px;
+  padding-right: 48%;
+}
+
+.courses-page .courses-hero > p {
+  max-width: 650px;
+  margin-top: 21px;
+}
+
+.courses-page > .course-search-form {
+  position: absolute;
+  top: 75px;
+  right: 0;
+  width: 43%;
+  padding: 22px;
+}
+
+.courses-page > .course-search-form .course-search-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.courses-page > .course-search-form button {
+  grid-column: 1 / -1;
+}
+
+.favourite-courses {
+  position: relative;
+  border-right: 0 !important;
+  border-left: 0 !important;
+}
+
+.favourite-courses::after {
+  content: "A\A B\A C\A D\A E\A F\A G\A H\A I\A J\A K\A L\A M\A N\A O\A P\A Q\A R\A S\A T\A U\A V\A W\A X\A Y\A Z";
+  position: absolute;
+  top: 14px;
+  right: -42px;
+  color: var(--forest-soft);
+  font-family: var(--ledger-serif);
+  font-size: 9px;
+  line-height: 1.45;
+  text-align: center;
+  white-space: pre;
+}
+
+.favourite-course-card {
+  min-height: 136px;
+  display: grid;
+  grid-template-columns: minmax(230px, 0.9fr) minmax(230px, 1fr) minmax(260px, 0.95fr) 96px;
+  align-items: center;
+  gap: 26px;
+}
+
+.favourite-course-engraving {
+  position: relative;
+  width: 100%;
+  height: 100px;
+}
+
+.favourite-course-engraving > span {
+  top: 3px;
+  left: 54%;
+  width: 66px;
+}
+
+.favourite-course-engraving img {
+  object-position: center;
+}
+
+.favourite-course-card > div:nth-child(2) {
+  display: grid;
+  gap: 4px;
+}
+
+.favourite-course-card > div:nth-child(2) small {
+  order: 2;
+  color: var(--forest-soft);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+}
+
+.favourite-course-card > div:nth-child(2) strong {
+  order: 1;
+  font-family: var(--ledger-serif);
+  font-size: clamp(28px, 2.4vw, 40px);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+}
+
+.favourite-course-card > label {
+  padding-left: 25px;
+  border-left: 1px solid var(--line-strong);
+}
+
+/* Engraved round headers */
+
+.rounds-hero,
+.history-hero {
+  min-height: 365px;
+  overflow: hidden;
+}
+
+.rounds-hero > div:first-child,
+.history-hero > div:first-child,
+.rounds-hero > p,
+.history-hero > p {
+  position: relative;
+  z-index: 2;
+}
+
+.rounds-hero > p,
+.history-hero > p {
+  align-self: start;
+  max-width: 340px;
+  margin-top: 55px;
+}
+
+.rounds-hero-engraving,
+.history-hero-engraving {
+  position: absolute;
+  z-index: 1;
+  right: -2%;
+  bottom: -24px;
+  width: min(47%, 650px);
+  height: 265px;
+}
+
+.rounds-hero-engraving > span,
+.history-hero-engraving > span {
+  top: 0;
+  right: 14%;
+  width: 112px;
+}
+
+/* Every remaining product tab keeps the same illustrated record-book cover. */
+
+:is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero, .admin-hero) {
+  min-height: 300px;
+  overflow: hidden;
+}
+
+:is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero, .admin-hero)::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  right: -1%;
+  bottom: -36px;
+  width: min(43%, 590px);
+  height: 250px;
+  background:
+    radial-gradient(circle at 75% 18%, rgba(228, 245, 123, 0.88) 0 54px, transparent 55px),
+    url("./assets/ledger-green-engraving.png") right bottom / contain no-repeat;
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+:is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero, .admin-hero) > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1120px) {
+  .auth-page:not(.auth-recovery-page) {
+    grid-template-rows: 124px auto 64px;
+  }
+
+  .auth-ledger,
+  .profile-layout.concept-profile {
+    grid-template-columns: minmax(0, 1.35fr) minmax(380px, 0.85fr);
+  }
+
+  .auth-page:not(.auth-recovery-page) .auth-story h1,
+  .profile-dossier-hero h1 {
+    font-size: clamp(62px, 7.6vw, 82px);
+  }
+
+  .auth-story-note {
+    display: none;
+  }
+
+  .profile-dossier-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-landscape {
+    position: absolute;
+    right: 2%;
+    bottom: 160px;
+    width: 50%;
+    opacity: 0.45;
+  }
+
+  .favourite-course-card {
+    grid-template-columns: minmax(180px, 0.75fr) minmax(210px, 1fr) minmax(230px, 0.9fr);
+  }
+
+  .favourite-course-card > button {
+    grid-column: 3;
+  }
+}
+
+@media (max-width: 900px) {
+  .auth-page:not(.auth-recovery-page) {
+    padding-inline: 24px;
+    grid-template-rows: 112px auto 64px;
+  }
+
+  .auth-masthead-navigation > span {
+    display: none;
+  }
+
+  .auth-ledger,
+  .profile-layout.concept-profile {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-page:not(.auth-recovery-page) .auth-story {
+    min-height: 670px;
+    padding-right: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .auth-page:not(.auth-recovery-page) .auth-panel,
+  .profile-index {
+    padding: 54px 0 74px;
+  }
+
+  .profile-dossier {
+    border-right: 0;
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  .profile-index-value {
+    font-size: clamp(130px, 27vw, 220px);
+  }
+
+  .profile-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .courses-page .courses-hero {
+    min-height: 0;
+    padding-right: 0;
+  }
+
+  .courses-page > .course-search-form {
+    position: static;
+    width: 100%;
+    margin-bottom: 34px;
+  }
+
+  .favourite-course-card {
+    grid-template-columns: minmax(180px, 0.7fr) minmax(220px, 1fr);
+  }
+
+  .favourite-course-card > label,
+  .favourite-course-card > button {
+    grid-column: 2;
+  }
+
+  .rounds-hero-engraving,
+  .history-hero-engraving {
+    opacity: 0.36;
+  }
+}
+
+@media (max-width: 600px) {
+  .auth-page:not(.auth-recovery-page) {
+    padding-inline: 18px;
+    grid-template-rows: 92px auto 58px;
+  }
+
+  .auth-masthead > img {
+    width: 172px;
+    height: 76px;
+  }
+
+  .auth-masthead-navigation p {
+    min-width: 0;
+    padding-left: 18px;
+    font-size: 7px;
+  }
+
+  .auth-page:not(.auth-recovery-page) .auth-story {
+    min-height: 550px;
+    padding-top: 36px;
+  }
+
+  .auth-story-copy {
+    margin-top: 44px;
+  }
+
+  .auth-page:not(.auth-recovery-page) .auth-story h1 {
+    font-size: clamp(50px, 15.7vw, 70px);
+  }
+
+  .auth-page:not(.auth-recovery-page) .auth-story-art {
+    right: -18%;
+    bottom: 5px;
+    width: 88%;
+    height: 300px;
+    opacity: 0.58;
+  }
+
+  .auth-story-art > span {
+    width: 84px;
+  }
+
+  .auth-page:not(.auth-recovery-page) .auth-panel {
+    padding-bottom: 60px;
+  }
+
+  .auth-panel > .ledger-rule {
+    margin-bottom: 36px;
+  }
+
+  .auth-page:not(.auth-recovery-page) .auth-card h2 {
+    font-size: 48px;
+  }
+
+  .auth-folio {
+    justify-content: flex-start;
+  }
+
+  .auth-folio em,
+  .auth-folio span:last-child {
+    display: none;
+  }
+
+  .profile-dossier {
+    padding: 40px 0 28px;
+  }
+
+  .profile-dossier-hero {
+    min-height: 480px;
+    grid-template-columns: 1fr;
+  }
+
+  .profile-dossier-hero h1 {
+    font-size: clamp(56px, 17vw, 76px);
+  }
+
+  .profile-landscape {
+    right: -15%;
+    bottom: 160px;
+    width: 90%;
+    opacity: 0.58;
+  }
+
+  .player-signature {
+    gap: 18px;
+  }
+
+  .player-signature > span {
+    min-width: 56px;
+    font-size: 62px;
+  }
+
+  .player-signature > strong {
+    font-size: 34px;
+  }
+
+  .profile-record > div {
+    grid-template-columns: 110px 1fr;
+  }
+
+  .profile-index {
+    padding-inline: 0;
+  }
+
+  .profile-index-value {
+    font-size: 42vw;
+  }
+
+  .courses-page > .course-search-form .course-search-fields,
+  .favourite-course-card {
+    grid-template-columns: 1fr;
+  }
+
+  .favourite-course-card {
+    padding-block: 24px;
+  }
+
+  .favourite-course-card > label,
+  .favourite-course-card > button {
+    grid-column: 1;
+  }
+
+  .favourite-course-card > label {
+    padding: 18px 0 0;
+    border-top: 1px solid var(--line-strong);
+    border-left: 0;
+  }
+
+  .favourite-courses::after,
+  .rounds-hero-engraving,
+  .history-hero-engraving,
+  :is(.friends-heading, .settings-heading, .support-hero, .whats-new-hero, .admin-hero)::after {
+    display: none;
+  }
+}

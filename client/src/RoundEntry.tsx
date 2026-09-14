@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
+import ledgerGreen from './assets/ledger-green-engraving.png'
 import {
   buildCatalogueCoursesPath,
   isCatalogueCoursesResponse,
@@ -896,6 +897,10 @@ function RoundEntry({
           Record a casual score, an individual competition, or a team event.
           Only complete individual cards can affect your Handicap Index.
         </p>
+        <div className="rounds-hero-engraving" aria-hidden="true">
+          <span />
+          <img src={ledgerGreen} alt="" />
+        </div>
       </header>
 
       <HandicapProgressionChart profileId={profile.id} />
