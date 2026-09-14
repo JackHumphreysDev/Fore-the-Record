@@ -9,7 +9,7 @@ import {
 } from './adminApi.ts'
 import AuthScreen from './AuthScreen.tsx'
 import brandLogo from './assets/fore-the-record-logo.png'
-import profileEngraving from './assets/ledger-profile-engraving.png'
+import ledgerGreen from './assets/ledger-green-engraving.png'
 import CourseSearch from './CourseSearch.tsx'
 import Friends from './Friends.tsx'
 import HomeClubSelector from './HomeClubSelector.tsx'
@@ -599,7 +599,7 @@ function App() {
                   </div>
                   <div className="profile-landscape" aria-hidden="true">
                     <span />
-                    <img src={profileEngraving} alt="" />
+                    <img src={ledgerGreen} alt="" />
                   </div>
                 </div>
 
