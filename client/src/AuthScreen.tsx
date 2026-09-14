@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import brandLogo from './assets/fore-the-record-logo.png'
+import ledgerGreen from './assets/ledger-green-engraving.png'
 import { getAuthErrorMessage } from './authErrors.ts'
 import { getSupabaseClient } from './supabase.ts'
 import './AuthScreen.css'
@@ -152,49 +153,72 @@ function AuthScreen({ notice = '' }: AuthScreenProps) {
 
   return (
     <main className="auth-page">
-      <section className="auth-story">
+      <header className="auth-masthead">
         <img src={brandLogo} alt="Fore the Record" />
-        <div>
-          <p className="auth-eyebrow">Your game, safely kept</p>
-          <h1>
-            Every round.
-            <span>Yours alone.</span>
-          </h1>
+        <div className="auth-masthead-navigation" aria-hidden="true">
+          <span>Profile</span>
+          <span>Courses</span>
+          <span>Rounds</span>
           <p>
-            Sign in wherever you play and keep your profile, courses and
-            Handicap Index connected to you.
+            Your game,
+            <strong>in focus.</strong>
           </p>
         </div>
-        <small>Fore the Record · Built for the next round</small>
-      </section>
+      </header>
 
-      <section className="auth-panel" aria-labelledby="auth-title">
-        <div className="auth-card">
-          {mode !== 'forgot' ? (
-            <div className="auth-switcher" aria-label="Account options">
-              <button
-                type="button"
-                aria-pressed={mode === 'login'}
-                onClick={() => changeMode('login')}
-              >
-                Sign in
-              </button>
-              <button
-                type="button"
-                aria-pressed={mode === 'register'}
-                onClick={() => changeMode('register')}
-              >
-                New account
-              </button>
-              <button
-                type="button"
-                aria-pressed={mode === 'claim'}
-                onClick={() => changeMode('claim')}
-              >
-                Claim profile
-              </button>
-            </div>
-          ) : null}
+      <div className="auth-ledger">
+        <section className="auth-story">
+          <div className="ledger-rule">
+            <span>01</span>
+            <i />
+            <strong>Your personal golf record</strong>
+          </div>
+          <div className="auth-story-copy">
+            <h1>
+              Every round.
+              <span>Worth remembering.</span>
+            </h1>
+            <p>
+              Your profile, courses and Handicap Index—kept together for the
+              next round.
+            </p>
+          </div>
+          <div className="auth-story-note" aria-hidden="true">
+            <span />
+            A clearer record
+            <strong>for a richer game.</strong>
+          </div>
+          <div className="auth-story-art" aria-hidden="true">
+            <span />
+            <img src={ledgerGreen} alt="" />
+          </div>
+        </section>
+
+        <section className="auth-panel" aria-labelledby="auth-title">
+          <div className="ledger-rule">
+            <span>02</span>
+            <i />
+            <strong>The clubhouse ledger</strong>
+          </div>
+          <div className="auth-card">
+            {mode !== 'login' && mode !== 'forgot' ? (
+              <div className="auth-switcher" aria-label="Account options">
+                <button
+                  type="button"
+                  aria-pressed={mode === 'register'}
+                  onClick={() => changeMode('register')}
+                >
+                  New account
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={mode === 'claim'}
+                  onClick={() => changeMode('claim')}
+                >
+                  Claim profile
+                </button>
+              </div>
+            ) : null}
 
           <p className="form-kicker">
             {mode === 'forgot' ? 'Account recovery' : content?.kicker}
@@ -202,11 +226,13 @@ function AuthScreen({ notice = '' }: AuthScreenProps) {
           <h2 id="auth-title">
             {mode === 'forgot' ? 'Reset your password.' : content?.title}
           </h2>
-          <p className="auth-intro">
-            {mode === 'forgot'
-              ? 'Enter your account email and we will send a secure reset link.'
-              : content?.intro}
-          </p>
+          {mode !== 'login' ? (
+            <p className="auth-intro">
+              {mode === 'forgot'
+                ? 'Enter your account email and we will send a secure reset link.'
+                : content?.intro}
+            </p>
+          ) : null}
 
           <form className="auth-form" onSubmit={handleSubmit} noValidate>
             {mode === 'register' ? (
@@ -298,13 +324,24 @@ function AuthScreen({ notice = '' }: AuthScreenProps) {
           </form>
 
           {mode === 'login' ? (
-            <button
-              className="auth-text-button"
-              type="button"
-              onClick={() => changeMode('forgot')}
-            >
-              Forgotten your password?
-            </button>
+            <>
+              <button
+                className="auth-text-button"
+                type="button"
+                onClick={() => changeMode('forgot')}
+              >
+                Forgotten your password?
+              </button>
+              <div className="auth-account-links">
+                <span>New here?</span>
+                <button type="button" onClick={() => changeMode('register')}>
+                  Create an account
+                </button>
+                <button type="button" onClick={() => changeMode('claim')}>
+                  Claim a profile
+                </button>
+              </div>
+            </>
           ) : mode === 'forgot' ? (
             <button
               className="auth-text-button"
@@ -314,8 +351,24 @@ function AuthScreen({ notice = '' }: AuthScreenProps) {
               Return to sign in
             </button>
           ) : null}
+          {mode === 'register' || mode === 'claim' ? (
+            <button
+              className="auth-text-button"
+              type="button"
+              onClick={() => changeMode('login')}
+            >
+              Return to sign in
+            </button>
+          ) : null}
         </div>
-      </section>
+        </section>
+      </div>
+
+      <footer className="auth-folio" aria-hidden="true">
+        <span>Fore the Record — Est. 2024</span>
+        <em>Golf leaves a mark. So do you.</em>
+        <span>The Clubhouse Ledger / 01</span>
+      </footer>
     </main>
   )
 }

@@ -1,5 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
+import courseBerwickEngraving from './assets/course-berwick-engraving.png'
+import courseMachrihanishEngraving from './assets/course-machrihanish-engraving.png'
+import coursePortrushEngraving from './assets/course-portrush-engraving.png'
 import {
   buildCatalogueCoursesPath,
   buildProviderClubCoursesPath,
@@ -32,6 +35,11 @@ type SearchFilters = {
 }
 
 const PAGE_SIZE = 10
+const COURSE_ENGRAVINGS = [
+  coursePortrushEngraving,
+  courseBerwickEngraving,
+  courseMachrihanishEngraving,
+]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -476,13 +484,13 @@ function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
             <span aria-hidden="true" /> Courses and tees
           </p>
           <h1>
-            Find your course.
-            <span>Choose your line.</span>
+            Courses worth
+            <span>returning to.</span>
           </h1>
         </div>
         <p>
-          Search the saved UK catalogue by club, course, or both. If a club is
-          missing, a one-off provider check can add its available rated tees.
+          Every course you play, remembered in one place. Search the UK
+          catalogue and keep your regular tees close at hand.
         </p>
       </header>
 
@@ -506,8 +514,15 @@ function CourseSearch({ onReportMissingCourse }: CourseSearchProps) {
           </p>
         ) : (
           <div className="favourite-course-list">
-            {favourites.map((favourite) => (
+            {favourites.map((favourite, index) => (
               <article key={favourite.id} className="favourite-course-card">
+                <div className="favourite-course-engraving" aria-hidden="true">
+                  <span />
+                  <img
+                    src={COURSE_ENGRAVINGS[index % COURSE_ENGRAVINGS.length]}
+                    alt=""
+                  />
+                </div>
                 <div>
                   <small>{favourite.course.club.name}</small>
                   <strong>{favourite.course.name}</strong>

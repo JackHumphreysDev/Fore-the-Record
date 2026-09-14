@@ -9,6 +9,7 @@ import {
 } from './adminApi.ts'
 import AuthScreen from './AuthScreen.tsx'
 import brandLogo from './assets/fore-the-record-logo.png'
+import ledgerGreen from './assets/ledger-green-engraving.png'
 import CourseSearch from './CourseSearch.tsx'
 import Friends from './Friends.tsx'
 import HomeClubSelector from './HomeClubSelector.tsx'
@@ -23,6 +24,7 @@ import type { SubmissionType } from './submissionApi.ts'
 import { isSubmissionUnreadCountResponse } from './submissionApi.ts'
 import { getSupabaseClient } from './supabase.ts'
 import WhatsNew from './WhatsNew.tsx'
+import './LedgerTheme.css'
 
 const AdminPortal = lazy(() => import('./AdminPortal.tsx'))
 
@@ -91,13 +93,9 @@ async function getApiError(
   return fallbackMessage
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
+function getMonogram(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean)
+  return parts.at(-1)?.[0]?.toUpperCase() ?? parts[0]?.[0]?.toUpperCase() ?? '•'
 }
 
 function removeAuthQueryParameters() {
@@ -493,213 +491,223 @@ function App() {
           <img className="brand-logo" src={brandLogo} alt="" />
         </a>
 
-        <nav className="site-nav" aria-label="Primary navigation">
-          <button
-            type="button"
-            aria-current={activeView === 'profile' ? 'page' : undefined}
-            onClick={() => setActiveView('profile')}
-          >
-            Profile
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'courses' ? 'page' : undefined}
-            onClick={() => setActiveView('courses')}
-          >
-            Courses
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'rounds' ? 'page' : undefined}
-            onClick={() => setActiveView('rounds')}
-          >
-            Rounds
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'history' ? 'page' : undefined}
-            onClick={() => setActiveView('history')}
-          >
-            History
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'friends' ? 'page' : undefined}
-            onClick={() => setActiveView('friends')}
-          >
-            Friends
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'support' ? 'page' : undefined}
-            onClick={() => {
-              setSupportInitialType('IDEA')
-              setActiveView('support')
-            }}
-          >
-            Support
-            {supportUnreadCount > 0 ? (
-              <span className="nav-unread-count" aria-label={`${supportUnreadCount} unread support requests`}>
-                {supportUnreadCount > 99 ? '99+' : supportUnreadCount}
-              </span>
-            ) : null}
-          </button>
-          <button
-            type="button"
-            aria-current={activeView === 'whats-new' ? 'page' : undefined}
-            onClick={() => setActiveView('whats-new')}
-          >
-            What’s New
-          </button>
-          {adminIdentity ? (
+        <div className="site-header-navigation">
+          <nav className="site-nav" aria-label="Primary navigation">
             <button
               type="button"
-              aria-current={activeView === 'admin' ? 'page' : undefined}
-              onClick={() => setActiveView('admin')}
+              aria-current={activeView === 'profile' ? 'page' : undefined}
+              onClick={() => setActiveView('profile')}
             >
-              Admin
-              {adminUnreadCount > 0 ? (
-                <span className="nav-unread-count" aria-label={`${adminUnreadCount} unread support requests`}>
-                  {adminUnreadCount > 99 ? '99+' : adminUnreadCount}
+              Profile
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'courses' ? 'page' : undefined}
+              onClick={() => setActiveView('courses')}
+            >
+              Courses
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'rounds' ? 'page' : undefined}
+              onClick={() => setActiveView('rounds')}
+            >
+              Rounds
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'history' ? 'page' : undefined}
+              onClick={() => setActiveView('history')}
+            >
+              History
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'friends' ? 'page' : undefined}
+              onClick={() => setActiveView('friends')}
+            >
+              Friends
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'support' ? 'page' : undefined}
+              onClick={() => {
+                setSupportInitialType('IDEA')
+                setActiveView('support')
+              }}
+            >
+              Support
+              {supportUnreadCount > 0 ? (
+                <span
+                  className="nav-unread-count"
+                  aria-label={`${supportUnreadCount} unread support requests`}
+                >
+                  {supportUnreadCount > 99 ? '99+' : supportUnreadCount}
                 </span>
               ) : null}
             </button>
-          ) : null}
-        </nav>
+            <button
+              type="button"
+              aria-current={activeView === 'whats-new' ? 'page' : undefined}
+              onClick={() => setActiveView('whats-new')}
+            >
+              What’s New
+            </button>
+            {adminIdentity ? (
+              <button
+                type="button"
+                aria-current={activeView === 'admin' ? 'page' : undefined}
+                onClick={() => setActiveView('admin')}
+              >
+                Admin
+                {adminUnreadCount > 0 ? (
+                  <span
+                    className="nav-unread-count"
+                    aria-label={`${adminUnreadCount} unread support requests`}
+                  >
+                    {adminUnreadCount > 99 ? '99+' : adminUnreadCount}
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
+          </nav>
+          <p className="site-edition" aria-hidden="true">
+            Your game,
+            <span>in focus</span>
+          </p>
+        </div>
       </header>
 
       <main>
         {activeView === 'profile' ? (
-          <section className="profile-layout" id="profile">
-            <div className="intro-panel">
-              <div>
-                <p className="eyebrow">
-                  <span aria-hidden="true" /> Your personal golf record
-                </p>
-                <h1>
-                  Every round.
-                  <span>Worth remembering.</span>
-                </h1>
-                <p className="intro-copy">
-                  Build a clear picture of your game—from the first card you
-                  sign to the rounds shaping your Handicap Index.
-                </p>
-              </div>
-
-              <div className="handicap-preview" aria-hidden="true">
-                <div className="preview-orbit preview-orbit-one" />
-                <div className="preview-orbit preview-orbit-two" />
-                <div className="preview-score">
-                  <small>Handicap Index</small>
-                  <strong>{profile.handicapIndex ?? '—'}</strong>
-                  <span>Your current record</span>
-                </div>
-              </div>
-
-              <ol className="journey-steps" aria-label="How Fore the Record works">
-                <li>
+          <>
+            <section className="profile-layout concept-profile" id="profile">
+              <div className="profile-dossier">
+                <div className="ledger-rule">
                   <span>01</span>
-                  <div>
-                    <strong>Secure your profile</strong>
-                    <small>Your game stays connected to you</small>
-                  </div>
-                </li>
-                <li>
-                  <span>02</span>
-                  <div>
-                    <strong>Choose your course</strong>
-                    <small>Ratings and tees, ready to go</small>
-                  </div>
-                </li>
-                <li>
-                  <span>03</span>
-                  <div>
-                    <strong>Watch your game unfold</strong>
-                    <small>See which rounds truly count</small>
-                  </div>
-                </li>
-              </ol>
-            </div>
-
-            <div className="form-panel">
-              <div className="profile-success" aria-live="polite">
-                <div className="success-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="m6 12.5 3.5 3.5L18 7.5" />
-                  </svg>
+                  <i />
+                  <strong>Player dossier</strong>
                 </div>
-                <p className="form-kicker">Signed in</p>
-                <h2>Your record is ready.</h2>
-                <p className="form-intro">
-                  Your profile and rounds are securely linked to this account.
-                </p>
 
-                <div className="profile-card">
-                  <div className="profile-avatar" aria-hidden="true">
-                    {getInitials(profile.name)}
+                <div className="profile-dossier-hero">
+                  <div>
+                    <h1>
+                      Your game,
+                      <span>in profile.</span>
+                    </h1>
+                    <p>The details behind every round, kept clear and current.</p>
                   </div>
-                  <div className="profile-identity">
-                    <strong>{profile.name}</strong>
-                    <span>{profile.email}</span>
-                  </div>
-                  <div className="profile-handicap">
-                    <small>Handicap</small>
-                    <strong>{profile.handicapIndex ?? '—'}</strong>
+                  <div className="profile-landscape" aria-hidden="true">
+                    <span />
+                    <img src={ledgerGreen} alt="" />
                   </div>
                 </div>
 
-                <dl className="profile-details">
+                <div className="player-signature">
+                  <span aria-hidden="true">{getMonogram(profile.name)}</span>
+                  <i />
+                  <strong>{profile.name}</strong>
+                </div>
+
+                <p className="profile-table-label">Player details</p>
+                <dl className="profile-record">
+                  <div>
+                    <dt>Full name</dt>
+                    <dd>{profile.name}</dd>
+                  </div>
+                  <div>
+                    <dt>Email address</dt>
+                    <dd>{profile.email}</dd>
+                  </div>
                   <div>
                     <dt>Home club</dt>
                     <dd>{profile.homeClub?.name ?? 'Not set yet'}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              <aside className="profile-index" aria-label="Handicap Index">
+                <div className="ledger-rule">
+                  <span>02</span>
+                  <i />
+                  <strong>Handicap Index</strong>
+                </div>
+                <strong className="profile-index-value">
+                  {profile.handicapIndex === null
+                    ? '—'
+                    : profile.handicapIndex.toFixed(1)}
+                </strong>
+                <p className="profile-index-caption">Your current official record</p>
+                <dl className="profile-index-details">
+                  <div>
+                    <dt>Home club</dt>
+                    <dd>{profile.homeClub?.name ?? 'Not set'}</dd>
                   </div>
                   <div>
                     <dt>Member since</dt>
                     <dd>
                       {new Intl.DateTimeFormat('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
                         year: 'numeric',
                       }).format(new Date(profile.createdAt))}
                     </dd>
                   </div>
                 </dl>
+                <button
+                  className="profile-edit-button"
+                  type="button"
+                  onClick={() => setActiveView('settings')}
+                >
+                  <span>Edit profile</span>
+                  <strong aria-hidden="true">→</strong>
+                </button>
+              </aside>
+            </section>
 
-                <PerformanceSummary
-                  profileId={profile.id}
-                  handicapIndex={profile.handicapIndex}
-                />
-
-                <PersonalMilestones profileId={profile.id} />
-
-                <PlayerGoals profileId={profile.id} />
-
-                <HomeClubSelector
-                  homeClubId={profile.homeClubId}
-                  homeClub={profile.homeClub}
-                  onHomeClubUpdated={updateHomeClub}
-                  onGoToCourses={() => setActiveView('courses')}
-                />
-
-                <div className="profile-actions">
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => setActiveView('settings')}
-                  >
-                    Account settings
-                  </button>
-                  <button
-                    className="profile-sign-out"
-                    type="button"
-                    onClick={() => void signOut()}
-                  >
-                    Sign out
-                  </button>
+            <section className="profile-dashboard" aria-label="Your playing record">
+              <header>
+                <p className="form-kicker">The record continues</p>
+                <h2>Your playing record.</h2>
+                <p>
+                  Goals, milestones and performance detail sit beneath the
+                  same clubhouse-ledger cover.
+                </p>
+              </header>
+              <div className="profile-dashboard-grid">
+                <div className="profile-dashboard-column">
+                  <PerformanceSummary
+                    profileId={profile.id}
+                    handicapIndex={profile.handicapIndex}
+                  />
+                  <PlayerGoals profileId={profile.id} />
+                </div>
+                <div className="profile-dashboard-column">
+                  <PersonalMilestones profileId={profile.id} />
+                  <HomeClubSelector
+                    homeClubId={profile.homeClubId}
+                    homeClub={profile.homeClub}
+                    onHomeClubUpdated={updateHomeClub}
+                    onGoToCourses={() => setActiveView('courses')}
+                  />
                 </div>
               </div>
-            </div>
-          </section>
+              <div className="profile-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setActiveView('settings')}
+                >
+                  Account settings
+                </button>
+                <button
+                  className="profile-sign-out"
+                  type="button"
+                  onClick={() => void signOut()}
+                >
+                  Sign out
+                </button>
+              </div>
+            </section>
+          </>
         ) : activeView === 'settings' ? (
           <AccountSettings
             profile={profile}
@@ -754,8 +762,9 @@ function App() {
       </main>
 
       <footer className="site-footer">
-        <span>Fore the Record</span>
-        <span>Built for the next round</span>
+        <span>Fore the Record — Est. 2024</span>
+        <em>Golf leaves a mark. So do you.</em>
+        <span>The Clubhouse Ledger</span>
       </footer>
     </div>
   )
