@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.25.0 - 2026-09-12
+
+### User-facing changes
+
+- Fore the Record can be added to a phone's Home Screen and opened like an app.
+- Added an in-app Install app action where browser installation is available, plus Safari Home Screen instructions for iPhone and iPad.
+- Added a clear reconnect page when an installed app is opened without internet access.
+
+### Developer and admin changes
+
+- Added an install manifest, branded mobile icons, Apple Home Screen metadata, and a narrowly scoped service worker.
+- Cached only the public offline page; authenticated APIs, profile data, live pages, and scorecards are never stored by the service worker.
+- Added installation metadata, icon, device-detection, and offline-navigation regression tests.
+
 ## 0.24.1 - 2026-09-12
 
 ### User-facing changes

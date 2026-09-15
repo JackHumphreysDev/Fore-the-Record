@@ -24,9 +24,13 @@ This roadmap records agreed future work. Items are planned requirements, not com
 18. Round notes. Completed in `0.23.0`.
 19. Email notifications. Production delivery depends on the future custom domain and email configuration.
 20. Privacy and account controls. Completed in `0.24.0`.
-21. Installable mobile app.
+21. Installable mobile app. Completed in `0.25.0`.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Installable mobile app — completed in 0.25.0
+
+Players can add the existing Fore the Record website to a phone's Home Screen and launch it in a standalone window. Supported browsers show an Install app action; iPhone and iPad users see Safari's Add to Home Screen guidance. A public offline page explains that a connection is needed for private rounds and account details. The service worker never caches authenticated API responses, personal records, or live application pages. This is an installable web app, not a native App Store or Play Store package.
 
 ## Privacy and account controls — completed in 0.24.0
 

@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'installable-mobile-app',
+    publishedAt: '2026-09-12',
+    title: 'Take your record with you',
+    summary:
+      'Add Fore the Record to your phone’s Home Screen and open it like an app whenever you are ready to play.',
+    highlights: [
+      'Use Install app when your browser offers it, or add the site from Safari’s Share menu on iPhone and iPad.',
+      'Launch straight into your usual Fore the Record experience.',
+      'Your rounds and account details still need an internet connection.',
+    ],
+  },
+  {
     id: 'privacy-account-controls',
     publishedAt: '2026-09-10',
     title: 'Put your account choices in your hands',

@@ -40,6 +40,8 @@ Players can add a private note while recording any individual or team round, the
 
 Account Settings includes privacy choices for player discovery, new friend requests, and Handicap Index visibility. Players can download a JSON copy of their own Fore the Record data and permanently delete a non-administrator account after password verification and exact email confirmation.
 
+Fore the Record can be installed from a supported browser and launched from a phone's Home Screen. The app offers an install action when the browser supports it; on iPhone and iPad, players can use Safari's Share menu and Add to Home Screen. Installation does not make private rounds available offline: the service worker keeps only a public reconnect page and never caches authenticated API responses or personal data.
+
 Signed-in players can open Account Settings from Profile to change their displayed name, request a confirmed sign-in email change, or securely update their password. Sensitive changes require the current password, duplicate profile emails are blocked, and passwords never pass through the Fore the Record API.
 
 The Friends screen lets signed-in players find active profiles by first or last name, distinguish matching names by home club, and exchange friend requests. Accepted friends can see each other's current Handicap Index. Email addresses, rounds, and private performance statistics are never included in friend search or connection responses.
@@ -50,7 +52,7 @@ The application features are still under development. The core handicap calculat
 
 ## Roadmap and releases
 
-The current application version is `0.24.1`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.25.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)
