@@ -651,9 +651,9 @@
 .history-round-notes {
   margin-top: 22px;
   padding: 18px 20px;
-  border: 1px solid rgba(237, 232, 220, 0.12);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(23, 56, 42, 0.035);
 }
 
 .history-round-notes header,
@@ -675,22 +675,22 @@
 }
 
 .history-round-notes header strong {
-  color: var(--paper);
+  color: var(--forest-deep);
   font-size: 13px;
 }
 
 .history-round-notes header small,
 .history-note-editor-footer small {
-  color: rgba(255, 255, 255, 0.48);
+  color: var(--ink-muted);
   font-size: 10px;
 }
 
 .history-round-notes button {
   min-height: 34px;
   padding: 7px 12px;
-  border: 1px solid rgba(215, 255, 79, 0.25);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  color: var(--lime);
+  color: var(--forest-deep);
   background: transparent;
   font: inherit;
   font-size: 11px;
@@ -700,14 +700,14 @@
 
 .history-round-notes > p {
   margin: 14px 0 0;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--forest-deep);
   font-size: 13px;
   line-height: 1.65;
   white-space: pre-wrap;
 }
 
 .history-round-notes > .history-note-empty {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--ink-muted);
   font-style: italic;
 }
 
@@ -721,10 +721,10 @@
   padding: 13px 14px;
   box-sizing: border-box;
   resize: vertical;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--line-strong);
   border-radius: 10px;
-  color: var(--paper);
-  background: rgba(0, 0, 0, 0.22);
+  color: var(--forest-deep);
+  background: var(--paper-bright);
   font: inherit;
   font-size: 13px;
   line-height: 1.55;
@@ -750,7 +750,7 @@
 
 .history-note-error {
   margin: 10px 0 0;
-  color: #ffaaa0;
+  color: var(--danger);
   font-size: 11px;
 }
 
