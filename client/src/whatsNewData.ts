@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'stableford-scoring',
+    publishedAt: '2026-09-15',
+    title: 'Count every Stableford point',
+    summary:
+      'Record a Stableford round with the Playing Handicap from your card and see every point calculated for you.',
+    highlights: [
+      'See gross score, net score, and points for each hole as you complete the card.',
+      'Follow your Front 9, Back 9, and full-round Stableford totals automatically.',
+      'Mark a hole as Picked up for zero points without adding a made-up score to your record.',
+    ],
+  },
+  {
     id: 'installable-mobile-app',
     publishedAt: '2026-09-12',
     title: 'Take your record with you',

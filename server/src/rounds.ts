@@ -4,6 +4,8 @@ import {
   type RoundCategory as RoundCategoryValue,
   RoundParticipation,
   type RoundParticipation as RoundParticipationValue,
+  RoundScoringFormat,
+  type RoundScoringFormat as RoundScoringFormatValue,
   RoundScorecardStatus,
   SubmissionType,
   WeatherCondition,
@@ -18,6 +20,7 @@ import {
   calculateScoreDifferential,
 } from './handicap.js'
 import { parseRoundNotes, RoundNotesValidationError } from './roundNotes.js'
+import { calculateStablefordRound } from './stableford.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -38,7 +41,8 @@ export type RoundHoleInput = {
   holeNumber: number
   par: number
   strokeIndex: number
-  strokesTaken: number
+  strokesTaken: number | null
+  pickedUp: boolean
   yardage?: number
 }
 
@@ -52,14 +56,17 @@ type LogRoundBase = {
   competitionFormat: string | null
   numberOfPlayers: number | null
   notes: string | null
+  scoringFormat: RoundScoringFormatValue
+  playingHandicap: number | null
 }
 
 export type LogIndividualRoundInput = LogRoundBase & {
   participation: typeof RoundParticipation.INDIVIDUAL
-  grossScore: number
+  grossScore: number | null
   weatherCondition: WeatherConditionValue
   pccAdjustment: number
   holeScores: RoundHoleInput[]
+  stablefordPoints: number | null
 }
 
 export type LogTeamRoundInput = LogRoundBase & {
@@ -72,6 +79,9 @@ export type LogTeamRoundInput = LogRoundBase & {
   weatherCondition: null
   pccAdjustment: 0
   holeScores: []
+  scoringFormat: typeof RoundScoringFormat.STROKE_PLAY
+  playingHandicap: null
+  stablefordPoints: null
 }
 
 export type LogRoundInput = LogIndividualRoundInput | LogTeamRoundInput
@@ -152,6 +162,17 @@ function getRoundParticipation(
     : null
 }
 
+function getRoundScoringFormat(value: unknown): RoundScoringFormatValue | null {
+  if (value === undefined) {
+    return RoundScoringFormat.STROKE_PLAY
+  }
+
+  return value === RoundScoringFormat.STROKE_PLAY ||
+    value === RoundScoringFormat.STABLEFORD
+    ? value
+    : null
+}
+
 function getRequiredText(value: unknown, maxLength: number): string | null {
   if (typeof value !== 'string') {
     return null
@@ -164,7 +185,10 @@ function getRequiredText(value: unknown, maxLength: number): string | null {
     : null
 }
 
-function getHoleScores(value: unknown): RoundHoleInput[] | null {
+function getHoleScores(
+  value: unknown,
+  allowPickedUp: boolean,
+): RoundHoleInput[] | null {
   if (!Array.isArray(value) || value.length !== HOLES_IN_ROUND) {
     return null
   }
@@ -172,6 +196,7 @@ function getHoleScores(value: unknown): RoundHoleInput[] | null {
   const holeScores: RoundHoleInput[] = []
 
   for (const score of value) {
+    const pickedUp = isRecord(score) && score.pickedUp === true
     if (
       !isRecord(score) ||
       typeof score.holeNumber !== 'number' ||
@@ -186,9 +211,12 @@ function getHoleScores(value: unknown): RoundHoleInput[] | null {
       !Number.isInteger(score.strokeIndex) ||
       score.strokeIndex < 1 ||
       score.strokeIndex > HOLES_IN_ROUND ||
-      typeof score.strokesTaken !== 'number' ||
-      !Number.isInteger(score.strokesTaken) ||
-      score.strokesTaken <= 0 ||
+      (pickedUp
+        ? !allowPickedUp ||
+          (score.strokesTaken !== null && score.strokesTaken !== undefined)
+        : typeof score.strokesTaken !== 'number' ||
+          !Number.isInteger(score.strokesTaken) ||
+          score.strokesTaken <= 0) ||
       (score.yardage !== undefined &&
         (typeof score.yardage !== 'number' ||
           !Number.isInteger(score.yardage) ||
@@ -201,7 +229,8 @@ function getHoleScores(value: unknown): RoundHoleInput[] | null {
       holeNumber: score.holeNumber,
       par: score.par,
       strokeIndex: score.strokeIndex,
-      strokesTaken: score.strokesTaken,
+      strokesTaken: pickedUp ? null : (score.strokesTaken as number),
+      pickedUp,
       ...(typeof score.yardage === 'number'
         ? { yardage: score.yardage }
         : {}),
@@ -232,6 +261,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   const timePlayed = getTimePlayed(value.timePlayed)
   const category = getRoundCategory(value.category)
   const participation = getRoundParticipation(value.participation)
+  const scoringFormat = getRoundScoringFormat(value.scoringFormat)
   let notes: string | null
 
   try {
@@ -251,6 +281,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     !datePlayed ||
     !category ||
     !participation ||
+    !scoringFormat ||
     (value.timePlayed !== undefined && timePlayed === null)
   ) {
     return null
@@ -293,7 +324,9 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       (value.weatherCondition !== undefined &&
         value.weatherCondition !== null) ||
       (value.holeScores !== undefined && value.holeScores !== null) ||
-      (value.pccAdjustment !== undefined && value.pccAdjustment !== 0)
+      (value.pccAdjustment !== undefined && value.pccAdjustment !== 0) ||
+      scoringFormat !== RoundScoringFormat.STROKE_PLAY ||
+      value.playingHandicap !== undefined
     ) {
       return null
     }
@@ -309,35 +342,49 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       competitionFormat,
       numberOfPlayers,
       notes,
+      scoringFormat: RoundScoringFormat.STROKE_PLAY,
+      playingHandicap: null,
       grossScore: null,
       weatherCondition: null,
       pccAdjustment: 0,
       holeScores: [],
+      stablefordPoints: null,
     }
   }
 
   const weatherCondition = getWeatherCondition(value.weatherCondition)
-  const holeScores = getHoleScores(value.holeScores)
+  const isStableford = scoringFormat === RoundScoringFormat.STABLEFORD
+  const holeScores = getHoleScores(value.holeScores, isStableford)
   const pccAdjustment = value.pccAdjustment ?? 0
+  const playingHandicap = isStableford ? value.playingHandicap : null
+  const hasPickedUpHole = holeScores?.some((hole) => hole.pickedUp) ?? false
+  const grossScore = value.grossScore
 
   if (
-    typeof value.grossScore !== 'number' ||
-    !Number.isInteger(value.grossScore) ||
-    value.grossScore <= 0 ||
+    (hasPickedUpHole
+      ? grossScore !== null && grossScore !== undefined
+      : typeof grossScore !== 'number' ||
+        !Number.isInteger(grossScore) ||
+        grossScore <= 0) ||
     !weatherCondition ||
     typeof pccAdjustment !== 'number' ||
     !Number.isFinite(pccAdjustment) ||
     pccAdjustment < -9.9 ||
     pccAdjustment > 9.9 ||
-    holeScores === null
+    holeScores === null ||
+    (isStableford
+      ? typeof playingHandicap !== 'number' ||
+        !Number.isInteger(playingHandicap) ||
+        playingHandicap < -20 ||
+        playingHandicap > 54
+      : value.playingHandicap !== undefined && value.playingHandicap !== null)
   ) {
     return null
   }
 
-  const grossScore = value.grossScore
-
   if (
-    holeScores.reduce((total, hole) => total + hole.strokesTaken, 0) !==
+    !hasPickedUpHole &&
+    holeScores.reduce((total, hole) => total + Number(hole.strokesTaken), 0) !==
       grossScore
   ) {
     return null
@@ -355,10 +402,15 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     numberOfPlayers:
       typeof numberOfPlayers === 'number' ? numberOfPlayers : null,
     notes,
-    grossScore,
+    scoringFormat,
+    playingHandicap: isStableford ? (playingHandicap as number) : null,
+    grossScore: typeof grossScore === 'number' ? grossScore : null,
     weatherCondition,
     pccAdjustment,
     holeScores,
+    stablefordPoints: isStableford
+      ? calculateStablefordRound(holeScores, playingHandicap as number).totalPoints
+      : null,
   }
 }
 
@@ -416,6 +468,9 @@ export async function logRound(input: LogRoundInput) {
           timePlayed: input.timePlayed,
           category: input.category,
           participation: input.participation,
+          scoringFormat: input.scoringFormat,
+          playingHandicap: null,
+          stablefordPoints: null,
           competitionName: input.competitionName,
           competitionFormat: input.competitionFormat,
           numberOfPlayers: input.numberOfPlayers,
@@ -469,12 +524,21 @@ export async function logRound(input: LogRoundInput) {
         par: savedHole?.par ?? submittedHole.par,
         strokeIndex: savedHole?.strokeIndex ?? submittedHole.strokeIndex,
         strokesTaken: submittedHole.strokesTaken,
+        pickedUp: submittedHole.pickedUp,
         ...(savedHole?.yardage ?? submittedHole.yardage
           ? { yardage: savedHole?.yardage ?? submittedHole.yardage }
           : {}),
       }
     })
     const manualReviewRequired = !hasSavedScorecard
+    const stablefordPoints =
+      input.scoringFormat === RoundScoringFormat.STABLEFORD &&
+      input.playingHandicap !== null
+        ? calculateStablefordRound(
+            effectiveHoleScores,
+            input.playingHandicap,
+          ).totalPoints
+        : null
     const coursePar =
       tee.par ??
       effectiveHoleScores.reduce((total, hole) => total + hole.par, 0)
@@ -487,20 +551,25 @@ export async function logRound(input: LogRoundInput) {
             courseRating,
             par: coursePar,
           })
-    const adjustedHoleScores = effectiveHoleScores.map((hole) => ({
-      par: hole.par,
-      strokesTaken: hole.strokesTaken,
-      handicapStrokesReceived:
+    const adjustedHoleScores = effectiveHoleScores.map((hole) => {
+      const handicapStrokesReceived =
         courseHandicap === null
           ? INITIAL_HANDICAP_STROKES_PER_HOLE
-          : calculateHandicapStrokesReceived(
-              courseHandicap,
-              hole.strokeIndex,
-            ),
-    }))
+          : calculateHandicapStrokesReceived(courseHandicap, hole.strokeIndex)
+
+      return {
+        par: hole.par,
+        strokesTaken:
+          hole.strokesTaken ?? hole.par + 2 + handicapStrokesReceived,
+        handicapStrokesReceived,
+      }
+    })
+    const calculationGrossScore =
+      input.grossScore ??
+      adjustedHoleScores.reduce((total, hole) => total + hole.strokesTaken, 0)
     const { adjustedGrossScore, isCapped } =
       calculateAdjustedGrossScore({
-        grossScore: input.grossScore,
+        grossScore: calculationGrossScore,
         ...(adjustedHoleScores ? { holeScores: adjustedHoleScores } : {}),
       })
     const scoreDifferential = calculateScoreDifferential({
@@ -521,13 +590,16 @@ export async function logRound(input: LogRoundInput) {
         timePlayed: input.timePlayed,
         category: input.category,
         participation: input.participation,
+        scoringFormat: input.scoringFormat,
+        playingHandicap: input.playingHandicap,
+        stablefordPoints,
         competitionName: input.competitionName,
         competitionFormat: input.competitionFormat,
         numberOfPlayers: input.numberOfPlayers,
         notes: input.notes,
         grossScore: input.grossScore,
         adjustedGrossScore,
-        isCapped,
+        isCapped: isCapped || effectiveHoleScores.some((hole) => hole.pickedUp),
         weatherCondition: input.weatherCondition,
         pccAdjustment: input.pccAdjustment,
         scoreDifferential,
@@ -536,9 +608,10 @@ export async function logRound(input: LogRoundInput) {
           ? RoundScorecardStatus.PENDING_REVIEW
           : RoundScorecardStatus.VERIFIED,
         holeScores: {
-          create: effectiveHoleScores.map(
-            ({ yardage: _yardage, ...hole }) => hole,
-          ),
+          create: effectiveHoleScores.map(({ yardage: _yardage, ...hole }) => ({
+            ...hole,
+            strokesTaken: hole.strokesTaken ?? 0,
+          })),
         },
         ...(manualReviewRequired
           ? {
@@ -560,7 +633,7 @@ export async function logRound(input: LogRoundInput) {
                   },
                   holes: {
                     create: effectiveHoleScores.map(
-                      ({ strokesTaken: _strokesTaken, ...hole }) => hole,
+                      ({ strokesTaken: _strokesTaken, pickedUp: _pickedUp, ...hole }) => hole,
                     ),
                   },
                 },

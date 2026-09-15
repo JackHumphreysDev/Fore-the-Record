@@ -1,6 +1,6 @@
 # Versioning and release notes
 
-Fore the Record uses one application version across the root, client, and server packages. The current version is `0.25.0`.
+Fore the Record uses one application version across the root, client, and server packages. The current version is `0.26.0`.
 
 ## Version format
 
@@ -37,6 +37,7 @@ Examples:
 - `0.23.0` → `0.24.0` for privacy choices, data export, and self-service account deletion.
 - `0.24.0` → `0.24.1` for Vercel deployment-target compatibility.
 - `0.24.1` → `0.25.0` for the installable mobile web app.
+- `0.25.0` → `0.26.0` for Stableford scoring and picked-up holes.
 - `0.x.x` → `1.0.0` when the product is ready for its first stable release.
 
 Do not increase the version for every commit. Increase it once for a coherent release.

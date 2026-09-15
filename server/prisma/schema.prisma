@@ -41,6 +41,11 @@ enum RoundParticipation {
   TEAM
 }
 
+enum RoundScoringFormat {
+  STROKE_PLAY
+  STABLEFORD
+}
+
 enum WeatherCondition {
   DRY
   MOIST
@@ -283,6 +288,9 @@ model Round {
   timePlayed         String?              @db.VarChar(5)
   category           RoundCategory        @default(CASUAL)
   participation      RoundParticipation   @default(INDIVIDUAL)
+  scoringFormat      RoundScoringFormat   @default(STROKE_PLAY)
+  playingHandicap    Int?
+  stablefordPoints   Int?
   competitionName    String?              @db.VarChar(120)
   competitionFormat  String?              @db.VarChar(100)
   numberOfPlayers    Int?
@@ -363,6 +371,7 @@ model HoleScore {
   par          Int
   strokeIndex  Int
   strokesTaken Int
+  pickedUp     Boolean @default(false)
   round        Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
   @@unique([roundId, holeNumber])

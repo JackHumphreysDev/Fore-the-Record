@@ -414,6 +414,18 @@
   text-align: center;
 }
 
+.round-scorecard input[type='checkbox'] {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+  accent-color: var(--forest-soft);
+}
+
+.round-scorecard input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .round-scorecard th,
 .round-scorecard td {
   padding: 8px;

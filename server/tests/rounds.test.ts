@@ -165,6 +165,9 @@ describe('POST /api/rounds', () => {
         timePlayed: null,
         category: 'CASUAL',
         participation: 'INDIVIDUAL',
+        scoringFormat: 'STROKE_PLAY',
+        playingHandicap: null,
+        stablefordPoints: null,
         competitionName: null,
         competitionFormat: null,
         numberOfPlayers: null,
@@ -177,7 +180,9 @@ describe('POST /api/rounds', () => {
         scoreDifferential: 13.9,
         isAcceptable: true,
         scorecardStatus: 'VERIFIED',
-        holeScores: { create: holeScores },
+        holeScores: {
+          create: holeScores.map((hole) => ({ ...hole, pickedUp: false })),
+        },
       },
       include: {
         holeScores: {
@@ -278,7 +283,9 @@ describe('POST /api/rounds', () => {
           adjustedGrossScore: 75,
           isCapped: true,
           scoreDifferential: 3,
-          holeScores: { create: holeScores },
+          holeScores: {
+            create: holeScores.map((hole) => ({ ...hole, pickedUp: false })),
+          },
         }),
       }),
     )
@@ -357,6 +364,9 @@ describe('POST /api/rounds', () => {
         timePlayed: '13:30',
         category: 'COMPETITION',
         participation: 'TEAM',
+        scoringFormat: 'STROKE_PLAY',
+        playingHandicap: null,
+        stablefordPoints: null,
         competitionName: 'Invitation Day',
         competitionFormat: 'Texas Scramble',
         numberOfPlayers: 64,
@@ -464,6 +474,79 @@ describe('POST /api/rounds', () => {
                 }),
               },
             }),
+          },
+        }),
+      }),
+    )
+  })
+
+  it('records a Stableford pickup as zero points and uses a handicap-only replacement', async () => {
+    const holeScores = Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1,
+      par: 4,
+      strokeIndex: index + 1,
+      strokesTaken: index === 0 ? null : 5,
+      pickedUp: index === 0,
+    }))
+    userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: 18 })
+    teeFindUniqueMock.mockResolvedValueOnce({
+      teeName: 'White',
+      courseRating: 72,
+      slopeRating: 113,
+      par: 72,
+      holes: holeScores.map(({ strokesTaken: _score, pickedUp: _pickup, ...hole }) => ({
+        ...hole,
+        yardage: null,
+      })),
+      course: { name: 'Main Course', club: { name: 'Example Golf Club' } },
+    })
+    roundCreateMock.mockResolvedValueOnce({
+      id: roundId,
+      userId,
+      teeId,
+      datePlayed,
+      grossScore: null,
+      adjustedGrossScore: 92,
+      isCapped: true,
+      weatherCondition: 'DRY',
+      pccAdjustment: 0,
+      scoreDifferential: 20,
+      isAcceptable: true,
+      scorecardStatus: 'VERIFIED',
+      usedInHandicapCalc: false,
+      createdAt,
+      holeScores: [],
+    })
+    roundFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).post('/api/rounds').send({
+      teeId,
+      datePlayed: '2026-08-30',
+      scoringFormat: 'STABLEFORD',
+      playingHandicap: 18,
+      grossScore: null,
+      weatherCondition: 'DRY',
+      holeScores,
+    })
+
+    expect(response.status).toBe(201)
+    expect(roundCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          scoringFormat: 'STABLEFORD',
+          playingHandicap: 18,
+          stablefordPoints: 34,
+          grossScore: null,
+          adjustedGrossScore: 92,
+          isCapped: true,
+          holeScores: {
+            create: expect.arrayContaining([
+              expect.objectContaining({
+                holeNumber: 1,
+                strokesTaken: 0,
+                pickedUp: true,
+              }),
+            ]),
           },
         }),
       }),

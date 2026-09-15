@@ -14,6 +14,23 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.26.0 - 2026-09-15
+
+### User-facing changes
+
+- Added Stroke play and Stableford scoring choices for individual casual and competition rounds.
+- Added a Playing Handicap field with a tee-based Course Handicap suggestion.
+- Added automatic gross, net, and Stableford points for every hole, plus Front 9, Back 9, and 18-hole point totals.
+- Added a Picked up option that awards zero points without inventing a player score.
+- Added Stableford totals, Playing Handicap, pickups, net scores, and hole points to Round History.
+
+### Developer and admin changes
+
+- Added persistent scoring format, Playing Handicap, Stableford total, and picked-up-hole fields.
+- Kept pickup substitutions separate from player-entered scores and applied Net Double Bogey only to handicap processing.
+- Added Stableford-aware scorecard approval, administrator round correction, data export, and milestone handling.
+- Added calculation, allocation, pickup, response-validation, and round-submission regression coverage.
+
 ## 0.25.0 - 2026-09-12
 
 ### User-facing changes

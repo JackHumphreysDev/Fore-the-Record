@@ -223,7 +223,10 @@ function AdminScorecardReviews() {
           {reviews.map((review) => {
             const draft = drafts[review.id] ?? []
             const strokesByHole = new Map(
-              review.round.holeScores.map((score) => [score.holeNumber, score.strokesTaken]),
+              review.round.holeScores.map((score) => [
+                score.holeNumber,
+                score.pickedUp ? 'Picked up' : score.strokesTaken,
+              ]),
             )
 
             return (
@@ -236,7 +239,7 @@ function AdminScorecardReviews() {
                   </div>
                   <dl>
                     <div><dt>Played</dt><dd>{formatDate(review.round.datePlayed)}</dd></div>
-                    <div><dt>Gross</dt><dd>{review.round.grossScore}</dd></div>
+                    <div><dt>{review.round.scoringFormat === 'STABLEFORD' ? 'Points' : 'Gross'}</dt><dd>{review.round.scoringFormat === 'STABLEFORD' ? review.round.stablefordPoints : review.round.grossScore}</dd></div>
                     <div><dt>Provisional</dt><dd>{review.round.scoreDifferential.toFixed(1)}</dd></div>
                   </dl>
                 </header>

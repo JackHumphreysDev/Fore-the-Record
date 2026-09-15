@@ -17,12 +17,18 @@ import {
   type RoundCategory,
   type RoundParticipation,
   type RoundResult,
+  type RoundScoringFormat,
   type WeatherCondition,
 } from './roundRecordValidation.ts'
 import './RoundEntry.css'
 import HandicapProgressionChart from './HandicapProgressionChart.tsx'
 import { calculateRoundScoreTotals } from './roundScorecardTotals.ts'
 import { ROUND_NOTES_MAX_LENGTH } from './roundNotesApi.ts'
+import {
+  calculateCourseHandicap,
+  allocatePlayingHandicapStrokes,
+  calculateStablefordTotals,
+} from './stableford.ts'
 
 type RoundEntryProfile = {
   id: string
@@ -43,6 +49,8 @@ type RoundForm = {
   timePlayed: string
   category: RoundCategory
   participation: RoundParticipation
+  scoringFormat: RoundScoringFormat
+  playingHandicap: string
   competitionName: string
   competitionFormat: string
   numberOfPlayers: string
@@ -60,6 +68,7 @@ type RoundFormErrors = Partial<
     | 'competitionFormat'
     | 'numberOfPlayers'
     | 'grossScore'
+    | 'playingHandicap'
     | 'scorecard'
     | 'notes',
     string
@@ -81,6 +90,7 @@ type HoleEntry = {
   strokeIndex: string
   yardage: string
   strokesTaken: string
+  pickedUp: boolean
 }
 
 type ScorecardResponse =
@@ -173,6 +183,7 @@ function getEmptyManualCard(): HoleEntry[] {
     strokeIndex: '',
     yardage: '',
     strokesTaken: '',
+    pickedUp: false,
   }))
 }
 
@@ -183,6 +194,7 @@ function getHoleEntries(holes: ScorecardHole[]): HoleEntry[] {
     strokeIndex: String(hole.strokeIndex),
     yardage: hole.yardage === null ? '' : String(hole.yardage),
     strokesTaken: '',
+    pickedUp: false,
   }))
 }
 
@@ -257,6 +269,8 @@ function RoundEntry({
     timePlayed: getCurrentTime(),
     category: 'CASUAL',
     participation: 'INDIVIDUAL',
+    scoringFormat: 'STROKE_PLAY',
+    playingHandicap: '',
     competitionName: '',
     competitionFormat: '',
     numberOfPlayers: '',
@@ -287,7 +301,10 @@ function RoundEntry({
   const isCompetition = form.category === 'COMPETITION'
   const isTeamRound =
     isCompetition && form.participation === 'TEAM'
-  const completedStrokeCount = holeEntries.filter(({ strokesTaken }) => {
+  const isStableford = !isTeamRound && form.scoringFormat === 'STABLEFORD'
+  const hasPickedUpHole = holeEntries.some((hole) => hole.pickedUp)
+  const completedStrokeCount = holeEntries.filter(({ strokesTaken, pickedUp }) => {
+    if (pickedUp) return true
     const strokes = Number(strokesTaken)
     return strokesTaken.trim() !== '' && Number.isInteger(strokes) && strokes > 0
   }).length
@@ -295,11 +312,35 @@ function RoundEntry({
   const holeScoreTotal = scoreTotals.total ?? 0
   const declaredGrossScore = Number(form.grossScore)
   const scoreDifference =
+    !hasPickedUpHole &&
     completedStrokeCount === 18 &&
     Number.isInteger(declaredGrossScore) &&
     declaredGrossScore > 0
       ? holeScoreTotal - declaredGrossScore
       : 0
+  const playingHandicap = Number(form.playingHandicap)
+  const stablefordTotals = calculateStablefordTotals(
+    holeEntries,
+    playingHandicap,
+  )
+
+  const suggestedPlayingHandicap = (() => {
+    const scorecardPar = holeEntries.length === 18
+      ? holeEntries.reduce((total, hole) => total + Number(hole.par || 0), 0)
+      : 0
+    const par = selectedTee?.par ?? (scorecardPar > 0 ? scorecardPar : null)
+
+    if (!selectedTee || !profile || profile.handicapIndex === null || par === null) return ''
+
+    return String(
+      calculateCourseHandicap(
+        profile.handicapIndex,
+        selectedTee.slopeRating,
+        selectedTee.courseRating,
+        par,
+      ),
+    )
+  })()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -410,6 +451,20 @@ function RoundEntry({
     return () => controller.abort()
   }, [form.teeId, isTeamRound])
 
+  useEffect(() => {
+    if (!isStableford || form.playingHandicap !== '') return
+
+    if (suggestedPlayingHandicap !== '') {
+      // This synchronizes the editable field after an asynchronously loaded
+      // scorecard supplies the par needed for the tee-based suggestion.
+      // oxlint-disable-next-line react/set-state-in-effect
+      setForm((current) => ({
+        ...current,
+        playingHandicap: suggestedPlayingHandicap,
+      }))
+    }
+  }, [form.playingHandicap, isStableford, suggestedPlayingHandicap])
+
   async function handleCourseSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const club = clubQuery.trim()
@@ -486,6 +541,21 @@ function RoundEntry({
     setSubmitError('')
   }
 
+  function updateTee(teeId: string) {
+    setForm((current) => ({
+      ...current,
+      teeId,
+      playingHandicap:
+        current.scoringFormat === 'STABLEFORD' ? '' : current.playingHandicap,
+    }))
+    setErrors((current) => ({
+      ...current,
+      teeId: undefined,
+      playingHandicap: undefined,
+    }))
+    setSubmitError('')
+  }
+
   function updateCategory(category: RoundCategory) {
     setForm((current) => ({
       ...current,
@@ -511,7 +581,13 @@ function RoundEntry({
   }
 
   function updateParticipation(participation: RoundParticipation) {
-    setForm((current) => ({ ...current, participation }))
+    setForm((current) => ({
+      ...current,
+      participation,
+      scoringFormat:
+        participation === 'TEAM' ? 'STROKE_PLAY' : current.scoringFormat,
+      playingHandicap: participation === 'TEAM' ? '' : current.playingHandicap,
+    }))
     setErrors((current) => ({
       ...current,
       grossScore: undefined,
@@ -525,6 +601,47 @@ function RoundEntry({
       setHoleEntries([])
       setScorecardLoadError('')
     }
+  }
+
+  function updateScoringFormat(scoringFormat: RoundScoringFormat) {
+    setForm((current) => ({
+      ...current,
+      scoringFormat,
+      playingHandicap:
+        scoringFormat === 'STABLEFORD'
+          ? current.playingHandicap || suggestedPlayingHandicap
+          : '',
+      grossScore:
+        scoringFormat === 'STROKE_PLAY' && hasPickedUpHole
+          ? ''
+          : current.grossScore,
+    }))
+    if (scoringFormat === 'STROKE_PLAY' && hasPickedUpHole) {
+      setHoleEntries((current) =>
+        current.map((hole) => ({ ...hole, pickedUp: false })),
+      )
+    }
+    setErrors((current) => ({
+      ...current,
+      playingHandicap: undefined,
+      grossScore: undefined,
+      scorecard: undefined,
+    }))
+    setSubmitError('')
+  }
+
+  function updatePickedUp(holeNumber: number, pickedUp: boolean) {
+    setHoleEntries((current) =>
+      current.map((hole) =>
+        hole.holeNumber === holeNumber
+          ? { ...hole, pickedUp, strokesTaken: pickedUp ? '' : hole.strokesTaken }
+          : hole,
+      ),
+    )
+    if (pickedUp) {
+      updateField('grossScore', '')
+    }
+    setErrors((current) => ({ ...current, scorecard: undefined, grossScore: undefined }))
   }
 
   function updateHoleEntry(
@@ -600,11 +717,21 @@ function RoundEntry({
     }
 
     if (!isTeamRound) {
-      if (
+      if (isStableford && (
+        form.playingHandicap.trim() === '' ||
+        !Number.isInteger(playingHandicap) ||
+        playingHandicap < -20 ||
+        playingHandicap > 54
+      )) {
+        nextErrors.playingHandicap =
+          'Enter the Playing Handicap from the card (-20 to 54)'
+      }
+
+      if (!hasPickedUpHole && (
         form.grossScore.trim() === '' ||
         !Number.isInteger(grossScore) ||
         grossScore <= 0
-      ) {
+      )) {
         nextErrors.grossScore = 'Enter a whole-number total score'
       }
 
@@ -613,8 +740,9 @@ function RoundEntry({
       } else if (holeEntries.length !== 18) {
         nextErrors.scorecard = 'Load a complete 18-hole scorecard'
       } else if (completedStrokeCount !== 18) {
-        nextErrors.scorecard =
-          'Enter a whole-number stroke score for every hole'
+        nextErrors.scorecard = isStableford
+          ? 'Enter a whole-number score or mark Picked up for every hole'
+          : 'Enter a whole-number stroke score for every hole'
       } else if (scorecardStatus === 'manual_required') {
         const hasInvalidDefinition = holeEntries.some((hole) => {
           const par = Number(hole.par)
@@ -681,13 +809,18 @@ function RoundEntry({
             : {}),
           ...(!isTeamRound
             ? {
-                grossScore,
+                grossScore: hasPickedUpHole ? null : grossScore,
+                scoringFormat: form.scoringFormat,
+                ...(isStableford ? { playingHandicap } : {}),
                 weatherCondition: form.weatherCondition,
                 holeScores: holeEntries.map((hole) => ({
                   holeNumber: hole.holeNumber,
                   par: Number(hole.par),
                   strokeIndex: Number(hole.strokeIndex),
-                  strokesTaken: Number(hole.strokesTaken),
+                  strokesTaken: hole.pickedUp
+                    ? null
+                    : Number(hole.strokesTaken),
+                  pickedUp: hole.pickedUp,
                   ...(hole.yardage.trim() === ''
                     ? {}
                     : { yardage: Number(hole.yardage) }),
@@ -809,12 +942,28 @@ function RoundEntry({
             ) : (
               <>
                 <div>
-                  <small>Gross score</small>
-                  <strong>{confirmation.round.grossScore}</strong>
+                  <small>
+                    {confirmation.round.scoringFormat === 'STABLEFORD'
+                      ? 'Stableford points'
+                      : 'Gross score'}
+                  </small>
+                  <strong>
+                    {confirmation.round.scoringFormat === 'STABLEFORD'
+                      ? confirmation.round.stablefordPoints
+                      : confirmation.round.grossScore}
+                  </strong>
                 </div>
                 <div>
-                  <small>Adjusted</small>
-                  <strong>{confirmation.round.adjustedGrossScore}</strong>
+                  <small>
+                    {confirmation.round.scoringFormat === 'STABLEFORD'
+                      ? 'Playing Handicap'
+                      : 'Adjusted'}
+                  </small>
+                  <strong>
+                    {confirmation.round.scoringFormat === 'STABLEFORD'
+                      ? confirmation.round.playingHandicap
+                      : confirmation.round.adjustedGrossScore}
+                  </strong>
                 </div>
                 <div>
                   <small>Differential</small>
@@ -861,6 +1010,8 @@ function RoundEntry({
                   ...current,
                   category: 'CASUAL',
                   participation: 'INDIVIDUAL',
+                  scoringFormat: 'STROKE_PLAY',
+                  playingHandicap: '',
                   competitionName: '',
                   competitionFormat: '',
                   numberOfPlayers: '',
@@ -869,7 +1020,11 @@ function RoundEntry({
                   timePlayed: getCurrentTime(),
                 }))
                 setHoleEntries((current) =>
-                  current.map((hole) => ({ ...hole, strokesTaken: '' })),
+                  current.map((hole) => ({
+                    ...hole,
+                    strokesTaken: '',
+                    pickedUp: false,
+                  })),
                 )
               }}
             >
@@ -1023,7 +1178,7 @@ function RoundEntry({
                 value={form.teeId}
                 aria-invalid={Boolean(errors.teeId)}
                 aria-describedby={errors.teeId ? 'round-tee-error' : undefined}
-                onChange={(event) => updateField('teeId', event.target.value)}
+                onChange={(event) => updateTee(event.target.value)}
               >
                 {teeOptions.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -1249,6 +1404,47 @@ function RoundEntry({
 
             {!isTeamRound ? (
               <>
+              <fieldset className="round-choice-fieldset">
+                <legend>Scoring method</legend>
+                <div className="round-choice-options">
+                  <label className={form.scoringFormat === 'STROKE_PLAY' ? 'round-choice-option round-choice-option-selected' : 'round-choice-option'}>
+                    <input type="radio" name="scoring-format" checked={form.scoringFormat === 'STROKE_PLAY'} onChange={() => updateScoringFormat('STROKE_PLAY')} />
+                    <span><strong>Stroke play</strong><small>Record a complete gross score</small></span>
+                  </label>
+                  <label className={form.scoringFormat === 'STABLEFORD' ? 'round-choice-option round-choice-option-selected' : 'round-choice-option'}>
+                    <input type="radio" name="scoring-format" checked={form.scoringFormat === 'STABLEFORD'} onChange={() => updateScoringFormat('STABLEFORD')} />
+                    <span><strong>Stableford</strong><small>Score points from each net hole result</small></span>
+                  </label>
+                </div>
+              </fieldset>
+
+              {isStableford ? (
+                <div className="round-field round-playing-handicap-field">
+                  <label htmlFor="round-playing-handicap">Playing Handicap</label>
+                  <input
+                    id="round-playing-handicap"
+                    type="number"
+                    min="-20"
+                    max="54"
+                    step="1"
+                    inputMode="numeric"
+                    value={form.playingHandicap}
+                    aria-invalid={Boolean(errors.playingHandicap)}
+                    onChange={(event) => updateField('playingHandicap', event.target.value)}
+                  />
+                  {errors.playingHandicap ? (
+                    <span className="round-field-error">{errors.playingHandicap}</span>
+                  ) : (
+                    <small>Use the Playing Handicap shown on the competition or scorecard. The suggested value uses this tee’s Course Handicap.</small>
+                  )}
+                </div>
+              ) : null}
+
+              {hasPickedUpHole ? (
+                <div className="round-scorecard-notice">
+                  No gross total is required because at least one Stableford hole was picked up. A Net Double Bogey replacement will be used only for handicap processing.
+                </div>
+              ) : (
               <div className="round-field round-gross-score-field">
                 <label htmlFor="round-score">Total gross score</label>
                 <input
@@ -1277,6 +1473,7 @@ function RoundEntry({
                   </small>
                 )}
               </div>
+              )}
 
             <section className="round-scorecard" aria-labelledby="round-scorecard-title">
               <div className="round-scorecard-heading">
@@ -1285,8 +1482,8 @@ function RoundEntry({
                   <h3 id="round-scorecard-title">Check every hole.</h3>
                 </div>
                 <div className="round-scorecard-total" aria-live="polite">
-                  <small>Running total</small>
-                  <strong>{holeScoreTotal || '—'}</strong>
+                  <small>{isStableford ? 'Stableford points' : 'Running total'}</small>
+                  <strong>{isStableford ? (stablefordTotals.total ?? '—') : (holeScoreTotal || '—')}</strong>
                   <span>{completedStrokeCount}/18 holes</span>
                 </div>
               </div>
@@ -1325,10 +1522,13 @@ function RoundEntry({
                         <th scope="col">SI</th>
                         <th scope="col">Yards</th>
                         <th scope="col">Strokes</th>
+                        {isStableford ? <th scope="col">Picked up</th> : null}
+                        {isStableford ? <th scope="col">Net</th> : null}
+                        {isStableford ? <th scope="col">Points</th> : null}
                       </tr>
                     </thead>
                     <tbody>
-                      {holeEntries.map((hole) => (
+                      {holeEntries.map((hole, index) => (
                         <Fragment key={hole.holeNumber}>
                         <tr>
                           <th scope="row">{hole.holeNumber}</th>
@@ -1395,27 +1595,49 @@ function RoundEntry({
                               step="1"
                               inputMode="numeric"
                               value={hole.strokesTaken}
+                              disabled={hole.pickedUp}
                               onChange={(event) =>
                                 updateHoleEntry(hole.holeNumber, 'strokesTaken', event.target.value)
                               }
                             />
                           </td>
+                          {isStableford ? (
+                            <td>
+                              <input
+                                aria-label={`Hole ${hole.holeNumber} picked up`}
+                                type="checkbox"
+                                checked={hole.pickedUp}
+                                onChange={(event) => updatePickedUp(hole.holeNumber, event.target.checked)}
+                              />
+                            </td>
+                          ) : null}
+                          {isStableford ? (
+                            <td>
+                              {hole.pickedUp ||
+                              hole.strokesTaken === '' ||
+                              !Number.isInteger(playingHandicap) ||
+                              !Number.isInteger(Number(hole.strokeIndex))
+                                ? '—'
+                                : Number(hole.strokesTaken) - allocatePlayingHandicapStrokes(playingHandicap, Number(hole.strokeIndex))}
+                            </td>
+                          ) : null}
+                          {isStableford ? <td>{stablefordTotals.points[index] ?? '—'}</td> : null}
                         </tr>
                         {hole.holeNumber === 9 ? (
                           <tr className="round-nine-total">
-                            <th scope="row" colSpan={4}>Front 9 total</th>
-                            <td>{scoreTotals.frontNine ?? '—'}</td>
+                            <th scope="row" colSpan={isStableford ? 7 : 4}>Front 9 total</th>
+                            <td>{isStableford ? (stablefordTotals.frontNine ?? '—') : (scoreTotals.frontNine ?? '—')}</td>
                           </tr>
                         ) : null}
                         {hole.holeNumber === 18 ? (
                           <>
                             <tr className="round-nine-total">
-                              <th scope="row" colSpan={4}>Back 9 total</th>
-                              <td>{scoreTotals.backNine ?? '—'}</td>
+                              <th scope="row" colSpan={isStableford ? 7 : 4}>Back 9 total</th>
+                              <td>{isStableford ? (stablefordTotals.backNine ?? '—') : (scoreTotals.backNine ?? '—')}</td>
                             </tr>
                             <tr className="round-nine-total round-eighteen-total">
-                              <th scope="row" colSpan={4}>18-hole total</th>
-                              <td>{scoreTotals.total ?? '—'}</td>
+                              <th scope="row" colSpan={isStableford ? 7 : 4}>18-hole total</th>
+                              <td>{isStableford ? (stablefordTotals.total ?? '—') : (scoreTotals.total ?? '—')}</td>
                             </tr>
                           </>
                         ) : null}
