@@ -10,6 +10,9 @@ const teamRound = {
   timePlayed: '13:30',
   category: 'COMPETITION',
   participation: 'TEAM',
+  scoringFormat: 'STROKE_PLAY',
+  playingHandicap: null,
+  stablefordPoints: null,
   competitionName: 'Invitation Day',
   competitionFormat: 'Texas Scramble',
   numberOfPlayers: 64,
@@ -88,6 +91,36 @@ describe('round classification response validation', () => {
         scoreDifferential: 7.1,
         isAcceptable: true,
         scorecardStatus: 'VERIFIED',
+        tee,
+      }),
+    ).toBe(true)
+  })
+
+  it('accepts a Stableford round containing a picked-up hole', () => {
+    expect(
+      isHistoryRound({
+        ...teamRound,
+        category: 'CASUAL',
+        participation: 'INDIVIDUAL',
+        scoringFormat: 'STABLEFORD',
+        playingHandicap: 18,
+        stablefordPoints: 34,
+        competitionName: null,
+        competitionFormat: null,
+        numberOfPlayers: null,
+        grossScore: null,
+        adjustedGrossScore: 92,
+        weatherCondition: 'DRY',
+        scoreDifferential: 20,
+        isAcceptable: true,
+        scorecardStatus: 'VERIFIED',
+        holeScores: Array.from({ length: 18 }, (_, index) => ({
+          holeNumber: index + 1,
+          par: 4,
+          strokeIndex: index + 1,
+          strokesTaken: index === 0 ? 0 : 5,
+          pickedUp: index === 0,
+        })),
         tee,
       }),
     ).toBe(true)

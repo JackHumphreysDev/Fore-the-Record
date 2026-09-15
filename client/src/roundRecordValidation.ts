@@ -1,6 +1,7 @@
 export type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
 export type RoundCategory = 'CASUAL' | 'COMPETITION'
 export type RoundParticipation = 'INDIVIDUAL' | 'TEAM'
+export type RoundScoringFormat = 'STROKE_PLAY' | 'STABLEFORD'
 
 type ClassifiedRound = {
   id: string
@@ -8,6 +9,9 @@ type ClassifiedRound = {
   timePlayed: string | null
   category: RoundCategory
   participation: RoundParticipation
+  scoringFormat: RoundScoringFormat
+  playingHandicap: number | null
+  stablefordPoints: number | null
   competitionName: string | null
   competitionFormat: string | null
   numberOfPlayers: number | null
@@ -38,6 +42,7 @@ export type HistoryRound = ClassifiedRound & {
     par: number
     strokeIndex: number
     strokesTaken: number
+    pickedUp: boolean
   }>
   tee: {
     id: string
@@ -117,14 +122,24 @@ export function isRoundResult(value: unknown): value is RoundResult {
   const round = value.round
   const hasValidScoredResult =
     round.participation === 'INDIVIDUAL' &&
-    typeof round.grossScore === 'number' &&
     typeof round.adjustedGrossScore === 'number' &&
     typeof round.scoreDifferential === 'number' &&
+    ((round.scoringFormat === 'STROKE_PLAY' &&
+      typeof round.grossScore === 'number' &&
+      round.playingHandicap === null &&
+      round.stablefordPoints === null) ||
+      (round.scoringFormat === 'STABLEFORD' &&
+        (round.grossScore === null || typeof round.grossScore === 'number') &&
+        Number.isInteger(round.playingHandicap) &&
+        Number.isInteger(round.stablefordPoints))) &&
     (round.scorecardStatus === 'VERIFIED' ||
       round.scorecardStatus === 'PENDING_REVIEW')
   const hasValidTeamResult =
     round.category === 'COMPETITION' &&
     round.participation === 'TEAM' &&
+    round.scoringFormat === 'STROKE_PLAY' &&
+    round.playingHandicap === null &&
+    round.stablefordPoints === null &&
     typeof round.timePlayed === 'string' &&
     round.grossScore === null &&
     round.adjustedGrossScore === null &&
@@ -156,17 +171,27 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
 
   const hasValidIndividualScore =
     value.participation === 'INDIVIDUAL' &&
-    isFiniteNumber(value.grossScore) &&
     isFiniteNumber(value.adjustedGrossScore) &&
     typeof value.weatherCondition === 'string' &&
     WEATHER_CONDITIONS.includes(value.weatherCondition as WeatherCondition) &&
     isFiniteNumber(value.scoreDifferential) &&
+    ((value.scoringFormat === 'STROKE_PLAY' &&
+      isFiniteNumber(value.grossScore) &&
+      value.playingHandicap === null &&
+      value.stablefordPoints === null) ||
+      (value.scoringFormat === 'STABLEFORD' &&
+        (value.grossScore === null || isFiniteNumber(value.grossScore)) &&
+        Number.isInteger(value.playingHandicap) &&
+        Number.isInteger(value.stablefordPoints))) &&
     (value.scorecardStatus === 'VERIFIED' ||
       value.scorecardStatus === 'PENDING_REVIEW' ||
       value.scorecardStatus === 'REJECTED')
   const hasValidTeamRecord =
     value.category === 'COMPETITION' &&
     value.participation === 'TEAM' &&
+    value.scoringFormat === 'STROKE_PLAY' &&
+    value.playingHandicap === null &&
+    value.stablefordPoints === null &&
     value.grossScore === null &&
     value.adjustedGrossScore === null &&
     value.weatherCondition === null &&
@@ -185,8 +210,11 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
         Number(hole.holeNumber) <= 18 &&
         Number.isInteger(hole.par) &&
         Number.isInteger(hole.strokeIndex) &&
+        typeof hole.pickedUp === 'boolean' &&
         Number.isInteger(hole.strokesTaken) &&
-        Number(hole.strokesTaken) > 0,
+        (hole.pickedUp
+          ? Number(hole.strokesTaken) === 0
+          : Number(hole.strokesTaken) > 0),
     )
 
   return (

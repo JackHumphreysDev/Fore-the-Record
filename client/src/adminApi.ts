@@ -68,9 +68,12 @@ export type AdminScorecardReview = {
   round: {
     id: string
     datePlayed: string
-    grossScore: number
+    grossScore: number | null
+    scoringFormat: 'STROKE_PLAY' | 'STABLEFORD'
+    playingHandicap: number | null
+    stablefordPoints: number | null
     scoreDifferential: number
-    holeScores: Array<{ holeNumber: number; strokesTaken: number }>
+    holeScores: Array<{ holeNumber: number; strokesTaken: number; pickedUp: boolean }>
   }
   holes: AdminScorecardReviewHole[]
 }
@@ -157,7 +160,10 @@ function isAdminScorecardReview(
     isRecord(value.round) &&
     typeof value.round.id === 'string' &&
     typeof value.round.datePlayed === 'string' &&
-    Number.isInteger(value.round.grossScore) &&
+    (value.round.grossScore === null || Number.isInteger(value.round.grossScore)) &&
+    (value.round.scoringFormat === 'STROKE_PLAY' || value.round.scoringFormat === 'STABLEFORD') &&
+    (value.round.playingHandicap === null || Number.isInteger(value.round.playingHandicap)) &&
+    (value.round.stablefordPoints === null || Number.isInteger(value.round.stablefordPoints)) &&
     typeof value.round.scoreDifferential === 'number' &&
     Array.isArray(value.round.holeScores) &&
     value.round.holeScores.length === 18 &&
@@ -165,7 +171,8 @@ function isAdminScorecardReview(
       (score) =>
         isRecord(score) &&
         Number.isInteger(score.holeNumber) &&
-        Number.isInteger(score.strokesTaken),
+        Number.isInteger(score.strokesTaken) &&
+        typeof score.pickedUp === 'boolean',
     ) &&
     Array.isArray(value.holes) &&
     value.holes.length === 18 &&

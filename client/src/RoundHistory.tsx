@@ -19,6 +19,10 @@ import {
   isRoundNotesResponse,
   ROUND_NOTES_MAX_LENGTH,
 } from './roundNotesApi.ts'
+import {
+  allocatePlayingHandicapStrokes,
+  calculateStablefordTotals,
+} from './stableford.ts'
 
 type RoundHistoryProfile = {
   id: string
@@ -113,6 +117,15 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
   const frontNine = round.holeScores.slice(0, 9)
   const backNine = round.holeScores.slice(9)
   const totals = calculateRoundScoreTotals(round.holeScores)
+  const isStableford = round.scoringFormat === 'STABLEFORD'
+  const playingHandicap = round.playingHandicap ?? 0
+  const stableford = calculateStablefordTotals(
+    round.holeScores.map((hole) => ({
+      ...hole,
+      strokesTaken: hole.pickedUp ? '' : hole.strokesTaken,
+    })),
+    playingHandicap,
+  )
   const parTotal = (holes: typeof round.holeScores) =>
     holes.reduce((sum, hole) => sum + hole.par, 0)
 
@@ -127,25 +140,35 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
               <th scope="col">SI</th>
               <th scope="col">Score</th>
               <th scope="col">To par</th>
+              {isStableford ? <th scope="col">Net</th> : null}
+              {isStableford ? <th scope="col">Points</th> : null}
             </tr>
           </thead>
           <tbody>
-            {round.holeScores.map((hole) => (
+            {round.holeScores.map((hole, index) => (
               <tr key={hole.holeNumber}>
                 <th scope="row">{hole.holeNumber}</th>
                 <td>{hole.par}</td>
                 <td>{hole.strokeIndex}</td>
-                <td>{hole.strokesTaken}</td>
-                <td>{scoreToPar(hole.strokesTaken, hole.par)}</td>
+                <td>{hole.pickedUp ? 'Picked up' : hole.strokesTaken}</td>
+                <td>{hole.pickedUp ? '—' : scoreToPar(hole.strokesTaken, hole.par)}</td>
+                {isStableford ? (
+                  <td>
+                    {hole.pickedUp
+                      ? '—'
+                      : hole.strokesTaken - allocatePlayingHandicapStrokes(playingHandicap, hole.strokeIndex)}
+                  </td>
+                ) : null}
+                {isStableford ? <td>{stableford.points[index]}</td> : null}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <dl className="history-nine-totals">
-        <div><dt>Front 9</dt><dd>{totals.frontNine} <small>Par {parTotal(frontNine)}</small></dd></div>
-        <div><dt>Back 9</dt><dd>{totals.backNine} <small>Par {parTotal(backNine)}</small></dd></div>
-        <div><dt>Total</dt><dd>{totals.total} <small>Par {parTotal(round.holeScores)}</small></dd></div>
+        <div><dt>Front 9</dt><dd>{isStableford ? stableford.frontNine : totals.frontNine} <small>{isStableford ? 'points' : `Par ${parTotal(frontNine)}`}</small></dd></div>
+        <div><dt>Back 9</dt><dd>{isStableford ? stableford.backNine : totals.backNine} <small>{isStableford ? 'points' : `Par ${parTotal(backNine)}`}</small></dd></div>
+        <div><dt>Total</dt><dd>{isStableford ? stableford.total : totals.total} <small>{isStableford ? 'points' : `Par ${parTotal(round.holeScores)}`}</small></dd></div>
       </dl>
     </div>
   )
@@ -604,12 +627,12 @@ function RoundHistory({
                       ) : (
                         <>
                           <div>
-                            <dt>Gross</dt>
-                            <dd>{round.grossScore}</dd>
+                            <dt>{round.scoringFormat === 'STABLEFORD' ? 'Points' : 'Gross'}</dt>
+                            <dd>{round.scoringFormat === 'STABLEFORD' ? round.stablefordPoints : round.grossScore}</dd>
                           </div>
                           <div>
-                            <dt>Adjusted</dt>
-                            <dd>{round.adjustedGrossScore}</dd>
+                            <dt>{round.scoringFormat === 'STABLEFORD' ? 'Playing Handicap' : 'Adjusted'}</dt>
+                            <dd>{round.scoringFormat === 'STABLEFORD' ? round.playingHandicap : round.adjustedGrossScore}</dd>
                           </div>
                           <div className="history-differential">
                             <dt>Differential</dt>
@@ -630,7 +653,7 @@ function RoundHistory({
                     <p className="history-rating-line">
                       {round.participation === 'TEAM'
                         ? 'Course and tee retained for your playing record. No score differential was created.'
-                        : `Course rating ${round.tee.courseRating.toFixed(1)} · Slope ${round.tee.slopeRating} · Par ${round.tee.par ?? '—'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}`}
+                        : `Course rating ${round.tee.courseRating.toFixed(1)} · Slope ${round.tee.slopeRating} · Par ${round.tee.par ?? '—'} · ${round.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}`}
                     </p>
 
                     <section className="history-round-notes" aria-label="Private round note">

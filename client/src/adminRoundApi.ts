@@ -11,6 +11,9 @@ export type AdminRound = {
   timePlayed: string | null
   category: RoundCategory
   participation: RoundParticipation
+  scoringFormat: 'STROKE_PLAY' | 'STABLEFORD'
+  playingHandicap: number | null
+  stablefordPoints: number | null
   competitionName: string | null
   competitionFormat: string | null
   numberOfPlayers: number | null
@@ -28,6 +31,7 @@ export type AdminRound = {
     par: number
     strokeIndex: number
     strokesTaken: number
+    pickedUp: boolean
   }>
   tee: {
     id: string
@@ -59,6 +63,9 @@ export function isAdminRound(value: unknown): value is AdminRound {
     (value.timePlayed === null || typeof value.timePlayed === 'string') &&
     (value.category === 'CASUAL' || value.category === 'COMPETITION') &&
     (value.participation === 'INDIVIDUAL' || value.participation === 'TEAM') &&
+    (value.scoringFormat === 'STROKE_PLAY' || value.scoringFormat === 'STABLEFORD') &&
+    (value.playingHandicap === null || Number.isInteger(value.playingHandicap)) &&
+    (value.stablefordPoints === null || Number.isInteger(value.stablefordPoints)) &&
     (value.grossScore === null || typeof value.grossScore === 'number') &&
     typeof value.pccAdjustment === 'number' &&
     (value.scoreDifferential === null || typeof value.scoreDifferential === 'number') &&
@@ -69,7 +76,8 @@ export function isAdminRound(value: unknown): value is AdminRound {
         Number.isInteger(hole.holeNumber) &&
         Number.isInteger(hole.par) &&
         Number.isInteger(hole.strokeIndex) &&
-        Number.isInteger(hole.strokesTaken),
+        Number.isInteger(hole.strokesTaken) &&
+        typeof hole.pickedUp === 'boolean',
     ) &&
     typeof tee.id === 'string' &&
     typeof tee.teeName === 'string' &&

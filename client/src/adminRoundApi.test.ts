@@ -17,12 +17,13 @@ describe('administrator round API', () => {
     const round = {
       id: 'round', userId: 'user', datePlayed: '2026-09-01T00:00:00.000Z',
       timePlayed: null, category: 'CASUAL', participation: 'INDIVIDUAL',
+      scoringFormat: 'STROKE_PLAY', playingHandicap: null, stablefordPoints: null,
       competitionName: null, competitionFormat: null, numberOfPlayers: null,
       grossScore: 90, adjustedGrossScore: 90, isCapped: false,
       weatherCondition: 'DRY', pccAdjustment: 0, scoreDifferential: 18,
       isAcceptable: true, usedInHandicapCalc: true, scorecardStatus: 'VERIFIED',
       holeScores: Array.from({ length: 18 }, (_, index) => ({
-        holeNumber: index + 1, par: 4, strokeIndex: index + 1, strokesTaken: 5,
+        holeNumber: index + 1, par: 4, strokeIndex: index + 1, strokesTaken: 5, pickedUp: false,
       })),
       tee: {
         id: 'tee', teeName: 'White', courseRating: 72, slopeRating: 113, par: 72,

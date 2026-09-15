@@ -25,8 +25,13 @@ This roadmap records agreed future work. Items are planned requirements, not com
 19. Email notifications. Production delivery depends on the future custom domain and email configuration.
 20. Privacy and account controls. Completed in `0.24.0`.
 21. Installable mobile app. Completed in `0.25.0`.
+22. Stableford scoring with Playing Handicap allocation and picked-up holes. Completed in `0.26.0`.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Stableford scoring — completed in 0.26.0
+
+Individual casual and competition rounds can be recorded as Stroke play or Stableford. Stableford uses a stored Playing Handicap to allocate strokes by the approved scorecard's stroke indexes and calculates each hole's net score and points, with automatic Front 9, Back 9, and 18-hole totals. A player may mark a hole as picked up, which records zero points and no invented gross score. For Handicap Index processing only, a picked-up hole receives the existing Net Double Bogey maximum. History, administrator correction, manual scorecard approval, exports, and lifetime totals all preserve that distinction.
 
 ## Installable mobile app — completed in 0.25.0
 

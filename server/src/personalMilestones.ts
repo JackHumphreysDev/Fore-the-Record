@@ -14,6 +14,7 @@ export type MilestoneRound = {
     holeNumber: number
     par: number
     strokesTaken: number
+    pickedUp: boolean
   }>
   teeHoles: Array<{
     holeNumber: number
@@ -125,8 +126,11 @@ export function buildPersonalMilestones(
 
     for (const hole of round.holeScores) {
       holesPlayed += 1
-      totalShots += hole.strokesTaken
       yardsCovered += teeYardages.get(String(hole.holeNumber)) ?? 0
+
+      if (hole.pickedUp) continue
+
+      totalShots += hole.strokesTaken
 
       const scoreToPar = hole.strokesTaken - hole.par
       if (scoreToPar === -2) eagles += 1

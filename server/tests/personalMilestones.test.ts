@@ -11,6 +11,7 @@ function makeRound(
     holeNumber: index + 1,
     par: 4,
     strokesTaken: [2, 3, 4, 5][index % 4],
+    pickedUp: false,
   }))
 
   return {
@@ -115,5 +116,20 @@ describe('buildPersonalMilestones', () => {
     expect(result.totals.holesPlayed).toBe(0)
     expect(result.personalBests.lowestGrossScore).toBeNull()
     expect(result.personalBests.lowestHandicapIndex).toBeNull()
+  })
+
+  it('counts a picked-up hole as played without inventing shots or a score result', () => {
+    const round = makeRound()
+    round.holeScores[0] = {
+      ...round.holeScores[0],
+      strokesTaken: 0,
+      pickedUp: true,
+    }
+
+    const result = buildPersonalMilestones([round])
+
+    expect(result.totals.holesPlayed).toBe(18)
+    expect(result.totals.totalShots).toBe(59)
+    expect(result.totals.eagles).toBe(4)
   })
 })

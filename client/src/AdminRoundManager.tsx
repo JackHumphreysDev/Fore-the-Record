@@ -29,6 +29,7 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
   const [selected, setSelected] = useState<AdminRound | null>(null)
   const [form, setForm] = useState<Record<string, string>>({})
   const [strokes, setStrokes] = useState<number[]>([])
+  const [pickups, setPickups] = useState<boolean[]>([])
   const [confirmation, setConfirmation] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -109,10 +110,12 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
       competitionFormat: round.competitionFormat ?? '',
       numberOfPlayers: round.numberOfPlayers?.toString() ?? '',
       grossScore: round.grossScore?.toString() ?? '',
+      playingHandicap: round.playingHandicap?.toString() ?? '',
       weatherCondition: round.weatherCondition ?? 'DRY',
       pccAdjustment: round.pccAdjustment.toString(),
     })
     setStrokes(round.holeScores.map((hole) => hole.strokesTaken))
+    setPickups(round.holeScores.map((hole) => hole.pickedUp))
     setConfirmation('')
     setMessage('')
     setError('')
@@ -140,12 +143,16 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
         numberOfPlayers: Number(form.numberOfPlayers),
       } : {}),
       ...(individual ? {
-        grossScore: Number(form.grossScore),
+        grossScore: pickups.some(Boolean) ? null : Number(form.grossScore),
+        ...(selected.scoringFormat === 'STABLEFORD'
+          ? { playingHandicap: Number(form.playingHandicap) }
+          : {}),
         weatherCondition: form.weatherCondition,
         pccAdjustment: Number(form.pccAdjustment),
         holeScores: selected.holeScores.map((hole, index) => ({
           holeNumber: hole.holeNumber,
-          strokesTaken: strokes[index],
+          strokesTaken: pickups[index] ? null : strokes[index],
+          pickedUp: pickups[index] ?? false,
         })),
       } : {}),
     }
@@ -196,7 +203,7 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
         <button className="admin-round-row" type="button" key={round.id} onClick={() => selectRound(round)}>
           <span><strong>{round.tee.course.club.name}</strong>{round.tee.course.name} · {round.tee.teeName}</span>
           <span>{round.datePlayed.slice(0, 10)}</span>
-          <span>{round.participation === 'TEAM' ? 'Team record' : `Gross ${round.grossScore}`}</span>
+          <span>{round.participation === 'TEAM' ? 'Team record' : round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints} pts` : `Gross ${round.grossScore}`}</span>
           <span>Edit</span>
         </button>
       ))}
@@ -221,13 +228,14 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
             <label>Players<input type="number" min="1" max="10000" value={form.numberOfPlayers} onChange={(e) => field('numberOfPlayers', e.target.value)} /></label>
           </> : null}
           {selected.participation === 'INDIVIDUAL' ? <>
-            <label>Gross total<input type="number" min="1" value={form.grossScore} onChange={(e) => field('grossScore', e.target.value)} /></label>
+            {selected.scoringFormat === 'STABLEFORD' ? <label>Playing Handicap<input type="number" min="-20" max="54" value={form.playingHandicap} onChange={(e) => field('playingHandicap', e.target.value)} /></label> : null}
+            {!pickups.some(Boolean) ? <label>Gross total<input type="number" min="1" value={form.grossScore} onChange={(e) => field('grossScore', e.target.value)} /></label> : null}
             <label>Conditions<select value={form.weatherCondition} onChange={(e) => field('weatherCondition', e.target.value)}><option value="DRY">Dry</option><option value="MOIST">Moist</option><option value="WET">Wet</option><option value="SUPER_WET">Super wet</option></select></label>
             <label>PCC<input type="number" min="-9.9" max="9.9" step="0.1" value={form.pccAdjustment} onChange={(e) => field('pccAdjustment', e.target.value)} /></label>
           </> : null}
         </div>
         {selected.participation === 'INDIVIDUAL' ? <div className="admin-round-holes">
-          {selected.holeScores.map((hole, index) => <label key={hole.holeNumber}><span>Hole {hole.holeNumber}<small>Par {hole.par} · SI {hole.strokeIndex}</small></span><input type="number" min="1" value={strokes[index] ?? ''} onChange={(e) => setStrokes((current) => current.map((value, position) => position === index ? Number(e.target.value) : value))} /></label>)}
+          {selected.holeScores.map((hole, index) => <label key={hole.holeNumber}><span>Hole {hole.holeNumber}<small>Par {hole.par} · SI {hole.strokeIndex}</small></span><input type="number" min="1" disabled={pickups[index]} value={pickups[index] ? '' : (strokes[index] ?? '')} onChange={(e) => setStrokes((current) => current.map((value, position) => position === index ? Number(e.target.value) : value))} />{selected.scoringFormat === 'STABLEFORD' ? <span><input type="checkbox" checked={pickups[index] ?? false} onChange={(e) => setPickups((current) => current.map((value, position) => position === index ? e.target.checked : value))} /> Picked up</span> : null}</label>)}
         </div> : null}
         <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save round corrections'}</button>
         </form>

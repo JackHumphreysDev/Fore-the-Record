@@ -72,6 +72,7 @@ import {
   PlayerGoalType,
   ScorecardSource,
   RoundParticipation,
+  RoundScoringFormat,
   RoundScorecardStatus,
 } from './generated/prisma/enums.js'
 import {
@@ -94,6 +95,7 @@ import {
   calculateHandicapStrokesReceived,
   calculateScoreDifferential,
 } from './handicap.js'
+import { calculateStablefordRound } from './stableford.js'
 import {
   parseScorecardReviewDecision,
   scorecardWasAmended,
@@ -200,6 +202,9 @@ const ADMIN_ROUND_SELECT = {
   timePlayed: true,
   category: true,
   participation: true,
+  scoringFormat: true,
+  playingHandicap: true,
+  stablefordPoints: true,
   competitionName: true,
   competitionFormat: true,
   numberOfPlayers: true,
@@ -219,6 +224,7 @@ const ADMIN_ROUND_SELECT = {
       par: true,
       strokeIndex: true,
       strokesTaken: true,
+      pickedUp: true,
     },
   },
   tee: {
@@ -1530,10 +1536,13 @@ app.get('/api/admin/scorecard-reviews', async (_request, response) => {
           id: true,
           datePlayed: true,
           grossScore: true,
+          scoringFormat: true,
+          playingHandicap: true,
+          stablefordPoints: true,
           scoreDifferential: true,
           holeScores: {
             orderBy: { holeNumber: 'asc' },
-            select: { holeNumber: true, strokesTaken: true },
+            select: { holeNumber: true, strokesTaken: true, pickedUp: true },
           },
         },
       },
@@ -1609,6 +1618,8 @@ app.patch(
             userId: true,
             datePlayed: true,
             grossScore: true,
+            scoringFormat: true,
+            playingHandicap: true,
             pccAdjustment: true,
             user: { select: { handicapIndex: true } },
             tee: {
@@ -1619,7 +1630,7 @@ app.patch(
             },
             holeScores: {
               orderBy: { holeNumber: 'asc' },
-              select: { holeNumber: true, strokesTaken: true },
+              select: { holeNumber: true, strokesTaken: true, pickedUp: true },
             },
           },
         },
@@ -1669,10 +1680,7 @@ app.patch(
       return
     }
 
-    if (
-      review.round.grossScore === null ||
-      review.round.holeScores.length !== 18
-    ) {
+    if (review.round.holeScores.length !== 18) {
       response.status(409).json({
         error: 'The player round does not contain a complete scored card',
       })
@@ -1704,23 +1712,40 @@ app.patch(
 
       return {
         ...hole,
-        strokesTaken: playerScore?.strokesTaken ?? 0,
+        strokesTaken: playerScore?.pickedUp
+          ? null
+          : (playerScore?.strokesTaken ?? 0),
+        pickedUp: playerScore?.pickedUp ?? false,
       }
     })
-    const { adjustedGrossScore, isCapped } = calculateAdjustedGrossScore({
-      grossScore: review.round.grossScore,
-      holeScores: approvedHoleScores.map((hole) => ({
+    const handicapHoles = approvedHoleScores.map((hole) => {
+      const handicapStrokesReceived =
+        courseHandicap === null
+          ? 3
+          : calculateHandicapStrokesReceived(courseHandicap, hole.strokeIndex)
+
+      return {
         par: hole.par,
-        strokesTaken: hole.strokesTaken,
-        handicapStrokesReceived:
-          courseHandicap === null
-            ? 3
-            : calculateHandicapStrokesReceived(
-                courseHandicap,
-                hole.strokeIndex,
-              ),
-      })),
+        strokesTaken:
+          hole.strokesTaken ?? hole.par + 2 + handicapStrokesReceived,
+        handicapStrokesReceived,
+      }
     })
+    const calculationGross =
+      review.round.grossScore ??
+      handicapHoles.reduce((total, hole) => total + hole.strokesTaken, 0)
+    const { adjustedGrossScore, isCapped } = calculateAdjustedGrossScore({
+      grossScore: calculationGross,
+      holeScores: handicapHoles,
+    })
+    const stablefordPoints =
+      review.round.scoringFormat === RoundScoringFormat.STABLEFORD &&
+      review.round.playingHandicap !== null
+        ? calculateStablefordRound(
+            approvedHoleScores,
+            review.round.playingHandicap,
+          ).totalPoints
+        : null
     const scoreDifferential = calculateScoreDifferential({
       adjustedGrossScore,
       courseRating,
@@ -1803,14 +1828,16 @@ app.patch(
           holeNumber: hole.holeNumber,
           par: hole.par,
           strokeIndex: hole.strokeIndex,
-          strokesTaken: hole.strokesTaken,
+          strokesTaken: hole.strokesTaken ?? 0,
+          pickedUp: hole.pickedUp,
         })),
       }),
       prisma.round.update({
         where: { id: review.round.id },
         data: {
           adjustedGrossScore,
-          isCapped,
+          isCapped: isCapped || approvedHoleScores.some((hole) => hole.pickedUp),
+          stablefordPoints,
           scoreDifferential,
           isAcceptable: true,
           scorecardStatus: RoundScorecardStatus.VERIFIED,
@@ -2346,6 +2373,9 @@ app.get('/api/users/me/rounds', async (_request, response) => {
           timePlayed: true,
           category: true,
           participation: true,
+          scoringFormat: true,
+          playingHandicap: true,
+          stablefordPoints: true,
           competitionName: true,
           competitionFormat: true,
           numberOfPlayers: true,
@@ -2367,6 +2397,7 @@ app.get('/api/users/me/rounds', async (_request, response) => {
               par: true,
               strokeIndex: true,
               strokesTaken: true,
+              pickedUp: true,
             },
           },
           tee: {
@@ -2592,6 +2623,7 @@ app.get('/api/users/me/personal-milestones', async (_request, response) => {
               holeNumber: true,
               par: true,
               strokesTaken: true,
+              pickedUp: true,
             },
           },
           tee: {
@@ -2651,6 +2683,7 @@ app.get('/api/users/me/goals', async (_request, response) => {
               holeNumber: true,
               par: true,
               strokesTaken: true,
+              pickedUp: true,
             },
           },
           tee: {

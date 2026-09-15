@@ -1,6 +1,7 @@
 import { prisma } from './database.js'
 import {
   RoundParticipation,
+  RoundScoringFormat,
   RoundScorecardStatus,
 } from './generated/prisma/enums.js'
 import type { Prisma } from './generated/prisma/client.js'
@@ -12,6 +13,7 @@ import {
   calculateScoreDifferential,
 } from './handicap.js'
 import { parseLogRoundInput } from './rounds.js'
+import { calculateStablefordRound } from './stableford.js'
 
 export class AdminRoundError extends Error {
   constructor(
@@ -105,7 +107,9 @@ export async function updateRoundAsAdmin(input: {
         holeNumber: hole.holeNumber,
         par: hole.par,
         strokeIndex: hole.strokeIndex,
-        strokesTaken: submitted?.strokesTaken,
+        strokesTaken:
+          submitted?.pickedUp === true ? null : submitted?.strokesTaken,
+        pickedUp: submitted?.pickedUp === true,
       }
     })
     const parsed = parseLogRoundInput({
@@ -114,7 +118,14 @@ export async function updateRoundAsAdmin(input: {
       teeId: existing.teeId,
       participation: existing.participation,
       ...(existing.participation === RoundParticipation.INDIVIDUAL
-        ? { holeScores }
+        ? {
+            holeScores,
+            scoringFormat: existing.scoringFormat,
+            playingHandicap:
+              existing.scoringFormat === RoundScoringFormat.STABLEFORD
+                ? body.playingHandicap
+                : null,
+          }
         : { holeScores: null, grossScore: null, weatherCondition: null }),
     })
     if (!parsed) {
@@ -130,6 +141,9 @@ export async function updateRoundAsAdmin(input: {
       category: existing.category,
       competitionName: existing.competitionName,
       competitionFormat: existing.competitionFormat,
+      scoringFormat: existing.scoringFormat,
+      playingHandicap: existing.playingHandicap,
+      stablefordPoints: existing.stablefordPoints,
       numberOfPlayers: existing.numberOfPlayers,
       grossScore: existing.grossScore,
       weatherCondition: existing.weatherCondition,
@@ -137,6 +151,7 @@ export async function updateRoundAsAdmin(input: {
       holeScores: existing.holeScores.map((hole) => ({
         holeNumber: hole.holeNumber,
         strokesTaken: hole.strokesTaken,
+        pickedUp: hole.pickedUp,
       })),
     }
 
@@ -168,20 +183,34 @@ export async function updateRoundAsAdmin(input: {
               courseRating,
               par: coursePar,
             })
-      const adjusted = calculateAdjustedGrossScore({
-        grossScore: parsed.grossScore,
-        holeScores: parsed.holeScores.map((hole) => ({
+      const handicapHoles = parsed.holeScores.map((hole) => {
+        const handicapStrokesReceived =
+          courseHandicap === null
+            ? 3
+            : calculateHandicapStrokesReceived(courseHandicap, hole.strokeIndex)
+
+        return {
           par: hole.par,
-          strokesTaken: hole.strokesTaken,
-          handicapStrokesReceived:
-            courseHandicap === null
-              ? 3
-              : calculateHandicapStrokesReceived(
-                  courseHandicap,
-                  hole.strokeIndex,
-                ),
-        })),
+          strokesTaken:
+            hole.strokesTaken ?? hole.par + 2 + handicapStrokesReceived,
+          handicapStrokesReceived,
+        }
       })
+      const calculationGross =
+        parsed.grossScore ??
+        handicapHoles.reduce((total, hole) => total + hole.strokesTaken, 0)
+      const adjusted = calculateAdjustedGrossScore({
+        grossScore: calculationGross,
+        holeScores: handicapHoles,
+      })
+      const stablefordPoints =
+        parsed.scoringFormat === RoundScoringFormat.STABLEFORD &&
+        parsed.playingHandicap !== null
+          ? calculateStablefordRound(
+              parsed.holeScores,
+              parsed.playingHandicap,
+            ).totalPoints
+          : null
       const scoreDifferential = calculateScoreDifferential({
         adjustedGrossScore: adjusted.adjustedGrossScore,
         courseRating,
@@ -194,10 +223,14 @@ export async function updateRoundAsAdmin(input: {
         category: parsed.category,
         competitionName: parsed.competitionName,
         competitionFormat: parsed.competitionFormat,
+        scoringFormat: parsed.scoringFormat,
+        playingHandicap: parsed.playingHandicap,
+        stablefordPoints,
         numberOfPlayers: parsed.numberOfPlayers,
         grossScore: parsed.grossScore,
         adjustedGrossScore: adjusted.adjustedGrossScore,
-        isCapped: adjusted.isCapped,
+        isCapped:
+          adjusted.isCapped || parsed.holeScores.some((hole) => hole.pickedUp),
         weatherCondition: parsed.weatherCondition,
         pccAdjustment: parsed.pccAdjustment,
         scoreDifferential,
@@ -213,7 +246,8 @@ export async function updateRoundAsAdmin(input: {
           holeNumber: hole.holeNumber,
           par: hole.par,
           strokeIndex: hole.strokeIndex,
-          strokesTaken: hole.strokesTaken,
+          strokesTaken: hole.strokesTaken ?? 0,
+          pickedUp: hole.pickedUp,
         })),
       })
     }
@@ -238,6 +272,7 @@ export async function updateRoundAsAdmin(input: {
               ? parsed.holeScores.map((hole) => ({
                   holeNumber: hole.holeNumber,
                   strokesTaken: hole.strokesTaken,
+                  pickedUp: hole.pickedUp,
                 }))
               : [],
           handicapIndex: handicap.handicapIndex,
