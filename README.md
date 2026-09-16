@@ -38,6 +38,8 @@ Round History can be filtered by club, course, tee, competition text, round type
 
 Players can add a private note while recording any individual or team round, then read, edit, clear, or search that note from Round History. Notes remain inside the authenticated player's record and never affect scoring or Handicap Index calculations.
 
+Players can attach one optional photo of a signed scorecard to a saved individual round. Photos are stored in a private Supabase Storage bucket, opened through short-lived links, and visible only to the round owner and administrator. Replacing or removing a photo never changes the saved strokes, review status, or Handicap Index calculation.
+
 Account Settings includes privacy choices for player discovery, new friend requests, Handicap Index visibility, and sharing limited round activity with accepted friends. Players can download a JSON copy of their own Fore the Record data and permanently delete a non-administrator account after password verification and exact email confirmation.
 
 Fore the Record can be installed from a supported browser and launched from a phone's Home Screen. The app offers an install action when the browser supports it; on iPhone and iPad, players can use Safari's Share menu and Add to Home Screen. Installation does not make private rounds available offline: the service worker keeps only a public reconnect page and never caches authenticated API responses or personal data.
@@ -58,7 +60,7 @@ The production application is deployed on Vercel. The current RapidAPI allowance
 
 ## Roadmap and releases
 
-The current application version is `0.28.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.29.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)
@@ -84,6 +86,8 @@ For custom SMTP, obtain a host, port, username, password, verified sender addres
 Copy the Supabase project URL and publishable key into both `server/.env` and `client/.env.local` using the names shown in their `.env.example` files. The publishable key is designed for browser use.
 
 Administrator account management also requires a Supabase secret key in `server/.env` as `SUPABASE_SECRET_KEY`. Create or copy the server-side secret from the Supabase project API Keys settings. Never use this key in the client, expose it through a `VITE_` variable, paste it into source control, or share it in support messages. The key lets the protected server invite, update, suspend, and delete Supabase Auth users; the browser never receives it.
+
+The same server-only key creates and secures the private `scorecard-photos` Storage bucket when the first photo is uploaded. The bucket is restricted to JPEG, PNG, and WebP images of no more than 10 MB. Do not make this bucket public in Supabase.
 
 Existing profiles have a nullable `authUserId`. Apply the included migration before testing account creation or claiming:
 

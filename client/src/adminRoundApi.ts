@@ -3,6 +3,7 @@ import type {
   RoundParticipation,
   WeatherCondition,
 } from './roundRecordValidation.ts'
+import { isScorecardPhoto, type ScorecardPhoto } from './scorecardPhotoApi.ts'
 
 export type AdminRound = {
   id: string
@@ -28,6 +29,7 @@ export type AdminRound = {
   isAcceptable: boolean
   usedInHandicapCalc: boolean
   scorecardStatus: 'VERIFIED' | 'PENDING_REVIEW' | 'REJECTED' | 'NOT_REQUIRED'
+  scorecardPhoto: ScorecardPhoto | null
   holeScores: Array<{
     holeNumber: number
     par: number
@@ -77,6 +79,7 @@ export function isAdminRound(value: unknown): value is AdminRound {
     (value.grossScore === null || typeof value.grossScore === 'number') &&
     typeof value.pccAdjustment === 'number' &&
     (value.scoreDifferential === null || typeof value.scoreDifferential === 'number') &&
+    (value.scorecardPhoto === null || isScorecardPhoto(value.scorecardPhoto)) &&
     Array.isArray(value.holeScores) &&
     value.holeScores.every(
       (hole) =>

@@ -27,6 +27,7 @@ const teamRound = {
   isAcceptable: false,
   usedInHandicapCalc: false,
   scorecardStatus: 'NOT_REQUIRED',
+  scorecardPhoto: null,
   holeScores: [],
 }
 

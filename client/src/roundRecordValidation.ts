@@ -1,3 +1,8 @@
+import {
+  isScorecardPhoto,
+  type ScorecardPhoto,
+} from './scorecardPhotoApi.ts'
+
 export type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
 export type RoundCategory = 'CASUAL' | 'COMPETITION'
 export type RoundParticipation = 'INDIVIDUAL' | 'TEAM'
@@ -36,6 +41,7 @@ export type RoundResult = {
 }
 
 export type HistoryRound = ClassifiedRound & {
+  scorecardPhoto: ScorecardPhoto | null
   weatherCondition: WeatherCondition | null
   pccAdjustment: number
   isAcceptable: boolean
@@ -251,6 +257,7 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
     isFiniteNumber(value.pccAdjustment) &&
     typeof value.isAcceptable === 'boolean' &&
     typeof value.usedInHandicapCalc === 'boolean' &&
+    (value.scorecardPhoto === null || isScorecardPhoto(value.scorecardPhoto)) &&
     hasValidHoleScores &&
     typeof tee.id === 'string' &&
     typeof tee.teeName === 'string' &&

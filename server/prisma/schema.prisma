@@ -307,6 +307,11 @@ model Round {
   competitionFormat  String?              @db.VarChar(100)
   numberOfPlayers    Int?
   notes              String?              @db.VarChar(2000)
+  scorecardPhotoPath String?               @db.VarChar(500)
+  scorecardPhotoName String?               @db.VarChar(255)
+  scorecardPhotoMimeType String?           @db.VarChar(50)
+  scorecardPhotoSize Int?
+  scorecardPhotoUploadedAt DateTime?       @db.Timestamptz(3)
   grossScore         Int?
   adjustedGrossScore Int?
   isCapped           Boolean              @default(false)

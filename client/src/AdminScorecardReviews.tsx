@@ -6,6 +6,7 @@ import {
   type AdminScorecardReviewHole,
 } from './adminApi.ts'
 import './AdminScorecardReviews.css'
+import ScorecardPhoto from './ScorecardPhoto.tsx'
 
 type HoleDraft = {
   holeNumber: number
@@ -245,6 +246,16 @@ function AdminScorecardReviews() {
                     <div><dt>Provisional</dt><dd>{review.round.scoreDifferential === null ? 'Not included' : review.round.scoreDifferential.toFixed(1)}</dd></div>
                   </dl>
                 </header>
+
+                {review.round.scorecardPhoto ? (
+                  <div className="admin-scorecard-photo-wrap">
+                    <ScorecardPhoto
+                      roundId={review.round.id}
+                      photo={review.round.scorecardPhoto}
+                      admin
+                    />
+                  </div>
+                ) : null}
 
                 <div className="admin-scorecard-table-scroll">
                   <table>

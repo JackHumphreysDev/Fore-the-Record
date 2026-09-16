@@ -9,6 +9,7 @@ import {
   type AdminRoundsResponse,
 } from './adminRoundApi.ts'
 import type { AdminUser } from './adminApi.ts'
+import ScorecardPhoto from './ScorecardPhoto.tsx'
 
 type Props = {
   user: AdminUser
@@ -221,6 +222,13 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
         <header><div><p>Round correction</p><h3>{selected.tee.course.club.name}</h3></div>
           <button type="button" onClick={() => setSelected(null)}>Close</button></header>
         <p>Course, tee and {selected.participation.toLowerCase()} participation are locked to protect rating data.</p>
+        {selected.scorecardPhoto ? (
+          <ScorecardPhoto
+            roundId={selected.id}
+            photo={selected.scorecardPhoto}
+            admin
+          />
+        ) : null}
         <form onSubmit={save}>
         <div className="admin-round-fields">
           <label>Date<input type="date" value={form.datePlayed} onChange={(e) => field('datePlayed', e.target.value)} /></label>
