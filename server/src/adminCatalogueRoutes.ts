@@ -53,6 +53,10 @@ const ADMIN_CATALOGUE_SELECT = {
           par: true,
           courseRating: true,
           slopeRating: true,
+          frontNineCourseRating: true,
+          frontNineSlopeRating: true,
+          backNineCourseRating: true,
+          backNineSlopeRating: true,
           source: true,
           _count: { select: { rounds: true, scorecardReviews: true } },
           holes: {
@@ -101,6 +105,14 @@ function serializeCatalogue(club: AdminCatalogueClub) {
           return {
             ...teeData,
             courseRating: Number(tee.courseRating),
+            frontNineCourseRating:
+              tee.frontNineCourseRating === null
+                ? null
+                : Number(tee.frontNineCourseRating),
+            backNineCourseRating:
+              tee.backNineCourseRating === null
+                ? null
+                : Number(tee.backNineCourseRating),
             canDelete:
               teeCount.rounds === 0 && teeCount.scorecardReviews === 0,
             isUsed: teeCount.rounds > 0,
@@ -389,7 +401,7 @@ router.patch('/tees/:teeId', async (request, response) => {
   try { input = parseAdminTeeInput(request.body) } catch (error: unknown) { if (sendValidationError(response, error)) return; throw error }
   const existing = await prisma.tee.findUnique({ where: { id: teeId }, include: { _count: { select: { rounds: true } } } })
   if (!existing) { response.status(404).json({ error: 'Tee not found' }); return }
-  const ratingsChanged = Number(existing.courseRating) !== input.courseRating || existing.slopeRating !== input.slopeRating || existing.par !== input.par
+  const ratingsChanged = Number(existing.courseRating) !== input.courseRating || existing.slopeRating !== input.slopeRating || existing.par !== input.par || Number(existing.frontNineCourseRating) !== Number(input.frontNineCourseRating) || existing.frontNineSlopeRating !== input.frontNineSlopeRating || Number(existing.backNineCourseRating) !== Number(input.backNineCourseRating) || existing.backNineSlopeRating !== input.backNineSlopeRating
   if (existing._count.rounds > 0 && ratingsChanged) {
     response.status(409).json({ error: 'Ratings and par are locked because rounds already use this tee. Create a corrected tee instead.' })
     return

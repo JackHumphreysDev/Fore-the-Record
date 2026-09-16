@@ -152,10 +152,44 @@ export function parseAdminTeeInput(body: unknown) {
     100,
   )
   const slopeRating = optionalInteger(body.slopeRating, 'slope rating', 55, 155)
+  const frontNineCourseRating = optionalNumber(
+    body.frontNineCourseRating,
+    'front-nine course rating',
+    10,
+    60,
+  )
+  const frontNineSlopeRating = optionalInteger(
+    body.frontNineSlopeRating,
+    'front-nine slope rating',
+    55,
+    155,
+  )
+  const backNineCourseRating = optionalNumber(
+    body.backNineCourseRating,
+    'back-nine course rating',
+    10,
+    60,
+  )
+  const backNineSlopeRating = optionalInteger(
+    body.backNineSlopeRating,
+    'back-nine slope rating',
+    55,
+    155,
+  )
 
   if (courseRating === null || slopeRating === null) {
     throw new AdminCatalogueValidationError(
       'Course rating and slope rating are required',
+    )
+  }
+  if ((frontNineCourseRating === null) !== (frontNineSlopeRating === null)) {
+    throw new AdminCatalogueValidationError(
+      'Enter both front-nine course and slope ratings, or leave both blank',
+    )
+  }
+  if ((backNineCourseRating === null) !== (backNineSlopeRating === null)) {
+    throw new AdminCatalogueValidationError(
+      'Enter both back-nine course and slope ratings, or leave both blank',
     )
   }
 
@@ -168,17 +202,27 @@ export function parseAdminTeeInput(body: unknown) {
     par: optionalInteger(body.par, 'tee par', 18, 180),
     courseRating,
     slopeRating,
+    frontNineCourseRating,
+    frontNineSlopeRating,
+    backNineCourseRating,
+    backNineSlopeRating,
   }
 }
 
 export function parseAdminScorecardInput(body: unknown) {
+  if (!isRecord(body) || !Array.isArray(body.holes) || body.holes.length !== 18) {
+    throw new AdminCatalogueValidationError(
+      'The scorecard must contain holes 1–18 and each stroke index once.',
+    )
+  }
+
   try {
     const decision = parseScorecardReviewDecision({
       action: 'APPROVE',
-      holes: isRecord(body) ? body.holes : undefined,
+      holes: body.holes,
     })
 
-    if (decision.action !== 'APPROVE') {
+    if (decision.action !== 'APPROVE' || decision.holes.length !== 18) {
       throw new AdminCatalogueValidationError(
         'A complete 18-hole scorecard is required',
       )

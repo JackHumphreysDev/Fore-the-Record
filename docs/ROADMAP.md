@@ -26,8 +26,15 @@ This roadmap records agreed future work. Items are planned requirements, not com
 20. Privacy and account controls. Completed in `0.24.0`.
 21. Installable mobile app. Completed in `0.25.0`.
 22. Stableford scoring with Playing Handicap allocation and picked-up holes. Completed in `0.26.0`.
+23. Nine-hole rounds with Front 9 and Back 9 scorecards. Completed in `0.27.0`.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Nine-hole rounds — completed in 0.27.0
+
+Individual casual and competition rounds can be recorded over a selected Front 9 or Back 9 as well as all 18 holes. Round Entry loads only the chosen nine, checks its signed total, supports Stroke play, Stableford, pickups, and player-entered cards, and records the correct nine-hole totals. History, administrator round correction, scorecard review, data export, and lifetime holes, shots, and recorded yardage preserve the actual round length and segment.
+
+Optional official Course Rating and Slope Rating pairs can be maintained separately for each nine. Nine-hole rounds remain outside the Handicap Index until the application has an authoritative source for the player-specific WHS expected differential. Fore the Record does not estimate that value or halve an 18-hole rating.
 
 ## Stableford scoring — completed in 0.26.0
 

@@ -11,6 +11,8 @@ const teamRound = {
   category: 'COMPETITION',
   participation: 'TEAM',
   scoringFormat: 'STROKE_PLAY',
+  holeCount: 18,
+  nineHoleSegment: null,
   playingHandicap: null,
   stablefordPoints: null,
   competitionName: 'Invitation Day',
@@ -33,6 +35,10 @@ const tee = {
   teeName: 'White',
   courseRating: 72,
   slopeRating: 113,
+  frontNineCourseRating: null,
+  frontNineSlopeRating: null,
+  backNineCourseRating: null,
+  backNineSlopeRating: null,
   par: 72,
   course: {
     id: 'course-1',
@@ -120,6 +126,31 @@ describe('round classification response validation', () => {
           strokeIndex: index + 1,
           strokesTaken: index === 0 ? 0 : 5,
           pickedUp: index === 0,
+        })),
+        tee,
+      }),
+    ).toBe(true)
+  })
+
+  it('accepts a non-counting verified front-nine round', () => {
+    expect(
+      isHistoryRound({
+        ...teamRound,
+        participation: 'INDIVIDUAL',
+        holeCount: 9,
+        nineHoleSegment: 'FRONT_NINE',
+        grossScore: 44,
+        adjustedGrossScore: 43,
+        weatherCondition: 'DRY',
+        scoreDifferential: null,
+        isAcceptable: false,
+        scorecardStatus: 'VERIFIED',
+        holeScores: Array.from({ length: 9 }, (_, index) => ({
+          holeNumber: index + 1,
+          par: 4,
+          strokeIndex: index + 1,
+          strokesTaken: index === 0 ? 4 : 5,
+          pickedUp: false,
         })),
         tee,
       }),

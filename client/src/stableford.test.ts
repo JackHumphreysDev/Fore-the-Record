@@ -38,4 +38,18 @@ describe('Stableford helpers', () => {
     })
     expect(calculateStablefordTotals(complete.slice(0, 17), 18).total).toBeNull()
   })
+
+  it('allocates a Playing Handicap across nine selected holes', () => {
+    const holes = Array.from({ length: 9 }, (_, index) => ({
+      par: 4,
+      strokeIndex: (index + 1) * 2,
+      strokesTaken: 5,
+    }))
+
+    expect(calculateStablefordTotals(holes, 9)).toMatchObject({
+      frontNine: 18,
+      backNine: null,
+      total: 18,
+    })
+  })
 })

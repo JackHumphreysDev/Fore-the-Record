@@ -1,6 +1,7 @@
-const HOLES_IN_ROUND = 18
+const FULL_ROUND_HOLES = 18
 
 export type StablefordHoleInput = {
+  holeNumber?: number
   par: number
   strokeIndex: number
   strokesTaken: number | null
@@ -25,11 +26,19 @@ export function allocatePlayingHandicapStrokes(
 ): number {
   assertPlayingHandicap(playingHandicap)
 
-  if (!Number.isInteger(strokeIndex) || strokeIndex < 1 || strokeIndex > HOLES_IN_ROUND) {
+  if (!Number.isInteger(strokeIndex) || strokeIndex < 1 || strokeIndex > FULL_ROUND_HOLES) {
     throw new RangeError('strokeIndex must be an integer from 1 to 18')
   }
 
-  return Math.floor((playingHandicap + HOLES_IN_ROUND - strokeIndex) / HOLES_IN_ROUND)
+  return Math.floor((playingHandicap + FULL_ROUND_HOLES - strokeIndex) / FULL_ROUND_HOLES)
+}
+
+function allocateForCard(
+  playingHandicap: number,
+  strokeIndexRank: number,
+  holeCount: 9 | 18,
+): number {
+  return Math.floor((playingHandicap + holeCount - strokeIndexRank) / holeCount)
 }
 
 export function calculateStablefordHole(
@@ -70,18 +79,43 @@ export function calculateStablefordRound(
 ) {
   assertPlayingHandicap(playingHandicap)
 
-  if (holes.length !== HOLES_IN_ROUND) {
-    throw new RangeError('A Stableford round must contain 18 holes')
+  if (holes.length !== 9 && holes.length !== 18) {
+    throw new RangeError('A Stableford round must contain 9 or 18 holes')
   }
 
-  const scoredHoles = holes.map((hole) =>
-    calculateStablefordHole(hole, playingHandicap),
+  const holeCount = holes.length as 9 | 18
+  const strokeIndexOrder = [...holes]
+    .sort((left, right) => left.strokeIndex - right.strokeIndex)
+    .map((hole) => hole)
+  const rankByHole = new Map(
+    strokeIndexOrder.map((hole, index) => [hole, index + 1]),
   )
+  const scoredHoles = holes.map((hole) => {
+    const handicapStrokesReceived = allocateForCard(
+      playingHandicap,
+      rankByHole.get(hole) ?? hole.strokeIndex,
+      holeCount,
+    )
+    const netScore = hole.pickedUp
+      ? null
+      : Number(hole.strokesTaken) - handicapStrokesReceived
+
+    return {
+      ...hole,
+      handicapStrokesReceived,
+      netScore,
+      points: netScore === null ? 0 : Math.max(0, 2 + hole.par - netScore),
+    }
+  })
 
   return {
     holes: scoredHoles,
-    frontNinePoints: scoredHoles.slice(0, 9).reduce((sum, hole) => sum + hole.points, 0),
-    backNinePoints: scoredHoles.slice(9).reduce((sum, hole) => sum + hole.points, 0),
+    frontNinePoints: (scoredHoles[0]?.holeNumber ?? 1) <= 9
+      ? scoredHoles.slice(0, 9).reduce((sum, hole) => sum + hole.points, 0)
+      : null,
+    backNinePoints: scoredHoles.some((hole) => (hole.holeNumber ?? 1) >= 10)
+      ? scoredHoles.slice(holeCount === 18 ? 9 : 0).reduce((sum, hole) => sum + hole.points, 0)
+      : null,
     totalPoints: scoredHoles.reduce((sum, hole) => sum + hole.points, 0),
   }
 }

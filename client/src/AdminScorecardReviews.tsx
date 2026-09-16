@@ -130,10 +130,12 @@ function AdminScorecardReviews() {
     }))
 
     if (action === 'APPROVE') {
+      const review = reviews.find((candidate) => candidate.id === reviewId)
+      const expectedHoleCount = review?.round.holeCount ?? 18
       const strokeIndexes = new Set(holes.map((hole) => hole.strokeIndex))
       const invalid =
-        holes.length !== 18 ||
-        strokeIndexes.size !== 18 ||
+        holes.length !== expectedHoleCount ||
+        strokeIndexes.size !== expectedHoleCount ||
         holes.some(
           (hole) =>
             !Number.isInteger(hole.par) ||
@@ -148,7 +150,7 @@ function AdminScorecardReviews() {
 
       if (invalid) {
         setError(
-          'Check all 18 holes: par must be 2–7, stroke indexes 1–18 must each appear once, and any yardage must be positive.',
+          `Check all ${expectedHoleCount} holes: par must be 2–7, stroke indexes must be unique, and any yardage must be positive.`,
         )
         return
       }
@@ -183,7 +185,7 @@ function AdminScorecardReviews() {
       )
       setNotice(
         action === 'APPROVE'
-          ? 'Scorecard approved. The saved round and player Handicap Index were recalculated without changing their strokes.'
+          ? 'Scorecard approved. The saved round was recalculated without changing the player’s strokes. Nine-hole rounds remain outside the Handicap Index until an official expected differential is available.'
           : 'Scorecard rejected. The round remains excluded from the Handicap Index.',
       )
     } catch (caught: unknown) {
@@ -240,7 +242,7 @@ function AdminScorecardReviews() {
                   <dl>
                     <div><dt>Played</dt><dd>{formatDate(review.round.datePlayed)}</dd></div>
                     <div><dt>{review.round.scoringFormat === 'STABLEFORD' ? 'Points' : 'Gross'}</dt><dd>{review.round.scoringFormat === 'STABLEFORD' ? review.round.stablefordPoints : review.round.grossScore}</dd></div>
-                    <div><dt>Provisional</dt><dd>{review.round.scoreDifferential.toFixed(1)}</dd></div>
+                    <div><dt>Provisional</dt><dd>{review.round.scoreDifferential === null ? 'Not included' : review.round.scoreDifferential.toFixed(1)}</dd></div>
                   </dl>
                 </header>
 

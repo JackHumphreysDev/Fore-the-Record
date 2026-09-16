@@ -44,6 +44,10 @@ type TeeDraft = {
   par: string
   courseRating: string
   slopeRating: string
+  frontNineCourseRating: string
+  frontNineSlopeRating: string
+  backNineCourseRating: string
+  backNineSlopeRating: string
 }
 
 type HoleDraft = Omit<CatalogueHole, 'par' | 'strokeIndex' | 'yardage' | 'source'> & {
@@ -61,7 +65,8 @@ const EMPTY_COURSE: CourseDraft = {
 }
 const EMPTY_TEE: TeeDraft = {
   teeName: '', colour: '', gender: '', totalYardage: '', totalMetres: '', par: '',
-  courseRating: '', slopeRating: '',
+  courseRating: '', slopeRating: '', frontNineCourseRating: '',
+  frontNineSlopeRating: '', backNineCourseRating: '', backNineSlopeRating: '',
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -112,6 +117,10 @@ function teeDraft(tee: CatalogueTee): TeeDraft {
     par: tee.par?.toString() ?? '',
     courseRating: tee.courseRating.toString(),
     slopeRating: tee.slopeRating.toString(),
+    frontNineCourseRating: tee.frontNineCourseRating?.toString() ?? '',
+    frontNineSlopeRating: tee.frontNineSlopeRating?.toString() ?? '',
+    backNineCourseRating: tee.backNineCourseRating?.toString() ?? '',
+    backNineSlopeRating: tee.backNineSlopeRating?.toString() ?? '',
   }
 }
 
@@ -208,6 +217,10 @@ function TeeFields({ draft, setDraft, ratingsLocked = false }: {
       <Field label="Par" type="number" value={draft.par} disabled={ratingsLocked} onChange={(par) => setDraft({ ...draft, par })} />
       <Field label="Course rating" type="number" value={draft.courseRating} required disabled={ratingsLocked} onChange={(courseRating) => setDraft({ ...draft, courseRating })} />
       <Field label="Slope rating" type="number" value={draft.slopeRating} required disabled={ratingsLocked} onChange={(slopeRating) => setDraft({ ...draft, slopeRating })} />
+      <Field label="Front 9 course rating" type="number" value={draft.frontNineCourseRating} disabled={ratingsLocked} onChange={(frontNineCourseRating) => setDraft({ ...draft, frontNineCourseRating })} />
+      <Field label="Front 9 slope rating" type="number" value={draft.frontNineSlopeRating} disabled={ratingsLocked} onChange={(frontNineSlopeRating) => setDraft({ ...draft, frontNineSlopeRating })} />
+      <Field label="Back 9 course rating" type="number" value={draft.backNineCourseRating} disabled={ratingsLocked} onChange={(backNineCourseRating) => setDraft({ ...draft, backNineCourseRating })} />
+      <Field label="Back 9 slope rating" type="number" value={draft.backNineSlopeRating} disabled={ratingsLocked} onChange={(backNineSlopeRating) => setDraft({ ...draft, backNineSlopeRating })} />
     </div>
   )
 }
@@ -304,6 +317,10 @@ function AdminCourseCatalogue({ onCatalogueChanged }: AdminCourseCatalogueProps)
       par: nullableNumber(draft.par),
       courseRating: Number(draft.courseRating),
       slopeRating: Number(draft.slopeRating),
+      frontNineCourseRating: nullableNumber(draft.frontNineCourseRating),
+      frontNineSlopeRating: nullableNumber(draft.frontNineSlopeRating),
+      backNineCourseRating: nullableNumber(draft.backNineCourseRating),
+      backNineSlopeRating: nullableNumber(draft.backNineSlopeRating),
     }
   }
 
@@ -436,7 +453,7 @@ function TeeCard({ tee, editing, setEditing, teeForm, setTeeForm, scorecard, set
   const scorecardPayload = { holes: scorecard.map((hole) => ({ holeNumber: hole.holeNumber, par: Number(hole.par), strokeIndex: Number(hole.strokeIndex), ...(hole.yardage.trim() ? { yardage: Number(hole.yardage) } : {}) })) }
   return (
     <article className="admin-catalogue-tee">
-      <header><div><strong>{tee.teeName}</strong><span>CR {tee.courseRating} · Slope {tee.slopeRating} · Par {tee.par ?? '—'} · {tee.holes.length}/18 holes</span></div>{tee.isUsed ? <em>Historical data locked</em> : null}</header>
+      <header><div><strong>{tee.teeName}</strong><span>CR {tee.courseRating} · Slope {tee.slopeRating} · Par {tee.par ?? '—'} · {tee.holes.length}/18 holes</span>{tee.frontNineCourseRating !== null ? <span>Front 9: CR {tee.frontNineCourseRating} / {tee.frontNineSlopeRating}</span> : null}{tee.backNineCourseRating !== null ? <span>Back 9: CR {tee.backNineCourseRating} / {tee.backNineSlopeRating}</span> : null}</div>{tee.isUsed ? <em>Historical data locked</em> : null}</header>
       <div className="admin-catalogue-record-actions"><button type="button" onClick={() => { setTeeForm(teeDraft(tee)); setEditing(`tee:${tee.id}`) }}>Edit tee</button><button type="button" disabled={tee.isUsed} onClick={() => { setScorecard(holesDraft(tee.holes)); setEditing(`scorecard:${tee.id}`) }}>{tee.holes.length === 18 ? 'Edit scorecard' : 'Add scorecard'}</button><button type="button" className="admin-catalogue-danger" disabled={!tee.canDelete} onClick={() => remove(`/api/admin/catalogue/tees/${tee.id}`, `${tee.teeName} tee`)}>Delete tee</button></div>
       {editing === `tee:${tee.id}` ? <form className="admin-catalogue-editor" onSubmit={(event) => { event.preventDefault(); void mutate(`/api/admin/catalogue/tees/${tee.id}`, 'PATCH', teePayload(teeForm), 'Tee details updated.') }}><TeeFields draft={teeForm} setDraft={setTeeForm} ratingsLocked={tee.isUsed} />{tee.isUsed ? <p className="admin-catalogue-lock">Course rating, slope and par are locked. Name, colour, gender and distance can still be corrected.</p> : null}<div className="admin-catalogue-actions"><button disabled={busy}>Save tee</button><button type="button" className="admin-catalogue-secondary" onClick={() => setEditing('')}>Cancel</button></div></form> : null}
       {editing === `scorecard:${tee.id}` ? <form className="admin-catalogue-editor" onSubmit={(event) => { event.preventDefault(); void mutate(`/api/admin/catalogue/tees/${tee.id}/scorecard`, 'PUT', scorecardPayload, 'Scorecard saved to the catalogue.') }}><h4>Hole-by-hole scorecard</h4><p>Enter all 18 pars and use each stroke index from 1 to 18 once. Yardage is optional.</p><div className="admin-catalogue-scorecard"><span>Hole</span><span>Par</span><span>Stroke index</span><span>Yardage</span>{scorecard.map((hole) => <div className="admin-catalogue-hole" key={hole.holeNumber}><strong>{hole.holeNumber}</strong><input aria-label={`Hole ${hole.holeNumber} par`} type="number" value={hole.par} required onChange={(event) => updateHole(hole.holeNumber, 'par', event.target.value)} /><input aria-label={`Hole ${hole.holeNumber} stroke index`} type="number" value={hole.strokeIndex} required onChange={(event) => updateHole(hole.holeNumber, 'strokeIndex', event.target.value)} /><input aria-label={`Hole ${hole.holeNumber} yardage`} type="number" value={hole.yardage} onChange={(event) => updateHole(hole.holeNumber, 'yardage', event.target.value)} /></div>)}</div><div className="admin-catalogue-actions"><button disabled={busy}>Save scorecard</button><button type="button" className="admin-catalogue-secondary" onClick={() => setEditing('')}>Cancel</button></div></form> : null}

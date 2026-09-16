@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'nine-hole-rounds',
+    publishedAt: '2026-09-16',
+    title: 'Make nine holes part of your record',
+    summary:
+      'Record a Front 9 or Back 9 with the same hole-by-hole detail as a full round.',
+    highlights: [
+      'Choose 9 holes in Round Entry and see only the selected Front 9 or Back 9.',
+      'Follow automatic gross and Stableford totals for the nine you played.',
+      'Open the round in History to revisit every score while its Handicap Index status stays clear.',
+    ],
+  },
+  {
     id: 'stableford-scoring',
     publishedAt: '2026-09-15',
     title: 'Count every Stableford point',

@@ -71,6 +71,7 @@ import {
   FriendshipStatus,
   PlayerGoalType,
   ScorecardSource,
+  NineHoleSegment,
   RoundParticipation,
   RoundScoringFormat,
   RoundScorecardStatus,
@@ -203,6 +204,8 @@ const ADMIN_ROUND_SELECT = {
   category: true,
   participation: true,
   scoringFormat: true,
+  holeCount: true,
+  nineHoleSegment: true,
   playingHandicap: true,
   stablefordPoints: true,
   competitionName: true,
@@ -233,6 +236,10 @@ const ADMIN_ROUND_SELECT = {
       teeName: true,
       courseRating: true,
       slopeRating: true,
+      frontNineCourseRating: true,
+      frontNineSlopeRating: true,
+      backNineCourseRating: true,
+      backNineSlopeRating: true,
       par: true,
       course: {
         select: {
@@ -372,6 +379,10 @@ const CATALOGUE_COURSE_SELECT = {
       par: true,
       courseRating: true,
       slopeRating: true,
+      frontNineCourseRating: true,
+      frontNineSlopeRating: true,
+      backNineCourseRating: true,
+      backNineSlopeRating: true,
     },
   },
 } as const
@@ -484,7 +495,11 @@ function serializeFriendPlayer<
 function serializeCoursePreference<
   T extends {
     course: {
-      tees: Array<{ courseRating: unknown }>
+      tees: Array<{
+        courseRating: unknown
+        frontNineCourseRating: unknown | null
+        backNineCourseRating: unknown | null
+      }>
     }
   },
 >(preference: T) {
@@ -495,6 +510,14 @@ function serializeCoursePreference<
       tees: preference.course.tees.map((tee) => ({
         ...tee,
         courseRating: Number(tee.courseRating),
+        frontNineCourseRating:
+          tee.frontNineCourseRating === null
+            ? null
+            : Number(tee.frontNineCourseRating),
+        backNineCourseRating:
+          tee.backNineCourseRating === null
+            ? null
+            : Number(tee.backNineCourseRating),
       })),
     },
   }
@@ -525,7 +548,11 @@ function serializeAdminRound<
     datePlayed: Date
     pccAdjustment: unknown
     scoreDifferential: unknown | null
-    tee: { courseRating: unknown }
+    tee: {
+      courseRating: unknown
+      frontNineCourseRating: unknown | null
+      backNineCourseRating: unknown | null
+    }
   },
 >(round: T) {
   return {
@@ -536,7 +563,18 @@ function serializeAdminRound<
       round.scoreDifferential === null
         ? null
         : Number(round.scoreDifferential),
-    tee: { ...round.tee, courseRating: Number(round.tee.courseRating) },
+    tee: {
+      ...round.tee,
+      courseRating: Number(round.tee.courseRating),
+      frontNineCourseRating:
+        round.tee.frontNineCourseRating === null
+          ? null
+          : Number(round.tee.frontNineCourseRating),
+      backNineCourseRating:
+        round.tee.backNineCourseRating === null
+          ? null
+          : Number(round.tee.backNineCourseRating),
+    },
   }
 }
 
@@ -1537,6 +1575,8 @@ app.get('/api/admin/scorecard-reviews', async (_request, response) => {
           datePlayed: true,
           grossScore: true,
           scoringFormat: true,
+          holeCount: true,
+          nineHoleSegment: true,
           playingHandicap: true,
           stablefordPoints: true,
           scoreDifferential: true,
@@ -1567,7 +1607,10 @@ app.get('/api/admin/scorecard-reviews', async (_request, response) => {
       },
       round: {
         ...review.round,
-        scoreDifferential: Number(review.round.scoreDifferential),
+        scoreDifferential:
+          review.round.scoreDifferential === null
+            ? null
+            : Number(review.round.scoreDifferential),
       },
     })),
   })
@@ -1619,6 +1662,8 @@ app.patch(
             datePlayed: true,
             grossScore: true,
             scoringFormat: true,
+            holeCount: true,
+            nineHoleSegment: true,
             playingHandicap: true,
             pccAdjustment: true,
             user: { select: { handicapIndex: true } },
@@ -1626,6 +1671,10 @@ app.patch(
               select: {
                 courseRating: true,
                 slopeRating: true,
+                frontNineCourseRating: true,
+                frontNineSlopeRating: true,
+                backNineCourseRating: true,
+                backNineSlopeRating: true,
               },
             },
             holeScores: {
@@ -1680,7 +1729,7 @@ app.patch(
       return
     }
 
-    if (review.round.holeScores.length !== 18) {
+    if (review.round.holeScores.length !== review.round.holeCount) {
       response.status(409).json({
         error: 'The player round does not contain a complete scored card',
       })
@@ -1696,13 +1745,30 @@ app.patch(
       0,
     )
     const courseRating = Number(review.round.tee.courseRating)
+    const selectedNineCourseRating = review.round.nineHoleSegment === NineHoleSegment.FRONT_NINE
+      ? review.round.tee.frontNineCourseRating
+      : review.round.tee.backNineCourseRating
+    const selectedNineSlopeRating = review.round.nineHoleSegment === NineHoleSegment.FRONT_NINE
+      ? review.round.tee.frontNineSlopeRating
+      : review.round.tee.backNineSlopeRating
+    const calculationCourseRating = review.round.holeCount === 18
+      ? courseRating
+      : selectedNineCourseRating == null
+        ? null
+        : Number(selectedNineCourseRating)
+    const calculationSlopeRating = review.round.holeCount === 18
+      ? review.round.tee.slopeRating
+      : selectedNineSlopeRating
     const courseHandicap =
-      currentHandicapIndex === null
+      currentHandicapIndex === null ||
+      calculationCourseRating === null ||
+      calculationSlopeRating === null ||
+      calculationSlopeRating === undefined
         ? null
         : calculateCourseHandicap({
             handicapIndex: currentHandicapIndex,
-            slopeRating: review.round.tee.slopeRating,
-            courseRating,
+            slopeRating: calculationSlopeRating,
+            courseRating: calculationCourseRating,
             par: approvedPar,
           })
     const approvedHoleScores = decision.holes.map((hole) => {
@@ -1718,11 +1784,22 @@ app.patch(
         pickedUp: playerScore?.pickedUp ?? false,
       }
     })
+    const strokeIndexRank = new Map(
+      [...approvedHoleScores]
+        .sort((left, right) => left.strokeIndex - right.strokeIndex)
+        .map((hole, index) => [hole.holeNumber, index + 1]),
+    )
     const handicapHoles = approvedHoleScores.map((hole) => {
       const handicapStrokesReceived =
         courseHandicap === null
           ? 3
-          : calculateHandicapStrokesReceived(courseHandicap, hole.strokeIndex)
+          : review.round.holeCount === 18
+            ? calculateHandicapStrokesReceived(courseHandicap, hole.strokeIndex)
+            : Math.floor(
+                (courseHandicap + review.round.holeCount -
+                  (strokeIndexRank.get(hole.holeNumber) ?? hole.strokeIndex)) /
+                  review.round.holeCount,
+              )
 
       return {
         par: hole.par,
@@ -1746,12 +1823,14 @@ app.patch(
             review.round.playingHandicap,
           ).totalPoints
         : null
-    const scoreDifferential = calculateScoreDifferential({
-      adjustedGrossScore,
-      courseRating,
-      slopeRating: review.round.tee.slopeRating,
-      pccAdjustment: Number(review.round.pccAdjustment),
-    })
+    const scoreDifferential = review.round.holeCount === 18
+      ? calculateScoreDifferential({
+          adjustedGrossScore,
+          courseRating,
+          slopeRating: review.round.tee.slopeRating,
+          pccAdjustment: Number(review.round.pccAdjustment),
+        })
+      : null
     const recentRounds = await prisma.round.findMany({
       where: {
         userId: review.round.userId,
@@ -1775,7 +1854,7 @@ app.patch(
     })
     const handicapCalculation = calculateHandicap(
       recentRounds.flatMap((round) => {
-        if (round.id === review.round.id) {
+        if (round.id === review.round.id && scoreDifferential !== null) {
           return [
             {
               ...round,
@@ -1804,7 +1883,14 @@ app.patch(
       : null
 
     await prisma.$transaction([
-      prisma.teeHole.deleteMany({ where: { teeId: review.teeId } }),
+      prisma.teeHole.deleteMany({
+        where: {
+          teeId: review.teeId,
+          ...(review.round.holeCount === 9
+            ? { holeNumber: { in: decision.holes.map((hole) => hole.holeNumber) } }
+            : {}),
+        },
+      }),
       prisma.teeHole.createMany({
         data: decision.holes.map((hole) => ({
           teeId: review.teeId,
@@ -1814,13 +1900,17 @@ app.patch(
             : ScorecardSource.PLAYER_APPROVED,
         })),
       }),
-      prisma.tee.update({
-        where: { id: review.teeId },
-        data: {
-          par: approvedPar,
-          ...(totalYardage === null ? {} : { totalYardage }),
-        },
-      }),
+      ...(review.round.holeCount === 18
+        ? [
+            prisma.tee.update({
+              where: { id: review.teeId },
+              data: {
+                par: approvedPar,
+                ...(totalYardage === null ? {} : { totalYardage }),
+              },
+            }),
+          ]
+        : []),
       prisma.holeScore.deleteMany({ where: { roundId: review.round.id } }),
       prisma.holeScore.createMany({
         data: approvedHoleScores.map((hole) => ({
@@ -1839,7 +1929,7 @@ app.patch(
           isCapped: isCapped || approvedHoleScores.some((hole) => hole.pickedUp),
           stablefordPoints,
           scoreDifferential,
-          isAcceptable: true,
+          isAcceptable: review.round.holeCount === 18,
           scorecardStatus: RoundScorecardStatus.VERIFIED,
         },
       }),
@@ -2374,6 +2464,8 @@ app.get('/api/users/me/rounds', async (_request, response) => {
           category: true,
           participation: true,
           scoringFormat: true,
+          holeCount: true,
+          nineHoleSegment: true,
           playingHandicap: true,
           stablefordPoints: true,
           competitionName: true,
@@ -2406,6 +2498,10 @@ app.get('/api/users/me/rounds', async (_request, response) => {
               teeName: true,
               courseRating: true,
               slopeRating: true,
+              frontNineCourseRating: true,
+              frontNineSlopeRating: true,
+              backNineCourseRating: true,
+              backNineSlopeRating: true,
               par: true,
               course: {
                 select: {
@@ -2442,6 +2538,14 @@ app.get('/api/users/me/rounds', async (_request, response) => {
       tee: {
         ...round.tee,
         courseRating: Number(round.tee.courseRating),
+        frontNineCourseRating:
+          round.tee.frontNineCourseRating === null
+            ? null
+            : Number(round.tee.frontNineCourseRating),
+        backNineCourseRating:
+          round.tee.backNineCourseRating === null
+            ? null
+            : Number(round.tee.backNineCourseRating),
       },
     })),
   )
@@ -3835,6 +3939,14 @@ app.get('/api/catalogue/courses', async (request, response) => {
       tees: course.tees.map((tee) => ({
         ...tee,
         courseRating: Number(tee.courseRating),
+        frontNineCourseRating:
+          tee.frontNineCourseRating === null
+            ? null
+            : Number(tee.frontNineCourseRating),
+        backNineCourseRating:
+          tee.backNineCourseRating === null
+            ? null
+            : Number(tee.backNineCourseRating),
       })),
     })),
     pagination: {
@@ -3891,8 +4003,15 @@ app.get('/api/courses', async (_request, response) => {
 
 app.get('/api/tees/:teeId/scorecard', async (request, response) => {
   const teeId = request.params.teeId
+  const segment = request.query.segment
 
-  if (typeof teeId !== 'string' || !UUID_PATTERN.test(teeId)) {
+  if (
+    typeof teeId !== 'string' ||
+    !UUID_PATTERN.test(teeId) ||
+    (segment !== undefined &&
+      segment !== 'FRONT_NINE' &&
+      segment !== 'BACK_NINE')
+  ) {
     response.status(400).json({ error: 'Invalid tee ID' })
     return
   }
@@ -3936,11 +4055,21 @@ app.get('/api/tees/:teeId/scorecard', async (request, response) => {
     return
   }
 
-  if (isCompleteScorecard(tee.holes)) {
+  const selectedHoles = segment === 'FRONT_NINE'
+    ? tee.holes.filter((hole) => hole.holeNumber <= 9)
+    : segment === 'BACK_NINE'
+      ? tee.holes.filter((hole) => hole.holeNumber >= 10)
+      : tee.holes
+  const selectedCardIsComplete = segment === undefined
+    ? isCompleteScorecard(selectedHoles)
+    : selectedHoles.length === 9 &&
+      new Set(selectedHoles.map((hole) => hole.strokeIndex)).size === 9
+
+  if (selectedCardIsComplete) {
     response.status(200).json({
       status: 'available',
       source: 'saved',
-      holes: tee.holes,
+      holes: selectedHoles,
     })
     return
   }
@@ -4038,10 +4167,18 @@ app.get('/api/tees/:teeId/scorecard', async (request, response) => {
   response.status(200).json({
     status: 'available',
     source: 'provider',
-    holes: providerScorecard.holes.map((hole) => ({
+    holes: providerScorecard.holes
+      .filter((hole) =>
+        segment === 'FRONT_NINE'
+          ? hole.holeNumber <= 9
+          : segment === 'BACK_NINE'
+            ? hole.holeNumber >= 10
+            : true,
+      )
+      .map((hole) => ({
       ...hole,
       yardage: hole.yardage ?? null,
-    })),
+      })),
   })
 })
 

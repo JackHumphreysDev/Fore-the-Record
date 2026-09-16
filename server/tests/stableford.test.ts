@@ -41,6 +41,7 @@ describe('Stableford scoring', () => {
   it('totals each nine and the full round', () => {
     const result = calculateStablefordRound(
       Array.from({ length: 18 }, (_, index) => ({
+        holeNumber: index + 1,
         par: 4,
         strokeIndex: index + 1,
         strokesTaken: index === 0 ? null : 5,
@@ -52,5 +53,22 @@ describe('Stableford scoring', () => {
     expect(result.frontNinePoints).toBe(16)
     expect(result.backNinePoints).toBe(18)
     expect(result.totalPoints).toBe(34)
+  })
+
+  it('allocates a Playing Handicap across a selected back nine', () => {
+    const result = calculateStablefordRound(
+      Array.from({ length: 9 }, (_, index) => ({
+        holeNumber: index + 10,
+        par: 4,
+        strokeIndex: (index + 1) * 2,
+        strokesTaken: 5,
+        pickedUp: false,
+      })),
+      9,
+    )
+
+    expect(result.frontNinePoints).toBeNull()
+    expect(result.backNinePoints).toBe(18)
+    expect(result.totalPoints).toBe(18)
   })
 })

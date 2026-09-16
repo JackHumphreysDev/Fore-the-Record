@@ -2,6 +2,7 @@ export type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
 export type RoundCategory = 'CASUAL' | 'COMPETITION'
 export type RoundParticipation = 'INDIVIDUAL' | 'TEAM'
 export type RoundScoringFormat = 'STROKE_PLAY' | 'STABLEFORD'
+export type NineHoleSegment = 'FRONT_NINE' | 'BACK_NINE'
 
 type ClassifiedRound = {
   id: string
@@ -10,6 +11,8 @@ type ClassifiedRound = {
   category: RoundCategory
   participation: RoundParticipation
   scoringFormat: RoundScoringFormat
+  holeCount: 9 | 18
+  nineHoleSegment: NineHoleSegment | null
   playingHandicap: number | null
   stablefordPoints: number | null
   competitionName: string | null
@@ -49,6 +52,10 @@ export type HistoryRound = ClassifiedRound & {
     teeName: string
     courseRating: number
     slopeRating: number
+    frontNineCourseRating: number | null
+    frontNineSlopeRating: number | null
+    backNineCourseRating: number | null
+    backNineSlopeRating: number | null
     par: number | null
     course: {
       id: string
@@ -123,7 +130,13 @@ export function isRoundResult(value: unknown): value is RoundResult {
   const hasValidScoredResult =
     round.participation === 'INDIVIDUAL' &&
     typeof round.adjustedGrossScore === 'number' &&
-    typeof round.scoreDifferential === 'number' &&
+    ((round.holeCount === 18 &&
+      round.nineHoleSegment === null &&
+      typeof round.scoreDifferential === 'number') ||
+      (round.holeCount === 9 &&
+        (round.nineHoleSegment === 'FRONT_NINE' ||
+          round.nineHoleSegment === 'BACK_NINE') &&
+        round.scoreDifferential === null)) &&
     ((round.scoringFormat === 'STROKE_PLAY' &&
       typeof round.grossScore === 'number' &&
       round.playingHandicap === null &&
@@ -145,6 +158,8 @@ export function isRoundResult(value: unknown): value is RoundResult {
     round.adjustedGrossScore === null &&
     round.scoreDifferential === null &&
     round.scorecardStatus === 'NOT_REQUIRED'
+    && round.holeCount === 18
+    && round.nineHoleSegment === null
 
   return (
     typeof round.id === 'string' &&
@@ -174,7 +189,12 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
     isFiniteNumber(value.adjustedGrossScore) &&
     typeof value.weatherCondition === 'string' &&
     WEATHER_CONDITIONS.includes(value.weatherCondition as WeatherCondition) &&
-    isFiniteNumber(value.scoreDifferential) &&
+    ((value.holeCount === 18 && value.nineHoleSegment === null && isFiniteNumber(value.scoreDifferential)) ||
+      (value.holeCount === 9 &&
+        (value.nineHoleSegment === 'FRONT_NINE' || value.nineHoleSegment === 'BACK_NINE') &&
+        value.scoreDifferential === null &&
+        value.isAcceptable === false &&
+        value.usedInHandicapCalc === false)) &&
     ((value.scoringFormat === 'STROKE_PLAY' &&
       isFiniteNumber(value.grossScore) &&
       value.playingHandicap === null &&
@@ -199,9 +219,11 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
     value.isAcceptable === false &&
     value.usedInHandicapCalc === false &&
     value.scorecardStatus === 'NOT_REQUIRED'
+    && value.holeCount === 18
+    && value.nineHoleSegment === null
   const hasValidHoleScores =
     Array.isArray(value.holeScores) &&
-    (value.holeScores.length === 0 || value.holeScores.length === 18) &&
+    (value.holeScores.length === 0 || value.holeScores.length === value.holeCount) &&
     value.holeScores.every(
       (hole) =>
         isRecord(hole) &&
@@ -234,6 +256,10 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
     typeof tee.teeName === 'string' &&
     isFiniteNumber(tee.courseRating) &&
     isFiniteNumber(tee.slopeRating) &&
+    (tee.frontNineCourseRating === null || isFiniteNumber(tee.frontNineCourseRating)) &&
+    (tee.frontNineSlopeRating === null || isFiniteNumber(tee.frontNineSlopeRating)) &&
+    (tee.backNineCourseRating === null || isFiniteNumber(tee.backNineCourseRating)) &&
+    (tee.backNineSlopeRating === null || isFiniteNumber(tee.backNineSlopeRating)) &&
     (tee.par === null || isFiniteNumber(tee.par)) &&
     typeof tee.course.id === 'string' &&
     typeof tee.course.name === 'string' &&

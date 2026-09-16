@@ -18,6 +18,10 @@ export type CatalogueTee = {
   par: number | null
   courseRating: number
   slopeRating: number
+  frontNineCourseRating: number | null
+  frontNineSlopeRating: number | null
+  backNineCourseRating: number | null
+  backNineSlopeRating: number | null
 }
 
 export type CatalogueCourse = {
@@ -152,7 +156,11 @@ function isCatalogueTee(value: unknown): value is CatalogueTee {
     isNullableNumber(value.totalMetres) &&
     isNullableNumber(value.par) &&
     typeof value.courseRating === 'number' &&
-    typeof value.slopeRating === 'number'
+    typeof value.slopeRating === 'number' &&
+    isNullableNumber(value.frontNineCourseRating) &&
+    isNullableNumber(value.frontNineSlopeRating) &&
+    isNullableNumber(value.backNineCourseRating) &&
+    isNullableNumber(value.backNineSlopeRating)
   )
 }
 

@@ -18,6 +18,7 @@ describe('administrator round API', () => {
       id: 'round', userId: 'user', datePlayed: '2026-09-01T00:00:00.000Z',
       timePlayed: null, category: 'CASUAL', participation: 'INDIVIDUAL',
       scoringFormat: 'STROKE_PLAY', playingHandicap: null, stablefordPoints: null,
+      holeCount: 18, nineHoleSegment: null,
       competitionName: null, competitionFormat: null, numberOfPlayers: null,
       grossScore: 90, adjustedGrossScore: 90, isCapped: false,
       weatherCondition: 'DRY', pccAdjustment: 0, scoreDifferential: 18,
@@ -27,6 +28,8 @@ describe('administrator round API', () => {
       })),
       tee: {
         id: 'tee', teeName: 'White', courseRating: 72, slopeRating: 113, par: 72,
+        frontNineCourseRating: null, frontNineSlopeRating: null,
+        backNineCourseRating: null, backNineSlopeRating: null,
         course: { id: 'course', name: 'Course', club: { id: 'club', name: 'Club' } },
       },
     }

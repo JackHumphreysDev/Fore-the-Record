@@ -1,5 +1,7 @@
 import { prisma } from './database.js'
 import {
+  NineHoleSegment,
+  type NineHoleSegment as NineHoleSegmentValue,
   RoundCategory,
   type RoundCategory as RoundCategoryValue,
   RoundParticipation,
@@ -58,6 +60,8 @@ type LogRoundBase = {
   notes: string | null
   scoringFormat: RoundScoringFormatValue
   playingHandicap: number | null
+  holeCount: 9 | 18
+  nineHoleSegment: NineHoleSegmentValue | null
 }
 
 export type LogIndividualRoundInput = LogRoundBase & {
@@ -173,6 +177,13 @@ function getRoundScoringFormat(value: unknown): RoundScoringFormatValue | null {
     : null
 }
 
+function getNineHoleSegment(value: unknown): NineHoleSegmentValue | null {
+  return value === NineHoleSegment.FRONT_NINE ||
+    value === NineHoleSegment.BACK_NINE
+    ? value
+    : null
+}
+
 function getRequiredText(value: unknown, maxLength: number): string | null {
   if (typeof value !== 'string') {
     return null
@@ -188,8 +199,10 @@ function getRequiredText(value: unknown, maxLength: number): string | null {
 function getHoleScores(
   value: unknown,
   allowPickedUp: boolean,
+  holeCount: 9 | 18,
+  nineHoleSegment: NineHoleSegmentValue | null,
 ): RoundHoleInput[] | null {
-  if (!Array.isArray(value) || value.length !== HOLES_IN_ROUND) {
+  if (!Array.isArray(value) || value.length !== holeCount) {
     return null
   }
 
@@ -242,9 +255,17 @@ function getHoleScores(
     holeScores.map(({ strokeIndex }) => strokeIndex),
   )
 
+  const expectedHoleNumbers = holeCount === 18
+    ? Array.from({ length: 18 }, (_, index) => index + 1)
+    : Array.from(
+        { length: 9 },
+        (_, index) => index + (nineHoleSegment === NineHoleSegment.BACK_NINE ? 10 : 1),
+      )
+
   if (
-    holeNumbers.size !== HOLES_IN_ROUND ||
-    strokeIndexes.size !== HOLES_IN_ROUND
+    holeNumbers.size !== holeCount ||
+    strokeIndexes.size !== holeCount ||
+    expectedHoleNumbers.some((holeNumber) => !holeNumbers.has(holeNumber))
   ) {
     return null
   }
@@ -262,6 +283,10 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   const category = getRoundCategory(value.category)
   const participation = getRoundParticipation(value.participation)
   const scoringFormat = getRoundScoringFormat(value.scoringFormat)
+  const holeCount = value.holeCount === undefined ? 18 : value.holeCount
+  const nineHoleSegment = holeCount === 9
+    ? getNineHoleSegment(value.nineHoleSegment)
+    : null
   let notes: string | null
 
   try {
@@ -282,6 +307,9 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     !category ||
     !participation ||
     !scoringFormat ||
+    (holeCount !== 9 && holeCount !== 18) ||
+    (holeCount === 9 && nineHoleSegment === null) ||
+    (holeCount === 18 && value.nineHoleSegment !== undefined && value.nineHoleSegment !== null) ||
     (value.timePlayed !== undefined && timePlayed === null)
   ) {
     return null
@@ -327,6 +355,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       (value.pccAdjustment !== undefined && value.pccAdjustment !== 0) ||
       scoringFormat !== RoundScoringFormat.STROKE_PLAY ||
       value.playingHandicap !== undefined
+      || holeCount !== 18
     ) {
       return null
     }
@@ -349,12 +378,19 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       pccAdjustment: 0,
       holeScores: [],
       stablefordPoints: null,
+      holeCount: 18,
+      nineHoleSegment: null,
     }
   }
 
   const weatherCondition = getWeatherCondition(value.weatherCondition)
   const isStableford = scoringFormat === RoundScoringFormat.STABLEFORD
-  const holeScores = getHoleScores(value.holeScores, isStableford)
+  const holeScores = getHoleScores(
+    value.holeScores,
+    isStableford,
+    holeCount as 9 | 18,
+    nineHoleSegment,
+  )
   const pccAdjustment = value.pccAdjustment ?? 0
   const playingHandicap = isStableford ? value.playingHandicap : null
   const hasPickedUpHole = holeScores?.some((hole) => hole.pickedUp) ?? false
@@ -411,6 +447,8 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     stablefordPoints: isStableford
       ? calculateStablefordRound(holeScores, playingHandicap as number).totalPoints
       : null,
+    holeCount: holeCount as 9 | 18,
+    nineHoleSegment,
   }
 }
 
@@ -437,6 +475,10 @@ export async function logRound(input: LogRoundInput) {
               yardage: true,
             },
           },
+          frontNineCourseRating: true,
+          frontNineSlopeRating: true,
+          backNineCourseRating: true,
+          backNineSlopeRating: true,
           course: {
             select: {
               name: true,
@@ -471,6 +513,8 @@ export async function logRound(input: LogRoundInput) {
           scoringFormat: input.scoringFormat,
           playingHandicap: null,
           stablefordPoints: null,
+          holeCount: 18,
+          nineHoleSegment: null,
           competitionName: input.competitionName,
           competitionFormat: input.competitionFormat,
           numberOfPlayers: input.numberOfPlayers,
@@ -511,7 +555,17 @@ export async function logRound(input: LogRoundInput) {
       }
     }
 
-    const hasSavedScorecard = isCompleteScorecard(tee.holes ?? [])
+    const expectedHoleNumbers = input.holeCount === 18
+      ? Array.from({ length: 18 }, (_, index) => index + 1)
+      : Array.from(
+          { length: 9 },
+          (_, index) => index + (input.nineHoleSegment === NineHoleSegment.BACK_NINE ? 10 : 1),
+        )
+    const hasSavedScorecard = input.holeCount === 18
+      ? isCompleteScorecard(tee.holes ?? [])
+      : expectedHoleNumbers.every((holeNumber) =>
+          tee.holes.some((hole) => hole.holeNumber === holeNumber),
+        )
     const effectiveHoleScores = input.holeScores.map((submittedHole) => {
       const savedHole = hasSavedScorecard
         ? tee.holes?.find(
@@ -539,23 +593,48 @@ export async function logRound(input: LogRoundInput) {
             input.playingHandicap,
           ).totalPoints
         : null
-    const coursePar =
-      tee.par ??
-      effectiveHoleScores.reduce((total, hole) => total + hole.par, 0)
+    const coursePar = input.holeCount === 18
+      ? tee.par ?? effectiveHoleScores.reduce((total, hole) => total + hole.par, 0)
+      : effectiveHoleScores.reduce((total, hole) => total + hole.par, 0)
+    const ratedNineCourseRating = input.nineHoleSegment === NineHoleSegment.FRONT_NINE
+      ? tee.frontNineCourseRating
+      : tee.backNineCourseRating
+    const ratedNineSlopeRating = input.nineHoleSegment === NineHoleSegment.FRONT_NINE
+      ? tee.frontNineSlopeRating
+      : tee.backNineSlopeRating
+    const calculationCourseRating = input.holeCount === 18
+      ? courseRating
+      : ratedNineCourseRating === null
+        ? null
+        : Number(ratedNineCourseRating)
+    const calculationSlopeRating = input.holeCount === 18
+      ? tee.slopeRating
+      : ratedNineSlopeRating
     const courseHandicap =
-      currentHandicapIndex === null || coursePar === undefined
+      currentHandicapIndex === null || calculationCourseRating === null || calculationSlopeRating === null
         ? null
         : calculateCourseHandicap({
             handicapIndex: currentHandicapIndex,
-            slopeRating: tee.slopeRating,
-            courseRating,
+            slopeRating: calculationSlopeRating,
+            courseRating: calculationCourseRating,
             par: coursePar,
           })
+    const strokeIndexRank = new Map(
+      [...effectiveHoleScores]
+        .sort((left, right) => left.strokeIndex - right.strokeIndex)
+        .map((hole, index) => [hole.holeNumber, index + 1]),
+    )
     const adjustedHoleScores = effectiveHoleScores.map((hole) => {
       const handicapStrokesReceived =
         courseHandicap === null
           ? INITIAL_HANDICAP_STROKES_PER_HOLE
-          : calculateHandicapStrokesReceived(courseHandicap, hole.strokeIndex)
+          : input.holeCount === 18
+            ? calculateHandicapStrokesReceived(courseHandicap, hole.strokeIndex)
+            : Math.floor(
+                (courseHandicap + input.holeCount -
+                  (strokeIndexRank.get(hole.holeNumber) ?? hole.strokeIndex)) /
+                  input.holeCount,
+              )
 
       return {
         par: hole.par,
@@ -572,15 +651,18 @@ export async function logRound(input: LogRoundInput) {
         grossScore: calculationGrossScore,
         ...(adjustedHoleScores ? { holeScores: adjustedHoleScores } : {}),
       })
-    const scoreDifferential = calculateScoreDifferential({
-      adjustedGrossScore,
-      courseRating,
-      slopeRating: tee.slopeRating,
-      pccAdjustment: input.pccAdjustment,
-    })
+    const scoreDifferential = input.holeCount === 18
+      ? calculateScoreDifferential({
+          adjustedGrossScore,
+          courseRating,
+          slopeRating: tee.slopeRating,
+          pccAdjustment: input.pccAdjustment,
+        })
+      : null
     const isAcceptable =
       ROUND_ACCEPTABILITY_RULES.scoredIndividualRoundIsAcceptable &&
-      !manualReviewRequired
+      !manualReviewRequired &&
+      input.holeCount === 18
 
     const createdRound = await transaction.round.create({
       data: {
@@ -593,6 +675,8 @@ export async function logRound(input: LogRoundInput) {
         scoringFormat: input.scoringFormat,
         playingHandicap: input.playingHandicap,
         stablefordPoints,
+        holeCount: input.holeCount,
+        nineHoleSegment: input.nineHoleSegment,
         competitionName: input.competitionName,
         competitionFormat: input.competitionFormat,
         numberOfPlayers: input.numberOfPlayers,
@@ -623,8 +707,9 @@ export async function logRound(input: LogRoundInput) {
                       userId: input.userId,
                       type: SubmissionType.SCORECARD_REVIEW,
                       subject: `Scorecard review: ${tee.course?.name ?? tee.teeName}`,
-                      message:
-                        'Player-entered hole pars and stroke indexes require administrator approval before this round can count towards the Handicap Index.',
+                      message: input.holeCount === 9
+                        ? 'Player-entered nine-hole pars and stroke indexes require administrator approval for future scorecard use. This round remains outside the Handicap Index until official expected-differential support is available.'
+                        : 'Player-entered hole pars and stroke indexes require administrator approval before this round can count towards the Handicap Index.',
                       clubName: tee.course?.club.name,
                       courseName: tee.course?.name,
                       teeDetails: tee.teeName,

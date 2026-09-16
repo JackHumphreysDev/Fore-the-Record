@@ -12,6 +12,8 @@ export type AdminRound = {
   category: RoundCategory
   participation: RoundParticipation
   scoringFormat: 'STROKE_PLAY' | 'STABLEFORD'
+  holeCount: 9 | 18
+  nineHoleSegment: 'FRONT_NINE' | 'BACK_NINE' | null
   playingHandicap: number | null
   stablefordPoints: number | null
   competitionName: string | null
@@ -38,6 +40,10 @@ export type AdminRound = {
     teeName: string
     courseRating: number
     slopeRating: number
+    frontNineCourseRating: number | null
+    frontNineSlopeRating: number | null
+    backNineCourseRating: number | null
+    backNineSlopeRating: number | null
     par: number | null
     course: { id: string; name: string; club: { id: string; name: string } }
   }
@@ -64,6 +70,8 @@ export function isAdminRound(value: unknown): value is AdminRound {
     (value.category === 'CASUAL' || value.category === 'COMPETITION') &&
     (value.participation === 'INDIVIDUAL' || value.participation === 'TEAM') &&
     (value.scoringFormat === 'STROKE_PLAY' || value.scoringFormat === 'STABLEFORD') &&
+    (value.holeCount === 9 || value.holeCount === 18) &&
+    (value.nineHoleSegment === null || value.nineHoleSegment === 'FRONT_NINE' || value.nineHoleSegment === 'BACK_NINE') &&
     (value.playingHandicap === null || Number.isInteger(value.playingHandicap)) &&
     (value.stablefordPoints === null || Number.isInteger(value.stablefordPoints)) &&
     (value.grossScore === null || typeof value.grossScore === 'number') &&
@@ -83,6 +91,10 @@ export function isAdminRound(value: unknown): value is AdminRound {
     typeof tee.teeName === 'string' &&
     typeof tee.courseRating === 'number' &&
     Number.isInteger(tee.slopeRating) &&
+    (tee.frontNineCourseRating === null || typeof tee.frontNineCourseRating === 'number') &&
+    (tee.frontNineSlopeRating === null || Number.isInteger(tee.frontNineSlopeRating)) &&
+    (tee.backNineCourseRating === null || typeof tee.backNineCourseRating === 'number') &&
+    (tee.backNineSlopeRating === null || Number.isInteger(tee.backNineSlopeRating)) &&
     isRecord(tee.course) &&
     typeof tee.course.name === 'string' &&
     isRecord(tee.course.club) &&

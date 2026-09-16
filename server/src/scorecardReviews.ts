@@ -65,7 +65,7 @@ export function parseScorecardReviewDecision(
 
   if (!Array.isArray(value.holes)) {
     throw new ScorecardReviewValidationError(
-      'A complete 18-hole scorecard is required for approval.',
+      'A complete 9-hole or 18-hole scorecard is required for approval.',
     )
   }
 
@@ -73,9 +73,14 @@ export function parseScorecardReviewDecision(
     (left, right) => left.holeNumber - right.holeNumber,
   )
 
-  if (!isCompleteScorecard(holes)) {
+  const isNineHoleCard = holes.length === 9 &&
+    (holes.every((hole, index) => hole.holeNumber === index + 1) ||
+      holes.every((hole, index) => hole.holeNumber === index + 10)) &&
+    new Set(holes.map((hole) => hole.strokeIndex)).size === 9
+
+  if (!isCompleteScorecard(holes) && !isNineHoleCard) {
     throw new ScorecardReviewValidationError(
-      'The scorecard must contain holes 1–18 and each stroke index once.',
+      'The scorecard must contain a complete front nine, back nine, or all 18 holes with unique stroke indexes.',
     )
   }
 

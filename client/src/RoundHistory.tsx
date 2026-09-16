@@ -19,10 +19,7 @@ import {
   isRoundNotesResponse,
   ROUND_NOTES_MAX_LENGTH,
 } from './roundNotesApi.ts'
-import {
-  allocatePlayingHandicapStrokes,
-  calculateStablefordTotals,
-} from './stableford.ts'
+import { calculateStablefordTotals } from './stableford.ts'
 
 type RoundHistoryProfile = {
   id: string
@@ -94,9 +91,10 @@ function getRoundTypeLabel(round: HistoryRound): string {
     return 'Team competition'
   }
 
-  return round.category === 'COMPETITION'
+  const type = round.category === 'COMPETITION'
     ? 'Individual competition'
     : 'Casual round'
+  return round.holeCount === 9 ? `${type} · 9 holes` : type
 }
 
 function scoreToPar(strokes: number, par: number): string {
@@ -106,7 +104,7 @@ function scoreToPar(strokes: number, par: number): string {
 }
 
 function RoundScorecard({ round }: { round: HistoryRound }) {
-  if (round.holeScores.length !== 18) {
+  if (round.holeScores.length !== round.holeCount) {
     return (
       <div className="history-scorecard-empty">
         No individual hole-by-hole scorecard is available for this round.
@@ -125,6 +123,11 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
       strokesTaken: hole.pickedUp ? '' : hole.strokesTaken,
     })),
     playingHandicap,
+  )
+  const stablefordRankByHole = new Map(
+    [...round.holeScores]
+      .sort((left, right) => left.strokeIndex - right.strokeIndex)
+      .map((hole, index) => [hole.holeNumber, index + 1]),
   )
   const parTotal = (holes: typeof round.holeScores) =>
     holes.reduce((sum, hole) => sum + hole.par, 0)
@@ -156,7 +159,7 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
                   <td>
                     {hole.pickedUp
                       ? '—'
-                      : hole.strokesTaken - allocatePlayingHandicapStrokes(playingHandicap, hole.strokeIndex)}
+                      : hole.strokesTaken - Math.floor((playingHandicap + round.holeCount - (stablefordRankByHole.get(hole.holeNumber) ?? hole.strokeIndex)) / round.holeCount)}
                   </td>
                 ) : null}
                 {isStableford ? <td>{stableford.points[index]}</td> : null}
@@ -166,9 +169,9 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
         </table>
       </div>
       <dl className="history-nine-totals">
-        <div><dt>Front 9</dt><dd>{isStableford ? stableford.frontNine : totals.frontNine} <small>{isStableford ? 'points' : `Par ${parTotal(frontNine)}`}</small></dd></div>
-        <div><dt>Back 9</dt><dd>{isStableford ? stableford.backNine : totals.backNine} <small>{isStableford ? 'points' : `Par ${parTotal(backNine)}`}</small></dd></div>
-        <div><dt>Total</dt><dd>{isStableford ? stableford.total : totals.total} <small>{isStableford ? 'points' : `Par ${parTotal(round.holeScores)}`}</small></dd></div>
+        {round.holeCount === 18 ? <div><dt>Front 9</dt><dd>{isStableford ? stableford.frontNine : totals.frontNine} <small>{isStableford ? 'points' : `Par ${parTotal(frontNine)}`}</small></dd></div> : null}
+        {round.holeCount === 18 ? <div><dt>Back 9</dt><dd>{isStableford ? stableford.backNine : totals.backNine} <small>{isStableford ? 'points' : `Par ${parTotal(backNine)}`}</small></dd></div> : null}
+        <div><dt>{round.holeCount === 9 ? (round.nineHoleSegment === 'FRONT_NINE' ? 'Front 9' : 'Back 9') : 'Total'}</dt><dd>{isStableford ? stableford.total : totals.total} <small>{isStableford ? 'points' : `Par ${parTotal(round.holeScores)}`}</small></dd></div>
       </dl>
     </div>
   )
@@ -636,7 +639,7 @@ function RoundHistory({
                           </div>
                           <div className="history-differential">
                             <dt>Differential</dt>
-                            <dd>{round.scoreDifferential?.toFixed(1)}</dd>
+                            <dd>{round.scoreDifferential === null ? 'Not included' : round.scoreDifferential.toFixed(1)}</dd>
                           </div>
                           <div>
                             <dt>Conditions</dt>
@@ -653,7 +656,7 @@ function RoundHistory({
                     <p className="history-rating-line">
                       {round.participation === 'TEAM'
                         ? 'Course and tee retained for your playing record. No score differential was created.'
-                        : `Course rating ${round.tee.courseRating.toFixed(1)} · Slope ${round.tee.slopeRating} · Par ${round.tee.par ?? '—'} · ${round.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}`}
+                        : `${round.holeCount === 9 ? `${round.nineHoleSegment === 'FRONT_NINE' ? 'Front 9' : 'Back 9'} · ` : ''}Course rating ${round.holeCount === 9 ? ((round.nineHoleSegment === 'FRONT_NINE' ? round.tee.frontNineCourseRating : round.tee.backNineCourseRating)?.toFixed(1) ?? 'unavailable') : round.tee.courseRating.toFixed(1)} · Slope ${round.holeCount === 9 ? ((round.nineHoleSegment === 'FRONT_NINE' ? round.tee.frontNineSlopeRating : round.tee.backNineSlopeRating) ?? 'unavailable') : round.tee.slopeRating} · ${round.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}${round.holeCount === 9 ? ' · Not included in Handicap Index: official expected differential unavailable' : ''}`}
                     </p>
 
                     <section className="history-round-notes" aria-label="Private round note">
