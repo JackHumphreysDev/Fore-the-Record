@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { isPrivacySettings } from './privacySettingsApi.ts'
 
 describe('privacy settings response validation', () => {
-  it('accepts three explicit privacy choices', () => {
+  it('accepts four explicit privacy choices', () => {
     expect(isPrivacySettings({
       profileDiscoverable: true,
       friendRequestsEnabled: false,
       showHandicapToFriends: true,
+      shareRoundActivity: false,
     })).toBe(true)
   })
 
@@ -16,6 +17,7 @@ describe('privacy settings response validation', () => {
       profileDiscoverable: true,
       friendRequestsEnabled: 'yes',
       showHandicapToFriends: true,
+      shareRoundActivity: true,
     })).toBe(false)
   })
 })

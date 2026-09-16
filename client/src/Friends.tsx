@@ -9,6 +9,11 @@ import {
   type FriendSearchPlayer,
   type FriendshipItem,
 } from './friendsApi.ts'
+import {
+  buildFriendActivityPath,
+  isFriendActivityResponse,
+  type FriendActivityResponse,
+} from './friendActivityApi.ts'
 import './Friends.css'
 
 type FriendsProps = { profileId: string }
@@ -43,6 +48,35 @@ function PlayerIdentity({ player }: { player: FriendPlayer }) {
   )
 }
 
+function formatActivityDate(value: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value))
+}
+
+function roundLengthLabel(
+  holeCount: 9 | 18,
+  segment: 'FRONT_NINE' | 'BACK_NINE' | null,
+): string {
+  if (holeCount === 18) return '18 holes'
+  return segment === 'BACK_NINE' ? 'Back 9' : 'Front 9'
+}
+
+function activityScoreLabel(
+  participation: 'INDIVIDUAL' | 'TEAM',
+  scoringFormat: 'STROKE_PLAY' | 'STABLEFORD',
+  grossScore: number | null,
+  stablefordPoints: number | null,
+): string {
+  if (participation === 'TEAM') return 'Team round'
+  if (scoringFormat === 'STABLEFORD') {
+    return stablefordPoints === null ? 'Points unavailable' : `${stablefordPoints} pts`
+  }
+  return grossScore === null ? 'Score unavailable' : `Gross ${grossScore}`
+}
+
 function Friends({ profileId }: FriendsProps) {
   const [data, setData] = useState<FriendsResponse | null>(null)
   const [search, setSearch] = useState('')
@@ -53,6 +87,10 @@ function Friends({ profileId }: FriendsProps) {
   const [isSearching, setIsSearching] = useState(false)
   const [busyId, setBusyId] = useState('')
   const [refresh, setRefresh] = useState(0)
+  const [activity, setActivity] = useState<FriendActivityResponse | null>(null)
+  const [activityPage, setActivityPage] = useState(1)
+  const [activityError, setActivityError] = useState('')
+  const [isLoadingActivity, setIsLoadingActivity] = useState(true)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -86,6 +124,40 @@ function Friends({ profileId }: FriendsProps) {
     void loadFriends()
     return () => controller.abort()
   }, [profileId, refresh])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    async function loadActivity() {
+      setIsLoadingActivity(true)
+      setActivityError('')
+      try {
+        const response = await authenticatedFetch(
+          buildFriendActivityPath(activityPage),
+          { signal: controller.signal },
+        )
+        if (!response.ok) {
+          throw new Error(await readError(response, 'We could not load friend activity.'))
+        }
+        const body: unknown = await response.json()
+        if (!isFriendActivityResponse(body)) {
+          throw new Error('The friend activity returned was incomplete.')
+        }
+        if (!controller.signal.aborted) setActivity(body)
+      } catch (loadError: unknown) {
+        if (!controller.signal.aborted) {
+          setActivityError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'We could not load friend activity.',
+          )
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingActivity(false)
+      }
+    }
+    void loadActivity()
+    return () => controller.abort()
+  }, [profileId, refresh, activityPage])
 
   async function runSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -139,6 +211,7 @@ function Friends({ profileId }: FriendsProps) {
       setMessage(successMessage)
       setResults([])
       setSearch('')
+      setActivityPage(1)
       setRefresh((value) => value + 1)
     } catch (actionError: unknown) {
       setError(
@@ -190,9 +263,67 @@ function Friends({ profileId }: FriendsProps) {
         <h1 id="friends-title">Friends.</h1>
         <p>
           Find players by name, use their home club to identify the right
-          account, and follow each other’s current Handicap Index.
+          account, exchange requests, and follow the verified rounds friends
+          choose to share.
         </p>
       </header>
+
+      <section className="friend-activity" aria-labelledby="friend-activity-title">
+        <div className="friend-activity-heading">
+          <div>
+            <p className="form-kicker">Latest rounds</p>
+            <h2 id="friend-activity-title">Friends activity</h2>
+          </div>
+          {activity ? <span>{activity.pagination.total} shared {activity.pagination.total === 1 ? 'round' : 'rounds'}</span> : null}
+        </div>
+
+        {isLoadingActivity ? (
+          <p className="friends-state" aria-live="polite">Loading friend activity…</p>
+        ) : activityError ? (
+          <p className="friends-alert is-error" role="alert">{activityError}</p>
+        ) : activity && activity.activities.length > 0 ? (
+          <>
+            <div className="friend-activity-list">
+              {activity.activities.map((item) => (
+                <details className="friend-activity-card" key={item.id}>
+                  <summary>
+                    <span className="friend-activity-avatar" aria-hidden="true">{item.player.name.trim()[0]?.toUpperCase()}</span>
+                    <span className="friend-activity-summary">
+                      <strong>{item.player.name}</strong>
+                      <small>{item.tee.course.club.name} · {item.tee.course.name}</small>
+                    </span>
+                    <span className="friend-activity-score">
+                      <strong>{activityScoreLabel(item.participation, item.scoringFormat, item.grossScore, item.stablefordPoints)}</strong>
+                      <small>{formatActivityDate(item.datePlayed)}</small>
+                    </span>
+                    <span className="friend-activity-chevron" aria-hidden="true">⌄</span>
+                  </summary>
+                  <dl>
+                    <div><dt>Round</dt><dd>{item.category === 'COMPETITION' ? 'Competition' : 'Casual'} · {item.participation === 'TEAM' ? 'Team' : 'Individual'}</dd></div>
+                    <div><dt>Length</dt><dd>{roundLengthLabel(item.holeCount, item.nineHoleSegment)}</dd></div>
+                    <div><dt>Scoring</dt><dd>{item.participation === 'TEAM' ? 'Record only' : item.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'}</dd></div>
+                    <div><dt>Tee</dt><dd>{item.tee.teeName}</dd></div>
+                    <div><dt>Home club</dt><dd>{item.player.homeClub?.name ?? 'Not set'}</dd></div>
+                    <div><dt>Time</dt><dd>{item.timePlayed ?? 'Not recorded'}</dd></div>
+                    <div><dt>Handicap status</dt><dd>{item.participation === 'TEAM' ? 'Playing record only' : item.usedInHandicapCalc ? 'Currently counting' : 'Not currently counting'}</dd></div>
+                    <div><dt>Player Handicap</dt><dd>{!item.player.handicapVisible ? 'Hidden' : item.player.handicapIndex === null ? 'Awaiting handicap' : item.player.handicapIndex.toFixed(1)}</dd></div>
+                  </dl>
+                  <p>Private notes and hole-by-hole scores are not shared.</p>
+                </details>
+              ))}
+            </div>
+            {activity.pagination.totalPages > 1 ? (
+              <div className="friend-activity-pagination" aria-label="Friend activity pages">
+                <button type="button" disabled={activityPage <= 1} onClick={() => setActivityPage((page) => page - 1)}>Previous</button>
+                <span>Page {activity.pagination.page} of {activity.pagination.totalPages}</span>
+                <button type="button" disabled={activityPage >= activity.pagination.totalPages} onClick={() => setActivityPage((page) => page + 1)}>Next</button>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="friends-empty">No shared rounds yet. Activity appears here after an accepted friend records a verified round and chooses to share it.</p>
+        )}
+      </section>
 
       <form className="friend-search" onSubmit={runSearch} noValidate>
         <label>
@@ -212,8 +343,8 @@ function Friends({ profileId }: FriendsProps) {
           {isSearching ? 'Searching…' : 'Find players'}
         </button>
         <small>
-          Only names, home clubs, and current handicaps are shared. Emails,
-          rounds, and private statistics stay hidden.
+          Search results show only names, home clubs, and permitted handicaps.
+          Accepted friends may separately share limited round activity.
         </small>
       </form>
 

@@ -9,6 +9,7 @@ describe('privacy settings validation', () => {
     profileDiscoverable: false,
     friendRequestsEnabled: true,
     showHandicapToFriends: false,
+    shareRoundActivity: true,
   }
 
   it('accepts a complete boolean settings object', () => {

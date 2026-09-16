@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'friends-activity-feed',
+    publishedAt: '2026-09-16',
+    title: 'Follow your friends’ latest rounds',
+    summary:
+      'See a simple feed of the verified rounds your accepted friends choose to share.',
+    highlights: [
+      'See the course, tee, date, round type, and headline result without opening anyone’s private scorecard.',
+      'Keep Handicap Index visibility under its existing separate privacy choice.',
+      'Turn off round activity sharing in Account Settings whenever you want to hide every past and future feed entry.',
+    ],
+  },
+  {
     id: 'nine-hole-rounds',
     publishedAt: '2026-09-16',
     title: 'Make nine holes part of your record',

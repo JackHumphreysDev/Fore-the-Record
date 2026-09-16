@@ -2375,6 +2375,104 @@ describe('friend connections API', () => {
     })
   })
 
+  it('returns only limited verified activity from accepted sharing friends', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    friendshipFindManyMock.mockResolvedValueOnce([
+      { requesterId: currentUserId, addresseeId: otherUserId },
+    ])
+    roundCountMock.mockResolvedValueOnce(1)
+    roundFindManyMock.mockResolvedValueOnce([
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        datePlayed: new Date('2026-09-16T00:00:00.000Z'),
+        timePlayed: '09:10',
+        category: 'CASUAL',
+        participation: 'INDIVIDUAL',
+        scoringFormat: 'STROKE_PLAY',
+        holeCount: 9,
+        nineHoleSegment: 'FRONT_NINE',
+        grossScore: 42,
+        stablefordPoints: null,
+        usedInHandicapCalc: false,
+        user: {
+          id: otherUserId,
+          name: 'Tiger Woods',
+          handicapIndex: '1.4',
+          showHandicapToFriends: true,
+          homeClub: otherPlayer.homeClub,
+        },
+        tee: {
+          teeName: 'White',
+          course: { name: 'Main Course', club: { name: 'Example Club' } },
+        },
+      },
+    ])
+
+    const response = await request(app).get(
+      '/api/users/me/friends/activity?page=1&pageSize=10',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      activities: [
+        expect.objectContaining({
+          id: '55555555-5555-4555-8555-555555555555',
+          grossScore: 42,
+          player: {
+            id: otherUserId,
+            name: 'Tiger Woods',
+            handicapIndex: 1.4,
+            handicapVisible: true,
+            homeClub: otherPlayer.homeClub,
+          },
+        }),
+      ],
+      pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+    })
+    expect(response.body.activities[0]).not.toHaveProperty('holeScores')
+    expect(response.body.activities[0]).not.toHaveProperty('notes')
+    expect(response.body.activities[0].player).not.toHaveProperty('email')
+    expect(roundCountMock).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        userId: { in: [otherUserId] },
+        user: expect.objectContaining({
+          authUserId: { not: null },
+          status: 'ACTIVE',
+          profileDiscoverable: true,
+          shareRoundActivity: true,
+        }),
+        OR: [
+          { participation: 'INDIVIDUAL', scorecardStatus: 'VERIFIED' },
+          { participation: 'TEAM', scorecardStatus: 'NOT_REQUIRED' },
+        ],
+      }),
+    })
+  })
+
+  it('rejects an oversized friend activity page', async () => {
+    const response = await request(app).get(
+      '/api/users/me/friends/activity?page=1&pageSize=21',
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Invalid pagination' })
+    expect(friendshipFindManyMock).not.toHaveBeenCalled()
+  })
+
+  it('returns an empty activity page without accepted friends', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    friendshipFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).get('/api/users/me/friends/activity')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      activities: [],
+      pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
+    })
+    expect(roundFindManyMock).not.toHaveBeenCalled()
+  })
+
   it('creates one direction-independent friend request', async () => {
     userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
     userFindFirstMock.mockResolvedValueOnce(otherPlayer)
@@ -4279,11 +4377,13 @@ describe('privacy and account controls', () => {
       profileDiscoverable: true,
       friendRequestsEnabled: true,
       showHandicapToFriends: true,
+      shareRoundActivity: true,
     }
     const updated = {
       profileDiscoverable: false,
       friendRequestsEnabled: false,
       showHandicapToFriends: false,
+      shareRoundActivity: false,
     }
     userFindUniqueMock
       .mockResolvedValueOnce(original)
@@ -4306,6 +4406,7 @@ describe('privacy and account controls', () => {
         profileDiscoverable: true,
         friendRequestsEnabled: true,
         showHandicapToFriends: true,
+        shareRoundActivity: true,
       },
     })
   })

@@ -27,8 +27,23 @@ This roadmap records agreed future work. Items are planned requirements, not com
 21. Installable mobile app. Completed in `0.25.0`.
 22. Stableford scoring with Playing Handicap allocation and picked-up holes. Completed in `0.26.0`.
 23. Nine-hole rounds with Front 9 and Back 9 scorecards. Completed in `0.27.0`.
+24. Friends activity feed. Completed in `0.28.0`.
+25. Scorecard photo.
+26. Deeper performance analysis by course, tee, par type, front/back nine, competition type, and date range.
+27. More competition formats.
+28. Challenges and leaderboards.
+29. Shared rounds.
+30. Admin reporting and exports.
+31. Account security centre.
+32. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Friends activity feed — completed in 0.28.0
+
+Accepted friends can see a newest-first, paginated feed of limited verified round summaries on the Friends screen. Entries show the player, home club, date, course, tee, round length, casual or competition classification, scoring format, gross score or Stableford points, and current Handicap Index counting status. Team records appear without a score. Handicap Index visibility continues to follow its separate privacy setting.
+
+Players can disable **Share my round activity** in Account Settings. The choice hides all of their existing and future activity without deleting any records. The server includes only accepted friendships and excludes suspended, deleted, undiscoverable, or sharing-disabled profiles, pending or rejected manual scorecards, notes, full hole scores, email addresses, support data, and administrative information. Removing a friendship immediately removes access to that activity.
 
 ## Nine-hole rounds — completed in 0.27.0
 
