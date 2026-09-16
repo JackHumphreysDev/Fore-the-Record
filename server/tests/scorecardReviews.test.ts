@@ -24,13 +24,24 @@ describe('parseScorecardReviewDecision', () => {
         action: 'APPROVE',
         holes: holes.map((hole) => ({ ...hole, strokeIndex: 1 })),
       }),
-    ).toThrow('holes 1–18 and each stroke index once')
+    ).toThrow('complete front nine, back nine, or all 18 holes')
   })
 
   it('accepts a rejection without amended holes', () => {
     expect(parseScorecardReviewDecision({ action: 'REJECT' })).toEqual({
       action: 'REJECT',
     })
+  })
+
+  it('accepts a complete back-nine scorecard', () => {
+    const backNine = holes.slice(9).map((hole, index) => ({
+      ...hole,
+      strokeIndex: index + 1,
+    }))
+
+    expect(
+      parseScorecardReviewDecision({ action: 'APPROVE', holes: backNine }),
+    ).toEqual({ action: 'APPROVE', holes: backNine })
   })
 })
 

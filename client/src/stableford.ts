@@ -57,7 +57,29 @@ export function calculateStablefordTotals(
   holes: readonly StablefordScoringHole[],
   playingHandicap: number,
 ) {
-  const points = holes.map((hole) => calculateStablefordPoints(hole, playingHandicap))
+  const rankedHoles = [...holes]
+    .filter((hole) => Number.isInteger(Number(hole.strokeIndex)))
+    .sort((left, right) => Number(left.strokeIndex) - Number(right.strokeIndex))
+  const rankByHole = new Map(
+    rankedHoles.map((hole, index) => [hole, index + 1]),
+  )
+  const holeCount = holes.length === 9 ? 9 : 18
+  const points = holes.map((hole) => {
+    const rank = rankByHole.get(hole)
+    if (rank === undefined) return null
+    const effectiveHandicap = Math.floor(
+      (playingHandicap + holeCount - rank) / holeCount,
+    )
+    if (hole.pickedUp) return 0
+    const par = Number(hole.par)
+    const strokesTaken = Number(hole.strokesTaken)
+    if (
+      !Number.isInteger(playingHandicap) || playingHandicap < -20 || playingHandicap > 54 ||
+      !Number.isInteger(par) || hole.strokesTaken === '' ||
+      !Number.isInteger(strokesTaken) || strokesTaken <= 0
+    ) return null
+    return Math.max(0, 2 + par - (strokesTaken - effectiveHandicap))
+  })
   const total = (values: Array<number | null>) =>
     values.length === 9 && values.every((value) => value !== null)
       ? values.reduce<number>((sum, value) => sum + Number(value), 0)
@@ -66,9 +88,9 @@ export function calculateStablefordTotals(
   return {
     points,
     frontNine: total(points.slice(0, 9)),
-    backNine: total(points.slice(9, 18)),
+    backNine: points.length === 18 ? total(points.slice(9, 18)) : null,
     total:
-      points.length === 18 && points.every((value) => value !== null)
+      (points.length === 9 || points.length === 18) && points.every((value) => value !== null)
         ? points.reduce<number>((sum, value) => sum + Number(value), 0)
         : null,
   }

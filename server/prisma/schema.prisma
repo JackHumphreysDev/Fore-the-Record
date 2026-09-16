@@ -46,6 +46,11 @@ enum RoundScoringFormat {
   STABLEFORD
 }
 
+enum NineHoleSegment {
+  FRONT_NINE
+  BACK_NINE
+}
+
 enum WeatherCondition {
   DRY
   MOIST
@@ -253,6 +258,10 @@ model Tee {
   courseRating          Decimal                @db.Decimal(4, 1)
   slopeRating           Int
   par                   Int?
+  frontNineCourseRating Decimal?               @db.Decimal(4, 1)
+  frontNineSlopeRating  Int?
+  backNineCourseRating  Decimal?               @db.Decimal(4, 1)
+  backNineSlopeRating   Int?
   source                TeeSource
   course                Course                 @relation(fields: [courseId], references: [id])
   rounds                Round[]
@@ -289,6 +298,8 @@ model Round {
   category           RoundCategory        @default(CASUAL)
   participation      RoundParticipation   @default(INDIVIDUAL)
   scoringFormat      RoundScoringFormat   @default(STROKE_PLAY)
+  holeCount          Int                  @default(18)
+  nineHoleSegment    NineHoleSegment?
   playingHandicap    Int?
   stablefordPoints   Int?
   competitionName    String?              @db.VarChar(120)

@@ -2968,6 +2968,8 @@ describe('GET /api/users/me/rounds', () => {
           teeName: 'Championship',
           courseRating: 73.1,
           slopeRating: 137,
+          frontNineCourseRating: null,
+          backNineCourseRating: null,
           par: 70,
           course: {
             id: '55555555-5555-4555-8555-555555555555',
@@ -3289,6 +3291,8 @@ describe('GET /api/catalogue/courses', () => {
           par: 70,
           courseRating: 73.1,
           slopeRating: 137,
+          frontNineCourseRating: null,
+          backNineCourseRating: null,
         },
       ],
     })

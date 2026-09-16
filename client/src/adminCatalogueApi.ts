@@ -17,6 +17,10 @@ export type CatalogueTee = {
   par: number | null
   courseRating: number
   slopeRating: number
+  frontNineCourseRating: number | null
+  frontNineSlopeRating: number | null
+  backNineCourseRating: number | null
+  backNineSlopeRating: number | null
   source: string
   holes: CatalogueHole[]
   canDelete: boolean
@@ -98,6 +102,10 @@ function isTee(value: unknown): value is CatalogueTee {
     isNullableNumber(value.par) &&
     typeof value.courseRating === 'number' &&
     Number.isInteger(value.slopeRating) &&
+    isNullableNumber(value.frontNineCourseRating) &&
+    isNullableNumber(value.frontNineSlopeRating) &&
+    isNullableNumber(value.backNineCourseRating) &&
+    isNullableNumber(value.backNineSlopeRating) &&
     typeof value.source === 'string' &&
     Array.isArray(value.holes) &&
     value.holes.every(isHole) &&

@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.27.0 - 2026-09-16
+
+### User-facing changes
+
+- Added an 18-hole or 9-hole choice for individual rounds, with Front 9 and Back 9 selection.
+- Limited nine-hole entry to the selected holes and added automatic gross, adjusted, and Stableford totals for that nine.
+- Marked nine-hole rounds and their selected segment clearly in History, including expandable hole-by-hole details.
+- Added clear explanations when a nine-hole round cannot yet be included in the Handicap Index.
+
+### Developer and admin changes
+
+- Added persistent round length and nine-hole segment fields, plus optional official front-nine and back-nine Course Rating and Slope Rating fields.
+- Added nine-hole-aware round validation, scorecard loading, manual scorecard review, administrator correction, exports, and lifetime totals.
+- Kept nine-hole rounds outside Handicap Index calculations until an official expected-differential integration is available; no 18-hole rating is divided or estimated.
+- Added front-nine, back-nine, mixed-card, Stableford allocation, and response-contract regression coverage.
+
 ## 0.26.0 - 2026-09-15
 
 ### User-facing changes

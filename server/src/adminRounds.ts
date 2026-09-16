@@ -112,11 +112,16 @@ export async function updateRoundAsAdmin(input: {
         pickedUp: submitted?.pickedUp === true,
       }
     })
+    const existingHoleCount = existing.holeCount ?? 18
     const parsed = parseLogRoundInput({
       ...body,
       userId: existing.userId,
       teeId: existing.teeId,
       participation: existing.participation,
+      holeCount: existingHoleCount,
+      ...(existing.nineHoleSegment
+        ? { nineHoleSegment: existing.nineHoleSegment }
+        : {}),
       ...(existing.participation === RoundParticipation.INDIVIDUAL
         ? {
             holeScores,
@@ -131,7 +136,7 @@ export async function updateRoundAsAdmin(input: {
     if (!parsed) {
       throw new AdminRoundError(
         'validation',
-        'Enter valid round details. The gross total must equal all 18 hole scores.',
+        `Enter valid round details. The gross total must equal all ${existingHoleCount} hole scores.`,
       )
     }
 
@@ -211,12 +216,14 @@ export async function updateRoundAsAdmin(input: {
               parsed.playingHandicap,
             ).totalPoints
           : null
-      const scoreDifferential = calculateScoreDifferential({
-        adjustedGrossScore: adjusted.adjustedGrossScore,
-        courseRating,
-        slopeRating: existing.tee.slopeRating,
-        pccAdjustment: parsed.pccAdjustment,
-      })
+      const scoreDifferential = parsed.holeCount === 18
+        ? calculateScoreDifferential({
+            adjustedGrossScore: adjusted.adjustedGrossScore,
+            courseRating,
+            slopeRating: existing.tee.slopeRating,
+            pccAdjustment: parsed.pccAdjustment,
+          })
+        : null
       roundData = {
         datePlayed: parsed.datePlayed,
         timePlayed: parsed.timePlayed,
@@ -226,6 +233,8 @@ export async function updateRoundAsAdmin(input: {
         scoringFormat: parsed.scoringFormat,
         playingHandicap: parsed.playingHandicap,
         stablefordPoints,
+        holeCount: parsed.holeCount,
+        nineHoleSegment: parsed.nineHoleSegment,
         numberOfPlayers: parsed.numberOfPlayers,
         grossScore: parsed.grossScore,
         adjustedGrossScore: adjusted.adjustedGrossScore,
@@ -235,6 +244,7 @@ export async function updateRoundAsAdmin(input: {
         pccAdjustment: parsed.pccAdjustment,
         scoreDifferential,
         isAcceptable:
+          parsed.holeCount === 18 &&
           existing.scorecardStatus === RoundScorecardStatus.VERIFIED,
       }
       await transaction.holeScore.deleteMany({

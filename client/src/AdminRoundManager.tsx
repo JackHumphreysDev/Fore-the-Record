@@ -143,6 +143,10 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
         numberOfPlayers: Number(form.numberOfPlayers),
       } : {}),
       ...(individual ? {
+        holeCount: selected.holeCount,
+        ...(selected.holeCount === 9
+          ? { nineHoleSegment: selected.nineHoleSegment }
+          : {}),
         grossScore: pickups.some(Boolean) ? null : Number(form.grossScore),
         ...(selected.scoringFormat === 'STABLEFORD'
           ? { playingHandicap: Number(form.playingHandicap) }
@@ -203,7 +207,7 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
         <button className="admin-round-row" type="button" key={round.id} onClick={() => selectRound(round)}>
           <span><strong>{round.tee.course.club.name}</strong>{round.tee.course.name} · {round.tee.teeName}</span>
           <span>{round.datePlayed.slice(0, 10)}</span>
-          <span>{round.participation === 'TEAM' ? 'Team record' : round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints} pts` : `Gross ${round.grossScore}`}</span>
+          <span>{round.participation === 'TEAM' ? 'Team record' : `${round.holeCount} holes · ${round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints} pts` : `Gross ${round.grossScore}`}`}</span>
           <span>Edit</span>
         </button>
       ))}
