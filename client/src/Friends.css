@@ -24,6 +24,166 @@
   line-height: 1.6;
 }
 
+.friend-activity {
+  margin-bottom: 30px;
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--paper) 92%, var(--forest-soft));
+}
+
+.friend-activity-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.friend-activity-heading h2 {
+  margin: 3px 0 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(30px, 4vw, 42px);
+  font-weight: 400;
+}
+
+.friend-activity-heading > span {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.friend-activity-list {
+  display: grid;
+  gap: 10px;
+}
+
+.friend-activity-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.friend-activity-card summary {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 13px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.friend-activity-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.friend-activity-avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: var(--forest);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.friend-activity-summary,
+.friend-activity-score {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.friend-activity-summary small,
+.friend-activity-score small,
+.friend-activity-card > p {
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.friend-activity-score {
+  justify-items: end;
+}
+
+.friend-activity-chevron {
+  color: var(--forest);
+  font-size: 22px;
+  transition: transform 160ms ease;
+}
+
+.friend-activity-card[open] .friend-activity-chevron {
+  transform: rotate(180deg);
+}
+
+.friend-activity-card dl {
+  margin: 0;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  background: rgba(104, 137, 0, 0.06);
+}
+
+.friend-activity-card dl div {
+  display: grid;
+  gap: 5px;
+}
+
+.friend-activity-card dt {
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.friend-activity-card dd {
+  margin: 0;
+  color: var(--forest-deep);
+  font-weight: 700;
+}
+
+.friend-activity-card > p {
+  margin: 0;
+  padding: 0 16px 16px;
+  background: rgba(104, 137, 0, 0.06);
+}
+
+.friend-activity-pagination {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.friend-activity-pagination button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--forest);
+  background: var(--paper);
+  font-weight: 800;
+}
+
+.friend-activity-pagination button:disabled {
+  opacity: 0.45;
+}
+
+.friend-activity-pagination span {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .friend-search {
   padding: 24px;
   display: grid;
@@ -216,6 +376,10 @@
 }
 
 @media (max-width: 700px) {
+  .friend-activity-card dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .friend-search {
     grid-template-columns: 1fr;
   }
@@ -241,6 +405,29 @@
 }
 
 @media (max-width: 470px) {
+  .friend-activity-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .friend-activity-card summary {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .friend-activity-score {
+    grid-column: 2;
+    justify-items: start;
+  }
+
+  .friend-activity-chevron {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+
+  .friend-activity-card dl {
+    grid-template-columns: 1fr;
+  }
+
   .friend-identity {
     grid-template-columns: auto minmax(0, 1fr);
   }

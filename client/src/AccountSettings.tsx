@@ -440,7 +440,7 @@ function AccountSettings({
           <div>
             <p className="form-kicker">Privacy choices</p>
             <h2>Control how players find you</h2>
-            <p>Your rounds, email address, notes, goals, and performance details always remain private.</p>
+            <p>Your email address, notes, full scorecards, goals, and performance details always remain private.</p>
           </div>
           {!privacy && !privacyError ? <p>Loading your privacy choices…</p> : null}
           {privacy ? (
@@ -477,6 +477,17 @@ function AccountSettings({
                   }}
                 />
                 <span><strong>Show my Handicap Index</strong><small>Choose whether other players can see your current Handicap Index.</small></span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={privacy.shareRoundActivity}
+                  onChange={(event) => {
+                    setPrivacy({ ...privacy, shareRoundActivity: event.target.checked })
+                    setPrivacyMessage('')
+                  }}
+                />
+                <span><strong>Share my round activity</strong><small>Let accepted friends see a limited summary when you record a verified round. Notes and hole-by-hole scores stay private.</small></span>
               </label>
             </div>
           ) : null}

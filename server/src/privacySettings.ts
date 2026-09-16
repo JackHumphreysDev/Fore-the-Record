@@ -2,6 +2,7 @@ export type PrivacySettingsInput = {
   profileDiscoverable: boolean
   friendRequestsEnabled: boolean
   showHandicapToFriends: boolean
+  shareRoundActivity: boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -15,15 +16,18 @@ export function parsePrivacySettings(value: unknown): PrivacySettingsInput | nul
     profileDiscoverable,
     friendRequestsEnabled,
     showHandicapToFriends,
+    shareRoundActivity,
   } = value
 
   return typeof profileDiscoverable === 'boolean' &&
     typeof friendRequestsEnabled === 'boolean' &&
-    typeof showHandicapToFriends === 'boolean'
+    typeof showHandicapToFriends === 'boolean' &&
+    typeof shareRoundActivity === 'boolean'
     ? {
         profileDiscoverable,
         friendRequestsEnabled,
         showHandicapToFriends,
+        shareRoundActivity,
       }
     : null
 }

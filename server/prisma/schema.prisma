@@ -106,6 +106,7 @@ model User {
   profileDiscoverable    Boolean                @default(true)
   friendRequestsEnabled  Boolean                @default(true)
   showHandicapToFriends  Boolean                @default(true)
+  shareRoundActivity     Boolean                @default(true)
   homeClubId             String?                @db.Uuid
   handicapIndex          Decimal?               @db.Decimal(4, 1)
   createdAt              DateTime               @default(now()) @db.Timestamptz(3)

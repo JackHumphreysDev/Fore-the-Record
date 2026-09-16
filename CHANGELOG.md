@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.28.0 - 2026-09-16
+
+### User-facing changes
+
+- Added a newest-first activity feed to Friends with paginated summaries of accepted friends' verified rounds.
+- Added limited round details covering the course, tee, date, round length, format, score or Stableford points, and current Handicap Index counting status.
+- Added a privacy choice that lets each player hide all of their round activity from friends without deleting any rounds.
+- Kept private notes, full hole-by-hole scores, email addresses, pending scorecards, and account information out of the feed.
+
+### Developer and admin changes
+
+- Added server-owned friendship, account-status, profile-visibility, scorecard-status, and activity-sharing filters to the activity endpoint.
+- Added persistent activity-sharing preferences with an enabled default for existing and new profiles.
+- Added paginated response validation and regression coverage for limited activity data, privacy enforcement, and empty connection states.
+
 ## 0.27.0 - 2026-09-16
 
 ### User-facing changes

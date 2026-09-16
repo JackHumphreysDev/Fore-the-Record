@@ -4,6 +4,7 @@ export type PrivacySettings = {
   profileDiscoverable: boolean
   friendRequestsEnabled: boolean
   showHandicapToFriends: boolean
+  shareRoundActivity: boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -15,7 +16,8 @@ export function isPrivacySettings(value: unknown): value is PrivacySettings {
     isRecord(value) &&
     typeof value.profileDiscoverable === 'boolean' &&
     typeof value.friendRequestsEnabled === 'boolean' &&
-    typeof value.showHandicapToFriends === 'boolean'
+    typeof value.showHandicapToFriends === 'boolean' &&
+    typeof value.shareRoundActivity === 'boolean'
   )
 }
 

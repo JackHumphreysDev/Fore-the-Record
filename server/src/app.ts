@@ -49,6 +49,7 @@ import {
 } from './courseScorecards.js'
 import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
+import type { Prisma } from './generated/prisma/client.js'
 import { buildPerformanceSummary } from './performanceSummary.js'
 import { buildPersonalMilestones } from './personalMilestones.js'
 import {
@@ -3152,6 +3153,131 @@ app.get('/api/users/me/friends', async (_request, response) => {
   response.status(200).json(result)
 })
 
+app.get('/api/users/me/friends/activity', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const page = parsePaginationValue(request.query.page, 1)
+  const pageSize = parsePaginationValue(request.query.pageSize, 10)
+
+  if (page === null || pageSize === null || pageSize > 20) {
+    response.status(400).json({ error: 'Invalid pagination' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const friendships = await prisma.friendship.findMany({
+    where: {
+      status: FriendshipStatus.ACCEPTED,
+      OR: [{ requesterId: user.id }, { addresseeId: user.id }],
+    },
+    select: { requesterId: true, addresseeId: true },
+  })
+  const friendIds = friendships.map((friendship) =>
+    friendship.requesterId === user.id
+      ? friendship.addresseeId
+      : friendship.requesterId,
+  )
+
+  if (friendIds.length === 0) {
+    response.status(200).json({
+      activities: [],
+      pagination: { page, pageSize, total: 0, totalPages: 0 },
+    })
+    return
+  }
+
+  const where: Prisma.RoundWhereInput = {
+    userId: { in: friendIds },
+    user: {
+      authUserId: { not: null },
+      status: UserStatus.ACTIVE,
+      profileDiscoverable: true,
+      shareRoundActivity: true,
+    },
+    OR: [
+      {
+        participation: RoundParticipation.INDIVIDUAL,
+        scorecardStatus: RoundScorecardStatus.VERIFIED,
+      },
+      {
+        participation: RoundParticipation.TEAM,
+        scorecardStatus: RoundScorecardStatus.NOT_REQUIRED,
+      },
+    ],
+  }
+  const [total, activities] = await Promise.all([
+    prisma.round.count({ where }),
+    prisma.round.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        datePlayed: true,
+        timePlayed: true,
+        category: true,
+        participation: true,
+        scoringFormat: true,
+        holeCount: true,
+        nineHoleSegment: true,
+        grossScore: true,
+        stablefordPoints: true,
+        usedInHandicapCalc: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            handicapIndex: true,
+            showHandicapToFriends: true,
+            homeClub: { select: { id: true, name: true } },
+          },
+        },
+        tee: {
+          select: {
+            teeName: true,
+            course: {
+              select: {
+                name: true,
+                club: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    }),
+  ])
+
+  response.status(200).json({
+    activities: activities.map(({ user: friend, ...activity }) => ({
+      ...activity,
+      player: {
+        id: friend.id,
+        name: friend.name,
+        homeClub: friend.homeClub,
+        handicapVisible: friend.showHandicapToFriends,
+        handicapIndex:
+          friend.showHandicapToFriends && friend.handicapIndex !== null
+            ? Number(friend.handicapIndex)
+            : null,
+      },
+    })),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  })
+})
+
 app.get('/api/users/me/friends/search', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const search = normalizeFriendSearch(request.query.q)
@@ -3434,6 +3560,7 @@ const PRIVACY_SETTINGS_SELECT = {
   profileDiscoverable: true,
   friendRequestsEnabled: true,
   showHandicapToFriends: true,
+  shareRoundActivity: true,
 } as const
 
 app.get('/api/users/me/settings/privacy', async (_request, response) => {
