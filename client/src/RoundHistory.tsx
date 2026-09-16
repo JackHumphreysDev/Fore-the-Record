@@ -20,6 +20,7 @@ import {
   ROUND_NOTES_MAX_LENGTH,
 } from './roundNotesApi.ts'
 import { calculateStablefordTotals } from './stableford.ts'
+import ScorecardPhoto from './ScorecardPhoto.tsx'
 
 type RoundHistoryProfile = {
   id: string
@@ -700,6 +701,20 @@ function RoundHistory({
                         <p className="history-note-empty">No note added for this round.</p>
                       )}
                     </section>
+
+                    {round.participation === 'INDIVIDUAL' ? (
+                      <ScorecardPhoto
+                        roundId={round.id}
+                        photo={round.scorecardPhoto}
+                        onPhotoChange={(scorecardPhoto) => {
+                          setRounds((current) => current.map((candidate) =>
+                            candidate.id === round.id
+                              ? { ...candidate, scorecardPhoto }
+                              : candidate,
+                          ))
+                        }}
+                      />
+                    ) : null}
 
                     <button
                       className="history-scorecard-toggle"

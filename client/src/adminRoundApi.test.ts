@@ -23,6 +23,7 @@ describe('administrator round API', () => {
       grossScore: 90, adjustedGrossScore: 90, isCapped: false,
       weatherCondition: 'DRY', pccAdjustment: 0, scoreDifferential: 18,
       isAcceptable: true, usedInHandicapCalc: true, scorecardStatus: 'VERIFIED',
+      scorecardPhoto: null,
       holeScores: Array.from({ length: 18 }, (_, index) => ({
         holeNumber: index + 1, par: 4, strokeIndex: index + 1, strokesTaken: 5, pickedUp: false,
       })),

@@ -1,0 +1,16 @@
+.scorecard-photo { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: rgba(23, 56, 42, .035); }
+.scorecard-photo > header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+.scorecard-photo > header div { display: grid; gap: 3px; }
+.scorecard-photo > header small, .scorecard-photo > header span, .scorecard-photo > p { color: var(--ink-muted); font-size: 11px; }
+.scorecard-photo > p { margin: 10px 0 0; line-height: 1.55; }
+.scorecard-photo-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.scorecard-photo button, .scorecard-photo-upload { min-height: 40px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 7px; color: var(--forest); background: var(--paper); font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
+.scorecard-photo-upload { margin-top: 12px; color: var(--forest-deep); background: var(--lime); }
+.scorecard-photo-actions .scorecard-photo-upload { margin-top: 0; }
+.scorecard-photo-upload input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.scorecard-photo .is-remove { color: #7e3026; }
+.scorecard-photo button:disabled, .scorecard-photo-upload:has(input:disabled) { cursor: wait; opacity: .55; }
+.scorecard-photo img { width: 100%; max-height: 720px; margin-top: 16px; display: block; border-radius: 8px; object-fit: contain; background: #111; }
+.scorecard-photo-error, .scorecard-photo-message { padding: 10px 12px; border-radius: 7px; font-weight: 700; }
+.scorecard-photo .scorecard-photo-error { color: #7e3026; background: rgba(164, 63, 50, .1); }
+.scorecard-photo .scorecard-photo-message { color: var(--forest-deep); background: rgba(104, 137, 0, .12); }

@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.29.0 - 2026-09-16
+
+### User-facing changes
+
+- Added one optional scorecard photo to every saved individual round.
+- Added private photo viewing, replacement, and removal in expanded Round History entries.
+- Made scorecard photos available to the administrator during round correction and manually entered scorecard review.
+- Kept photos separate from saved strokes, scoring calculations, scorecard decisions, and Handicap Index results.
+
+### Developer and admin changes
+
+- Added direct-to-Supabase signed uploads for JPEG, PNG, and WebP files up to 10 MB without routing image bodies through Vercel functions.
+- Added owner and administrator authorization boundaries with five-minute private viewing links and server verification of stored file metadata.
+- Added automatic private-bucket enforcement and photo cleanup during replacement, removal, round deletion, and account deletion.
+- Added upload-contract, file-validation, ownership-path, and API regression coverage.
+
 ## 0.28.0 - 2026-09-16
 
 ### User-facing changes

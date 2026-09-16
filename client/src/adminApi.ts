@@ -1,3 +1,5 @@
+import { isScorecardPhoto, type ScorecardPhoto } from './scorecardPhotoApi.ts'
+
 export type AdminRole = 'PLAYER' | 'ADMIN'
 export type AdminUserStatus = 'ACTIVE' | 'SUSPENDED'
 
@@ -75,6 +77,7 @@ export type AdminScorecardReview = {
     playingHandicap: number | null
     stablefordPoints: number | null
     scoreDifferential: number | null
+    scorecardPhoto: ScorecardPhoto | null
     holeScores: Array<{ holeNumber: number; strokesTaken: number; pickedUp: boolean }>
   }
   holes: AdminScorecardReviewHole[]
@@ -169,6 +172,7 @@ function isAdminScorecardReview(
     (value.round.playingHandicap === null || Number.isInteger(value.round.playingHandicap)) &&
     (value.round.stablefordPoints === null || Number.isInteger(value.round.stablefordPoints)) &&
     (value.round.scoreDifferential === null || typeof value.round.scoreDifferential === 'number') &&
+    (value.round.scorecardPhoto === null || isScorecardPhoto(value.round.scorecardPhoto)) &&
     Array.isArray(value.round.holeScores) &&
     value.round.holeScores.length === value.round.holeCount &&
     value.round.holeScores.every(

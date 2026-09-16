@@ -8,6 +8,8 @@
 .admin-scorecard-card header small { color: var(--forest-soft); font-size: 9px; font-weight: 850; letter-spacing: 1px; text-transform: uppercase; }
 .admin-scorecard-card h3 { margin: 6px 0; color: var(--forest-deep); font-family: Georgia, "Times New Roman", serif; font-size: 25px; font-weight: 400; }
 .admin-scorecard-card header p { margin: 0; color: var(--ink-muted); font-size: 11px; }
+.admin-scorecard-photo-wrap { padding: 0 22px 22px; }
+.admin-scorecard-photo-wrap .scorecard-photo { margin-top: 0; }
 .admin-scorecard-card dl { margin: 0; display: flex; gap: 24px; }
 .admin-scorecard-card dl div { display: grid; gap: 5px; }
 .admin-scorecard-card dt { color: var(--ink-muted); font-size: 8px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }

@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'scorecard-photo',
+    publishedAt: '2026-09-16',
+    title: 'Keep the card behind the score',
+    summary:
+      'Attach a private photo of your signed scorecard to any saved individual round.',
+    highlights: [
+      'Add, view, replace, or remove one scorecard photo from Round History.',
+      'Use JPEG, PNG, or WebP images up to 10 MB.',
+      'Your photo stays private to you and the administrator and never changes your saved scores automatically.',
+    ],
+  },
+  {
     id: 'friends-activity-feed',
     publishedAt: '2026-09-16',
     title: 'Follow your friends’ latest rounds',

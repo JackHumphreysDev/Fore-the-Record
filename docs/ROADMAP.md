@@ -28,7 +28,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 22. Stableford scoring with Playing Handicap allocation and picked-up holes. Completed in `0.26.0`.
 23. Nine-hole rounds with Front 9 and Back 9 scorecards. Completed in `0.27.0`.
 24. Friends activity feed. Completed in `0.28.0`.
-25. Scorecard photo.
+25. Scorecard photo. Completed in `0.29.0`.
 26. Deeper performance analysis by course, tee, par type, front/back nine, competition type, and date range.
 27. More competition formats.
 28. Challenges and leaderboards.
@@ -38,6 +38,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 32. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Scorecard photo — completed in 0.29.0
+
+Players can attach one optional JPEG, PNG, or WebP photo of up to 10 MB to a saved individual round, then privately view, replace, or remove it from Round History. The administrator can view the same supporting photo while correcting that round or reviewing a player-entered scorecard. Photos never appear in friend activity and do not alter strokes, calculations, or approval decisions.
+
+Image bodies upload directly to a private Supabase Storage bucket using a short-lived, server-issued token. The API verifies authenticated round ownership, the generated object path, stored content type, and stored size before saving metadata. Viewing requires a new five-minute signed link. Stored objects are removed with their photo record, round, or account.
 
 ## Friends activity feed — completed in 0.28.0
 

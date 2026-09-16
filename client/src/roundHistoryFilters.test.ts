@@ -29,6 +29,7 @@ function round(
     isCapped: false,
     scoreDifferential: 18,
     scorecardStatus: 'VERIFIED',
+    scorecardPhoto: null,
     weatherCondition: 'DRY',
     pccAdjustment: 0,
     isAcceptable: true,

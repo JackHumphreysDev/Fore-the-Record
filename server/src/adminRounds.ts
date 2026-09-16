@@ -315,6 +315,7 @@ export async function deleteRoundAsAdmin(input: {
         datePlayed: true,
         grossScore: true,
         scoreDifferential: true,
+        scorecardPhotoPath: true,
         tee: {
           select: {
             teeName: true,
@@ -359,6 +360,10 @@ export async function deleteRoundAsAdmin(input: {
       },
     })
 
-    return { userId: existing.userId, handicapIndex: handicap.handicapIndex }
+    return {
+      userId: existing.userId,
+      handicapIndex: handicap.handicapIndex,
+      scorecardPhotoPath: existing.scorecardPhotoPath,
+    }
   })
 }

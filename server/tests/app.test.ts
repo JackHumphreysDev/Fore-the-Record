@@ -39,6 +39,7 @@ const {
   roundFindManyMock,
   roundFindFirstMock,
   roundFindUniqueMock,
+  roundUpdateMock,
   roundUpdateManyMock,
   roundDeleteManyMock,
   submissionCountMock,
@@ -75,6 +76,10 @@ const {
   playerGoalFindManyMock,
   playerGoalUpsertMock,
   playerGoalDeleteManyMock,
+  createScorecardPhotoUploadMock,
+  createScorecardPhotoViewUrlMock,
+  deleteScorecardPhotosMock,
+  verifyScorecardPhotoUploadMock,
 } = vi.hoisted(() => ({
   getAuthenticatedUserMock: vi.fn(),
   getVerifiedTokenSubjectMock: vi.fn(),
@@ -113,6 +118,7 @@ const {
   roundFindManyMock: vi.fn(),
   roundFindFirstMock: vi.fn(),
   roundFindUniqueMock: vi.fn(),
+  roundUpdateMock: vi.fn(),
   roundUpdateManyMock: vi.fn(),
   roundDeleteManyMock: vi.fn(),
   submissionCountMock: vi.fn(),
@@ -149,6 +155,10 @@ const {
   playerGoalFindManyMock: vi.fn(),
   playerGoalUpsertMock: vi.fn(),
   playerGoalDeleteManyMock: vi.fn(),
+  createScorecardPhotoUploadMock: vi.fn(),
+  createScorecardPhotoViewUrlMock: vi.fn(),
+  deleteScorecardPhotosMock: vi.fn(),
+  verifyScorecardPhotoUploadMock: vi.fn(),
 }))
 
 vi.mock('../src/database.js', () => ({
@@ -216,6 +226,7 @@ vi.mock('../src/database.js', () => ({
       findFirst: roundFindFirstMock,
       findMany: roundFindManyMock,
       findUnique: roundFindUniqueMock,
+      update: roundUpdateMock,
       updateMany: roundUpdateManyMock,
       deleteMany: roundDeleteManyMock,
     },
@@ -302,6 +313,19 @@ vi.mock('../src/rounds.js', async () => {
   }
 })
 
+vi.mock('../src/scorecardPhotos.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/scorecardPhotos.js')>(
+    '../src/scorecardPhotos.js',
+  )
+  return {
+    ...actual,
+    createScorecardPhotoUpload: createScorecardPhotoUploadMock,
+    createScorecardPhotoViewUrl: createScorecardPhotoViewUrlMock,
+    deleteScorecardPhotos: deleteScorecardPhotosMock,
+    verifyScorecardPhotoUpload: verifyScorecardPhotoUploadMock,
+  }
+})
+
 import app from '../src/app.js'
 
 beforeEach(() => {
@@ -360,7 +384,9 @@ beforeEach(() => {
   roundCountMock.mockReset()
   roundFindFirstMock.mockReset()
   roundFindManyMock.mockReset()
+  roundFindManyMock.mockResolvedValue([])
   roundFindUniqueMock.mockReset()
+  roundUpdateMock.mockReset()
   roundUpdateManyMock.mockReset()
   roundDeleteManyMock.mockReset()
   roundDeleteManyMock.mockResolvedValue({ count: 0 })
@@ -410,6 +436,12 @@ beforeEach(() => {
   playerGoalUpsertMock.mockReset()
   playerGoalDeleteManyMock.mockReset()
   playerGoalDeleteManyMock.mockResolvedValue({ count: 0 })
+  createScorecardPhotoUploadMock.mockReset()
+  createScorecardPhotoViewUrlMock.mockReset()
+  deleteScorecardPhotosMock.mockReset()
+  deleteScorecardPhotosMock.mockResolvedValue(undefined)
+  verifyScorecardPhotoUploadMock.mockReset()
+  verifyScorecardPhotoUploadMock.mockResolvedValue(undefined)
 })
 
 describe('GET /api/health', () => {
@@ -3004,6 +3036,10 @@ describe('GET /api/users/me/rounds', () => {
           competitionFormat: 'Medal',
           numberOfPlayers: 84,
           notes: 'Great recovery on the back nine.',
+          scorecardPhotoName: null,
+          scorecardPhotoMimeType: null,
+          scorecardPhotoSize: null,
+          scorecardPhotoUploadedAt: null,
           grossScore: 90,
           adjustedGrossScore: 88,
           isCapped: true,
@@ -3050,6 +3086,7 @@ describe('GET /api/users/me/rounds', () => {
         competitionFormat: 'Medal',
           numberOfPlayers: 84,
           notes: 'Great recovery on the back nine.',
+          scorecardPhoto: null,
         grossScore: 90,
         adjustedGrossScore: 88,
         isCapped: true,
@@ -3169,6 +3206,119 @@ describe('GET /api/users/me/rounds', () => {
     expect(response.body).toEqual({ error: 'User not found' })
   })
 
+})
+
+describe('private round scorecard photos', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const roundId = '33333333-3333-4333-8333-333333333333'
+  const path = `${userId}/${roundId}/55555555-5555-4555-8555-555555555555.jpg`
+  const metadata = {
+    fileName: 'signed-card.jpg',
+    mimeType: 'image/jpeg',
+    size: 2048,
+  }
+
+  it('creates a signed upload only for an owned individual round', async () => {
+    roundFindFirstMock.mockResolvedValueOnce({ id: roundId, userId })
+    createScorecardPhotoUploadMock.mockResolvedValueOnce({ path, token: 'upload-token' })
+
+    const response = await request(app)
+      .post(`/api/users/me/rounds/${roundId}/photo/upload`)
+      .send(metadata)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ path, token: 'upload-token', expiresInSeconds: 7200 })
+    expect(roundFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: roundId,
+        participation: 'INDIVIDUAL',
+        user: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      },
+      select: { id: true, userId: true },
+    })
+  })
+
+  it('verifies and attaches an uploaded photo without changing the round score', async () => {
+    roundFindFirstMock.mockResolvedValueOnce({
+      id: roundId,
+      userId,
+      scorecardPhotoPath: null,
+    })
+    roundUpdateMock.mockResolvedValueOnce({
+      scorecardPhotoPath: path,
+      scorecardPhotoName: metadata.fileName,
+      scorecardPhotoMimeType: metadata.mimeType,
+      scorecardPhotoSize: metadata.size,
+      scorecardPhotoUploadedAt: new Date('2026-09-16T19:30:00.000Z'),
+    })
+
+    const response = await request(app)
+      .post(`/api/users/me/rounds/${roundId}/photo`)
+      .send({ ...metadata, path })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      scorecardPhoto: {
+        name: metadata.fileName,
+        mimeType: metadata.mimeType,
+        size: metadata.size,
+        uploadedAt: '2026-09-16T19:30:00.000Z',
+      },
+    })
+    expect(verifyScorecardPhotoUploadMock).toHaveBeenCalledWith({
+      path,
+      expectedMimeType: metadata.mimeType,
+      expectedSize: metadata.size,
+    })
+    expect(roundUpdateMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: roundId },
+      data: expect.objectContaining({
+        scorecardPhotoPath: path,
+        scorecardPhotoName: metadata.fileName,
+      }),
+    }))
+  })
+
+  it('returns a short-lived private view URL only through the owner route', async () => {
+    roundFindFirstMock.mockResolvedValueOnce({
+      scorecardPhotoPath: path,
+      scorecardPhotoName: metadata.fileName,
+      scorecardPhotoMimeType: metadata.mimeType,
+      scorecardPhotoSize: metadata.size,
+      scorecardPhotoUploadedAt: new Date(),
+    })
+    createScorecardPhotoViewUrlMock.mockResolvedValueOnce('https://example.supabase.co/signed')
+
+    const response = await request(app).get(`/api/users/me/rounds/${roundId}/photo`)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      url: 'https://example.supabase.co/signed',
+      expiresInSeconds: 300,
+    })
+    expect(createScorecardPhotoViewUrlMock).toHaveBeenCalledWith(path)
+  })
+
+  it('removes the private object and clears only its photo metadata', async () => {
+    roundFindFirstMock.mockResolvedValueOnce({ id: roundId, scorecardPhotoPath: path })
+    roundUpdateMock.mockResolvedValueOnce({ id: roundId })
+
+    const response = await request(app).delete(`/api/users/me/rounds/${roundId}/photo`)
+
+    expect(response.status).toBe(204)
+    expect(deleteScorecardPhotosMock).toHaveBeenCalledWith([path])
+    expect(roundUpdateMock).toHaveBeenCalledWith({
+      where: { id: roundId },
+      data: {
+        scorecardPhotoPath: null,
+        scorecardPhotoName: null,
+        scorecardPhotoMimeType: null,
+        scorecardPhotoSize: null,
+        scorecardPhotoUploadedAt: null,
+      },
+      select: { id: true },
+    })
+  })
 })
 
 describe('PATCH /api/users/me/rounds/:roundId/notes', () => {

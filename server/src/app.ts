@@ -104,6 +104,15 @@ import {
   ScorecardReviewValidationError,
 } from './scorecardReviews.js'
 import {
+  createScorecardPhotoUpload,
+  createScorecardPhotoViewUrl,
+  deleteScorecardPhotos,
+  isOwnedScorecardPhotoPath,
+  parseScorecardPhotoInput,
+  ScorecardPhotoError,
+  verifyScorecardPhotoUpload,
+} from './scorecardPhotos.js'
+import {
   parseSubmissionInput,
   SubmissionValidationError,
 } from './submissions.js'
@@ -221,6 +230,10 @@ const ADMIN_ROUND_SELECT = {
   isAcceptable: true,
   usedInHandicapCalc: true,
   scorecardStatus: true,
+  scorecardPhotoName: true,
+  scorecardPhotoMimeType: true,
+  scorecardPhotoSize: true,
+  scorecardPhotoUploadedAt: true,
   holeScores: {
     orderBy: { holeNumber: 'asc' as const },
     select: {
@@ -251,6 +264,14 @@ const ADMIN_ROUND_SELECT = {
       },
     },
   },
+} as const
+
+const SCORECARD_PHOTO_SELECT = {
+  scorecardPhotoPath: true,
+  scorecardPhotoName: true,
+  scorecardPhotoMimeType: true,
+  scorecardPhotoSize: true,
+  scorecardPhotoUploadedAt: true,
 } as const
 
 const SUBMISSION_SELECT = {
@@ -554,10 +575,21 @@ function serializeAdminRound<
       frontNineCourseRating: unknown | null
       backNineCourseRating: unknown | null
     }
+    scorecardPhotoName: string | null
+    scorecardPhotoMimeType: string | null
+    scorecardPhotoSize: number | null
+    scorecardPhotoUploadedAt: Date | null
   },
 >(round: T) {
+  const {
+    scorecardPhotoName,
+    scorecardPhotoMimeType,
+    scorecardPhotoSize,
+    scorecardPhotoUploadedAt,
+    ...details
+  } = round
   return {
-    ...round,
+    ...details,
     datePlayed: round.datePlayed.toISOString(),
     pccAdjustment: Number(round.pccAdjustment),
     scoreDifferential:
@@ -576,6 +608,18 @@ function serializeAdminRound<
           ? null
           : Number(round.tee.backNineCourseRating),
     },
+    scorecardPhoto:
+      scorecardPhotoName &&
+      scorecardPhotoMimeType &&
+      scorecardPhotoSize !== null &&
+      scorecardPhotoUploadedAt
+        ? {
+            name: scorecardPhotoName,
+            mimeType: scorecardPhotoMimeType,
+            size: scorecardPhotoSize,
+            uploadedAt: scorecardPhotoUploadedAt.toISOString(),
+          }
+        : null,
   }
 }
 
@@ -631,6 +675,16 @@ function getAdminAuthErrorResponse(error: unknown): {
         message: 'The authentication provider could not complete this change.',
       }
   }
+}
+
+function getScorecardPhotoErrorResponse(error: unknown): {
+  status: number
+  message: string
+} | null {
+  if (!(error instanceof ScorecardPhotoError)) return null
+  if (error.reason === 'validation') return { status: 400, message: error.message }
+  if (error.reason === 'configuration') return { status: 503, message: error.message }
+  return { status: 502, message: error.message }
 }
 
 function getInviteRedirect(origin: string | undefined): string | undefined {
@@ -979,6 +1033,39 @@ app.get('/api/admin/rounds/:roundId', async (request, response) => {
   response.status(200).json(serializeAdminRound(round))
 })
 
+app.get('/api/admin/rounds/:roundId/photo', async (request, response) => {
+  const roundId = request.params.roundId
+  if (typeof roundId !== 'string' || !UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round ID' })
+    return
+  }
+
+  const round = await prisma.round.findUnique({
+    where: { id: roundId },
+    select: SCORECARD_PHOTO_SELECT,
+  })
+  if (!round) {
+    response.status(404).json({ error: 'Round not found' })
+    return
+  }
+  if (!round.scorecardPhotoPath) {
+    response.status(404).json({ error: 'This round has no scorecard photo' })
+    return
+  }
+
+  try {
+    const url = await createScorecardPhotoViewUrl(round.scorecardPhotoPath)
+    response.status(200).json({ url, expiresInSeconds: 300 })
+  } catch (error: unknown) {
+    const storageError = getScorecardPhotoErrorResponse(error)
+    if (storageError) {
+      response.status(storageError.status).json({ error: storageError.message })
+      return
+    }
+    throw error
+  }
+})
+
 app.delete('/api/admin/rounds/:roundId', async (request, response) => {
   const roundId = request.params.roundId
   if (typeof roundId !== 'string' || !UUID_PATTERN.test(roundId)) {
@@ -994,12 +1081,21 @@ app.delete('/api/admin/rounds/:roundId', async (request, response) => {
       confirmation:
         isRecord(request.body) ? request.body.confirmation : undefined,
     })
-    response.status(200).json(result)
+    if (result.scorecardPhotoPath) {
+      await deleteScorecardPhotos([result.scorecardPhotoPath])
+    }
+    const { scorecardPhotoPath: _removedPhotoPath, ...body } = result
+    response.status(200).json(body)
   } catch (error: unknown) {
     if (error instanceof AdminRoundError) {
       response.status(error.reason === 'not_found' ? 404 : 400).json({
         error: error.message,
       })
+      return
+    }
+    const storageError = getScorecardPhotoErrorResponse(error)
+    if (storageError) {
+      response.status(storageError.status).json({ error: storageError.message })
       return
     }
     throw error
@@ -1376,6 +1472,24 @@ app.delete('/api/admin/users/:userId', async (request, response) => {
     return
   }
 
+  const photoRounds = await prisma.round.findMany({
+    where: { userId },
+    select: { scorecardPhotoPath: true },
+  })
+  try {
+    await deleteScorecardPhotos(
+      photoRounds.flatMap((round) =>
+        round.scorecardPhotoPath ? [round.scorecardPhotoPath] : []),
+    )
+  } catch (error: unknown) {
+    const storageError = getScorecardPhotoErrorResponse(error)
+    if (storageError) {
+      response.status(storageError.status).json({ error: storageError.message })
+      return
+    }
+    throw error
+  }
+
   if (existingUser.authUserId) {
     try {
       await deleteAuthUser(existingUser.authUserId)
@@ -1581,6 +1695,10 @@ app.get('/api/admin/scorecard-reviews', async (_request, response) => {
           playingHandicap: true,
           stablefordPoints: true,
           scoreDifferential: true,
+          scorecardPhotoName: true,
+          scorecardPhotoMimeType: true,
+          scorecardPhotoSize: true,
+          scorecardPhotoUploadedAt: true,
           holeScores: {
             orderBy: { holeNumber: 'asc' },
             select: { holeNumber: true, strokesTaken: true, pickedUp: true },
@@ -1600,20 +1718,41 @@ app.get('/api/admin/scorecard-reviews', async (_request, response) => {
   })
 
   response.status(200).json({
-    reviews: reviews.map((review) => ({
-      ...review,
-      tee: {
-        ...review.tee,
-        courseRating: Number(review.tee.courseRating),
-      },
-      round: {
-        ...review.round,
-        scoreDifferential:
-          review.round.scoreDifferential === null
-            ? null
-            : Number(review.round.scoreDifferential),
-      },
-    })),
+    reviews: reviews.map((review) => {
+      const {
+        scorecardPhotoName,
+        scorecardPhotoMimeType,
+        scorecardPhotoSize,
+        scorecardPhotoUploadedAt,
+        ...round
+      } = review.round
+      return {
+        ...review,
+        tee: {
+          ...review.tee,
+          courseRating: Number(review.tee.courseRating),
+        },
+        round: {
+          ...round,
+          scoreDifferential:
+            round.scoreDifferential === null
+              ? null
+              : Number(round.scoreDifferential),
+          scorecardPhoto:
+            scorecardPhotoName &&
+            scorecardPhotoMimeType &&
+            scorecardPhotoSize !== null &&
+            scorecardPhotoUploadedAt
+              ? {
+                  name: scorecardPhotoName,
+                  mimeType: scorecardPhotoMimeType,
+                  size: scorecardPhotoSize,
+                  uploadedAt: scorecardPhotoUploadedAt.toISOString(),
+                }
+              : null,
+        },
+      }
+    }),
   })
 })
 
@@ -2473,6 +2612,10 @@ app.get('/api/users/me/rounds', async (_request, response) => {
           competitionFormat: true,
           numberOfPlayers: true,
           notes: true,
+          scorecardPhotoName: true,
+          scorecardPhotoMimeType: true,
+          scorecardPhotoSize: true,
+          scorecardPhotoUploadedAt: true,
           grossScore: true,
           adjustedGrossScore: true,
           isCapped: true,
@@ -2529,27 +2672,243 @@ app.get('/api/users/me/rounds', async (_request, response) => {
   }
 
   response.status(200).json(
-    user.rounds.map((round) => ({
-      ...round,
-      pccAdjustment: Number(round.pccAdjustment),
-      scoreDifferential:
-        round.scoreDifferential === null
-          ? null
-          : Number(round.scoreDifferential),
-      tee: {
-        ...round.tee,
-        courseRating: Number(round.tee.courseRating),
-        frontNineCourseRating:
-          round.tee.frontNineCourseRating === null
+    user.rounds.map((round) => {
+      const {
+        scorecardPhotoName,
+        scorecardPhotoMimeType,
+        scorecardPhotoSize,
+        scorecardPhotoUploadedAt,
+        ...details
+      } = round
+      return {
+        ...details,
+        pccAdjustment: Number(round.pccAdjustment),
+        scoreDifferential:
+          round.scoreDifferential === null
             ? null
-            : Number(round.tee.frontNineCourseRating),
-        backNineCourseRating:
-          round.tee.backNineCourseRating === null
-            ? null
-            : Number(round.tee.backNineCourseRating),
-      },
-    })),
+            : Number(round.scoreDifferential),
+        tee: {
+          ...round.tee,
+          courseRating: Number(round.tee.courseRating),
+          frontNineCourseRating:
+            round.tee.frontNineCourseRating === null
+              ? null
+              : Number(round.tee.frontNineCourseRating),
+          backNineCourseRating:
+            round.tee.backNineCourseRating === null
+              ? null
+              : Number(round.tee.backNineCourseRating),
+        },
+        scorecardPhoto:
+          scorecardPhotoName &&
+          scorecardPhotoMimeType &&
+          scorecardPhotoSize !== null &&
+          scorecardPhotoUploadedAt
+            ? {
+                name: scorecardPhotoName,
+                mimeType: scorecardPhotoMimeType,
+                size: scorecardPhotoSize,
+                uploadedAt: scorecardPhotoUploadedAt.toISOString(),
+              }
+            : null,
+      }
+    }),
   )
+})
+
+app.post('/api/users/me/rounds/:roundId/photo/upload', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const roundId = request.params.roundId
+  if (!UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round reference' })
+    return
+  }
+
+  try {
+    const input = parseScorecardPhotoInput(request.body)
+    const round = await prisma.round.findFirst({
+      where: {
+        id: roundId,
+        participation: RoundParticipation.INDIVIDUAL,
+        user: { authUserId: authenticatedUser.id },
+      },
+      select: { id: true, userId: true },
+    })
+    if (!round) {
+      response.status(404).json({ error: 'Individual round not found' })
+      return
+    }
+
+    const upload = await createScorecardPhotoUpload({
+      userId: round.userId,
+      roundId: round.id,
+      mimeType: input.mimeType,
+    })
+    response.status(200).json({ ...upload, expiresInSeconds: 7200 })
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) {
+      response.status(photoError.status).json({ error: photoError.message })
+      return
+    }
+    throw error
+  }
+})
+
+app.post('/api/users/me/rounds/:roundId/photo', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const roundId = request.params.roundId
+  if (!UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round reference' })
+    return
+  }
+
+  const path = isRecord(request.body) && typeof request.body.path === 'string'
+    ? request.body.path
+    : ''
+  let ownedPath = false
+  try {
+    const input = parseScorecardPhotoInput(request.body)
+    const round = await prisma.round.findFirst({
+      where: {
+        id: roundId,
+        participation: RoundParticipation.INDIVIDUAL,
+        user: { authUserId: authenticatedUser.id },
+      },
+      select: {
+        id: true,
+        userId: true,
+        scorecardPhotoPath: true,
+      },
+    })
+    if (!round) {
+      response.status(404).json({ error: 'Individual round not found' })
+      return
+    }
+    ownedPath = isOwnedScorecardPhotoPath(path, round.userId, round.id)
+    if (!ownedPath) {
+      response.status(400).json({ error: 'Invalid scorecard photo upload' })
+      return
+    }
+
+    await verifyScorecardPhotoUpload({
+      path,
+      expectedMimeType: input.mimeType,
+      expectedSize: input.size,
+    })
+    const updated = await prisma.round.update({
+      where: { id: round.id },
+      data: {
+        scorecardPhotoPath: path,
+        scorecardPhotoName: input.fileName,
+        scorecardPhotoMimeType: input.mimeType,
+        scorecardPhotoSize: input.size,
+        scorecardPhotoUploadedAt: new Date(),
+      },
+      select: SCORECARD_PHOTO_SELECT,
+    })
+    if (round.scorecardPhotoPath && round.scorecardPhotoPath !== path) {
+      await deleteScorecardPhotos([round.scorecardPhotoPath]).catch(() => undefined)
+    }
+    ownedPath = false
+    response.status(200).json({
+      scorecardPhoto: {
+        name: updated.scorecardPhotoName,
+        mimeType: updated.scorecardPhotoMimeType,
+        size: updated.scorecardPhotoSize,
+        uploadedAt: updated.scorecardPhotoUploadedAt?.toISOString() ?? null,
+      },
+    })
+  } catch (error: unknown) {
+    if (ownedPath) {
+      await deleteScorecardPhotos([path]).catch(() => undefined)
+    }
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) {
+      response.status(photoError.status).json({ error: photoError.message })
+      return
+    }
+    throw error
+  }
+})
+
+app.get('/api/users/me/rounds/:roundId/photo', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const roundId = request.params.roundId
+  if (!UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round reference' })
+    return
+  }
+
+  const round = await prisma.round.findFirst({
+    where: { id: roundId, user: { authUserId: authenticatedUser.id } },
+    select: SCORECARD_PHOTO_SELECT,
+  })
+  if (!round) {
+    response.status(404).json({ error: 'Round not found' })
+    return
+  }
+  if (!round.scorecardPhotoPath) {
+    response.status(404).json({ error: 'This round has no scorecard photo' })
+    return
+  }
+
+  try {
+    const url = await createScorecardPhotoViewUrl(round.scorecardPhotoPath)
+    response.status(200).json({ url, expiresInSeconds: 300 })
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) {
+      response.status(photoError.status).json({ error: photoError.message })
+      return
+    }
+    throw error
+  }
+})
+
+app.delete('/api/users/me/rounds/:roundId/photo', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const roundId = request.params.roundId
+  if (!UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round reference' })
+    return
+  }
+
+  const round = await prisma.round.findFirst({
+    where: { id: roundId, user: { authUserId: authenticatedUser.id } },
+    select: { id: true, scorecardPhotoPath: true },
+  })
+  if (!round) {
+    response.status(404).json({ error: 'Round not found' })
+    return
+  }
+  if (!round.scorecardPhotoPath) {
+    response.status(204).send()
+    return
+  }
+
+  try {
+    await deleteScorecardPhotos([round.scorecardPhotoPath])
+    await prisma.round.update({
+      where: { id: round.id },
+      data: {
+        scorecardPhotoPath: null,
+        scorecardPhotoName: null,
+        scorecardPhotoMimeType: null,
+        scorecardPhotoSize: null,
+        scorecardPhotoUploadedAt: null,
+      },
+      select: { id: true },
+    })
+    response.status(204).send()
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) {
+      response.status(photoError.status).json({ error: photoError.message })
+      return
+    }
+    throw error
+  }
 })
 
 app.patch('/api/users/me/rounds/:roundId/notes', async (request, response) => {
@@ -3694,6 +4053,24 @@ app.delete('/api/users/me/settings/account', async (request, response) => {
       error: 'Enter your full email address to confirm account deletion',
     })
     return
+  }
+
+  const photoRounds = await prisma.round.findMany({
+    where: { userId: user.id },
+    select: { scorecardPhotoPath: true },
+  })
+  try {
+    await deleteScorecardPhotos(
+      photoRounds.flatMap((round) =>
+        round.scorecardPhotoPath ? [round.scorecardPhotoPath] : []),
+    )
+  } catch (error: unknown) {
+    const storageError = getScorecardPhotoErrorResponse(error)
+    if (storageError) {
+      response.status(storageError.status).json({ error: storageError.message })
+      return
+    }
+    throw error
   }
 
   if (user.authUserId) {
