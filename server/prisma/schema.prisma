@@ -34,6 +34,13 @@ enum RoundScorecardStatus {
 enum RoundCategory {
   CASUAL
   COMPETITION
+  SOCIAL_GAME
+}
+
+enum RoundGameResult {
+  WON
+  LOST
+  TIED
 }
 
 enum RoundParticipation {
@@ -121,6 +128,7 @@ model User {
   sentFriendships        Friendship[]           @relation("FriendshipRequester")
   receivedFriendships    Friendship[]           @relation("FriendshipAddressee")
   playerGoals            PlayerGoal[]
+  roundPlayingPartners   RoundPlayingPartner[]
 
   @@index([status, createdAt])
 }
@@ -305,6 +313,9 @@ model Round {
   stablefordPoints   Int?
   competitionName    String?              @db.VarChar(120)
   competitionFormat  String?              @db.VarChar(100)
+  gameFormat         String?               @db.VarChar(100)
+  gameResult         RoundGameResult?
+  guestPlayerNames   String[]              @default([])
   numberOfPlayers    Int?
   notes              String?              @db.VarChar(2000)
   scorecardPhotoPath String?               @db.VarChar(500)
@@ -330,8 +341,37 @@ model Round {
   scorecardStatus    RoundScorecardStatus @default(VERIFIED)
   scorecardReview    ScorecardReview?
   correctionRequests Submission[]
+  playingPartners    RoundPlayingPartner[]
+  guestPlayers       RoundGuestPlayer[]
 
   @@index([userId, datePlayed, createdAt])
+}
+
+model RoundPlayingPartner {
+  id        String   @id @default(uuid()) @db.Uuid
+  roundId   String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  result     RoundGameResult?
+  tagRemovedAt DateTime? @db.Timestamptz(3)
+  round     Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, userId])
+  @@index([userId, createdAt])
+}
+
+model RoundGuestPlayer {
+  id             String           @id @default(uuid()) @db.Uuid
+  roundId        String           @db.Uuid
+  name           String           @db.VarChar(80)
+  normalizedName String           @db.VarChar(80)
+  result         RoundGameResult?
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  round          Round            @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, normalizedName])
+  @@index([normalizedName])
 }
 
 model TeeHole {

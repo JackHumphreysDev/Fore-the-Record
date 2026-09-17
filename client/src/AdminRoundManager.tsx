@@ -109,6 +109,8 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
       category: round.category,
       competitionName: round.competitionName ?? '',
       competitionFormat: round.competitionFormat ?? '',
+      gameFormat: round.gameFormat ?? '',
+      gameResult: round.gameResult ?? '',
       numberOfPlayers: round.numberOfPlayers?.toString() ?? '',
       grossScore: round.grossScore?.toString() ?? '',
       playingHandicap: round.playingHandicap?.toString() ?? '',
@@ -133,6 +135,7 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
     if (!selected) return
     setSaving(true); setError(''); setMessage('')
     const competition = form.category === 'COMPETITION'
+    const socialGame = form.category === 'SOCIAL_GAME'
     const individual = selected.participation === 'INDIVIDUAL'
     const body = {
       datePlayed: form.datePlayed,
@@ -141,6 +144,11 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
       ...(competition ? {
         competitionName: form.competitionName,
         competitionFormat: form.competitionFormat,
+        numberOfPlayers: Number(form.numberOfPlayers),
+      } : {}),
+      ...(socialGame ? {
+        gameFormat: form.gameFormat,
+        ...(form.gameResult ? { gameResult: form.gameResult } : {}),
         numberOfPlayers: Number(form.numberOfPlayers),
       } : {}),
       ...(individual ? {
@@ -233,11 +241,16 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
         <div className="admin-round-fields">
           <label>Date<input type="date" value={form.datePlayed} onChange={(e) => field('datePlayed', e.target.value)} /></label>
           <label>Time<input type="time" value={form.timePlayed} onChange={(e) => field('timePlayed', e.target.value)} /></label>
-          {selected.participation === 'INDIVIDUAL' ? <label>Round type<select value={form.category} onChange={(e) => field('category', e.target.value)}><option value="CASUAL">Casual</option><option value="COMPETITION">Competition</option></select></label> : null}
+          {selected.participation === 'INDIVIDUAL' ? <label>Round type<select value={form.category} onChange={(e) => field('category', e.target.value)}><option value="CASUAL">Casual</option><option value="COMPETITION">Competition</option><option value="SOCIAL_GAME">Game with friends</option></select></label> : null}
           {form.category === 'COMPETITION' ? <>
             <label>Competition name<input value={form.competitionName} maxLength={120} onChange={(e) => field('competitionName', e.target.value)} /></label>
             <label>Format<input value={form.competitionFormat} maxLength={100} onChange={(e) => field('competitionFormat', e.target.value)} /></label>
             <label>Players<input type="number" min="1" max="10000" value={form.numberOfPlayers} onChange={(e) => field('numberOfPlayers', e.target.value)} /></label>
+          </> : null}
+          {form.category === 'SOCIAL_GAME' ? <>
+            <label>Game format<input value={form.gameFormat} maxLength={100} onChange={(e) => field('gameFormat', e.target.value)} /></label>
+            <label>Result<select value={form.gameResult} onChange={(e) => field('gameResult', e.target.value)}><option value="">Not recorded</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="TIED">Tied</option></select></label>
+            <label>Players<input type="number" min="1" max="100" value={form.numberOfPlayers} onChange={(e) => field('numberOfPlayers', e.target.value)} /></label>
           </> : null}
           {selected.participation === 'INDIVIDUAL' ? <>
             {selected.scoringFormat === 'STABLEFORD' ? <label>Playing Handicap<input type="number" min="-20" max="54" value={form.playingHandicap} onChange={(e) => field('playingHandicap', e.target.value)} /></label> : null}

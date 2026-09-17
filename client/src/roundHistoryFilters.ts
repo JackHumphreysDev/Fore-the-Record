@@ -5,6 +5,7 @@ export type RoundTypeFilter =
   | 'CASUAL'
   | 'INDIVIDUAL_COMPETITION'
   | 'TEAM_COMPETITION'
+  | 'SOCIAL_GAME'
 
 export type HandicapStatusFilter = 'ALL' | 'COUNTING' | 'NOT_COUNTING'
 
@@ -43,6 +44,7 @@ function matchesRoundType(
 ): boolean {
   if (filter === 'ALL') return true
   if (filter === 'CASUAL') return round.category === 'CASUAL'
+  if (filter === 'SOCIAL_GAME') return round.category === 'SOCIAL_GAME'
   if (filter === 'TEAM_COMPETITION') return round.participation === 'TEAM'
   return round.category === 'COMPETITION' && round.participation === 'INDIVIDUAL'
 }
@@ -68,6 +70,10 @@ export function filterRoundHistory(
         round.tee.teeName,
         round.competitionName ?? '',
         round.competitionFormat ?? '',
+        round.gameFormat ?? '',
+        round.gameResult ?? '',
+        ...round.guestPlayers.map((guest) => guest.name),
+        ...round.playingPartners.map((partner) => partner.name),
         round.notes ?? '',
       ].join(' '),
     )

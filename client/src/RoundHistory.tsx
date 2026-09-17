@@ -94,7 +94,9 @@ function getRoundTypeLabel(round: HistoryRound): string {
 
   const type = round.category === 'COMPETITION'
     ? 'Individual competition'
-    : 'Casual round'
+    : round.category === 'SOCIAL_GAME'
+      ? 'Game with friends'
+      : 'Casual round'
   return round.holeCount === 9 ? `${type} · 9 holes` : type
 }
 
@@ -470,7 +472,7 @@ function RoundHistory({
 
             <div className="history-filter-grid">
               <label className="history-filter-search">
-                Club, course, tee, competition, or note
+                Club, course, tee, format, player, or note
                 <input
                   type="search"
                   value={filters.search}
@@ -493,6 +495,7 @@ function RoundHistory({
                   <option value="CASUAL">Casual rounds</option>
                   <option value="INDIVIDUAL_COMPETITION">Individual competitions</option>
                   <option value="TEAM_COMPETITION">Team competitions</option>
+                  <option value="SOCIAL_GAME">Games with friends</option>
                 </select>
               </label>
               <label>
@@ -607,6 +610,20 @@ function RoundHistory({
                         {round.competitionName}
                       </p>
                     ) : null}
+                    {round.gameFormat ? (
+                      <p className="history-competition-name">
+                        {round.gameFormat}{round.gameResult ? ` · ${round.gameResult === 'WON' ? 'Won' : round.gameResult === 'LOST' ? 'Lost' : 'Tied'}` : ''}
+                      </p>
+                    ) : null}
+
+                    {round.playingPartners.length > 0 || round.guestPlayerNames.length > 0 ? (
+                      <p className="history-rating-line">
+                        Played with {[
+                          ...round.playingPartners.map((partner) => `${partner.name}${partner.result ? ` (${partner.result === 'WON' ? 'Won' : partner.result === 'LOST' ? 'Lost' : 'Tied'})` : ''}`),
+                          ...round.guestPlayers.map((guest) => `${guest.name}${guest.result ? ` (${guest.result === 'WON' ? 'Won' : guest.result === 'LOST' ? 'Lost' : 'Tied'})` : ''}`),
+                        ].join(', ')}
+                      </p>
+                    ) : null}
 
                     <dl className="history-round-metrics">
                       {round.participation === 'TEAM' ? (
@@ -657,7 +674,7 @@ function RoundHistory({
                     <p className="history-rating-line">
                       {round.participation === 'TEAM'
                         ? 'Course and tee retained for your playing record. No score differential was created.'
-                        : `${round.holeCount === 9 ? `${round.nineHoleSegment === 'FRONT_NINE' ? 'Front 9' : 'Back 9'} · ` : ''}Course rating ${round.holeCount === 9 ? ((round.nineHoleSegment === 'FRONT_NINE' ? round.tee.frontNineCourseRating : round.tee.backNineCourseRating)?.toFixed(1) ?? 'unavailable') : round.tee.courseRating.toFixed(1)} · Slope ${round.holeCount === 9 ? ((round.nineHoleSegment === 'FRONT_NINE' ? round.tee.frontNineSlopeRating : round.tee.backNineSlopeRating) ?? 'unavailable') : round.tee.slopeRating} · ${round.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}${round.holeCount === 9 ? ' · Not included in Handicap Index: official expected differential unavailable' : ''}`}
+                        : `${round.holeCount === 9 ? `${round.nineHoleSegment === 'FRONT_NINE' ? 'Front 9' : 'Back 9'} · ` : ''}Course rating ${round.holeCount === 9 ? ((round.nineHoleSegment === 'FRONT_NINE' ? round.tee.frontNineCourseRating : round.tee.backNineCourseRating)?.toFixed(1) ?? 'unavailable') : round.tee.courseRating.toFixed(1)} · Slope ${round.holeCount === 9 ? ((round.nineHoleSegment === 'FRONT_NINE' ? round.tee.frontNineSlopeRating : round.tee.backNineSlopeRating) ?? 'unavailable') : round.tee.slopeRating} · ${round.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}${round.gameFormat ? ` · ${round.gameFormat} · ${round.numberOfPlayers} players` : ''}${round.holeCount === 9 ? ' · Not included in Handicap Index: official expected differential unavailable' : ''}`}
                     </p>
 
                     <section className="history-round-notes" aria-label="Private round note">

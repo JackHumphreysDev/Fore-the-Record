@@ -15,6 +15,9 @@ const activity = {
   nineHoleSegment: 'FRONT_NINE',
   grossScore: 42,
   stablefordPoints: null,
+  competitionFormat: null,
+  gameFormat: null,
+  gameResult: null,
   usedInHandicapCalc: false,
   player: {
     id: 'player-id',

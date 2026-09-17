@@ -1,4 +1,4 @@
-export type PerformanceAnalysisCategory = 'CASUAL' | 'COMPETITION'
+export type PerformanceAnalysisCategory = 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
 export type PerformanceAnalysisSegment = 'FRONT_NINE' | 'BACK_NINE'
 
 export type PerformanceAnalysisRound = {
@@ -228,7 +228,7 @@ export function buildPerformanceAnalysis(
     averageGrossScore: average(nineScores[segment].map(({ gross }) => gross)),
     averageToPar: average(nineScores[segment].map(({ toPar }) => toPar)),
   }))
-  const byCategory = (['CASUAL', 'COMPETITION'] as const).map((category) => ({
+  const byCategory = (['CASUAL', 'COMPETITION', 'SOCIAL_GAME'] as const).map((category) => ({
     category,
     ...summarizeRounds(rounds.filter(({ round }) => round.category === category)),
   }))

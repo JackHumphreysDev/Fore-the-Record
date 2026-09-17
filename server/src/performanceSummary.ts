@@ -1,7 +1,7 @@
 export type PerformanceRound = {
   id: string
   datePlayed: Date
-  category: 'CASUAL' | 'COMPETITION'
+  category: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
   participation: 'INDIVIDUAL' | 'TEAM'
   scoreDifferential: number | null
   isAcceptable: boolean

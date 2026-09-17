@@ -20,6 +20,7 @@ describe('administrator round API', () => {
       scoringFormat: 'STROKE_PLAY', playingHandicap: null, stablefordPoints: null,
       holeCount: 18, nineHoleSegment: null,
       competitionName: null, competitionFormat: null, numberOfPlayers: null,
+      gameFormat: null, gameResult: null, guestPlayerNames: [], guestPlayers: [], playingPartners: [],
       grossScore: 90, adjustedGrossScore: 90, isCapped: false,
       weatherCondition: 'DRY', pccAdjustment: 0, scoreDifferential: 18,
       isAcceptable: true, usedInHandicapCalc: true, scorecardStatus: 'VERIFIED',

@@ -4,7 +4,7 @@ export type MilestoneRound = {
   id: string
   datePlayed: Date
   createdAt: Date
-  category: 'CASUAL' | 'COMPETITION'
+  category: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
   participation: 'INDIVIDUAL' | 'TEAM'
   grossScore: number | null
   scoreDifferential: number | null

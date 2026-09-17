@@ -2,13 +2,16 @@ export type FriendActivity = {
   id: string
   datePlayed: string
   timePlayed: string | null
-  category: 'CASUAL' | 'COMPETITION'
+  category: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
   participation: 'INDIVIDUAL' | 'TEAM'
   scoringFormat: 'STROKE_PLAY' | 'STABLEFORD'
   holeCount: 9 | 18
   nineHoleSegment: 'FRONT_NINE' | 'BACK_NINE' | null
   grossScore: number | null
   stablefordPoints: number | null
+  competitionFormat: string | null
+  gameFormat: string | null
+  gameResult: 'WON' | 'LOST' | 'TIED' | null
   usedInHandicapCalc: boolean
   player: {
     id: string
@@ -51,7 +54,7 @@ function isActivity(value: unknown): value is FriendActivity {
     typeof value.id === 'string' &&
     typeof value.datePlayed === 'string' &&
     (value.timePlayed === null || typeof value.timePlayed === 'string') &&
-    (value.category === 'CASUAL' || value.category === 'COMPETITION') &&
+    (value.category === 'CASUAL' || value.category === 'COMPETITION' || value.category === 'SOCIAL_GAME') &&
     (value.participation === 'INDIVIDUAL' || value.participation === 'TEAM') &&
     (value.scoringFormat === 'STROKE_PLAY' || value.scoringFormat === 'STABLEFORD') &&
     (value.holeCount === 9 || value.holeCount === 18) &&
@@ -60,6 +63,9 @@ function isActivity(value: unknown): value is FriendActivity {
         (value.nineHoleSegment === 'FRONT_NINE' || value.nineHoleSegment === 'BACK_NINE'))) &&
     isNullableNumber(value.grossScore) &&
     isNullableNumber(value.stablefordPoints) &&
+    (value.competitionFormat === null || typeof value.competitionFormat === 'string') &&
+    (value.gameFormat === null || typeof value.gameFormat === 'string') &&
+    (value.gameResult === null || value.gameResult === 'WON' || value.gameResult === 'LOST' || value.gameResult === 'TIED') &&
     typeof value.usedInHandicapCalc === 'boolean' &&
     typeof player.id === 'string' &&
     typeof player.name === 'string' &&

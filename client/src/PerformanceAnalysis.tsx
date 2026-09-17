@@ -57,7 +57,7 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
   const [customTo, setCustomTo] = useState('')
   const [courseId, setCourseId] = useState('')
   const [teeId, setTeeId] = useState('')
-  const [category, setCategory] = useState<'' | 'CASUAL' | 'COMPETITION'>('')
+  const [category, setCategory] = useState<'' | 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'>('')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
 
@@ -118,8 +118,8 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
           {availableTees.map((tee) => <option key={tee.id} value={tee.id}>{tee.clubName} — {tee.courseName} — {tee.name}</option>)}
         </select></label>
         <label>Round type<select value={category} onChange={(event) => setCategory(event.target.value as typeof category)}>
-          <option value="">Casual and competition</option><option value="CASUAL">Casual only</option>
-          <option value="COMPETITION">Competition only</option>
+          <option value="">All round types</option><option value="CASUAL">Casual only</option>
+          <option value="COMPETITION">Competition only</option><option value="SOCIAL_GAME">Games with friends only</option>
         </select></label>
         {range === 'CUSTOM' ? <>
           <label>From<input type="date" value={customFrom} max={customTo || undefined} onChange={(event) => setCustomFrom(event.target.value)} /></label>
@@ -145,8 +145,8 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
           <section><header><h3>Front and back nine</h3><p>Only complete nine-hole scores count.</p></header><div className="analysis-card-row">
             {analysis.byNine.map((item) => <article key={item.segment}><span>{item.segment === 'FRONT_NINE' ? 'Front nine' : 'Back nine'}</span><strong>{formatAverage(item.averageGrossScore)}</strong><em>{formatToPar(item.averageToPar)} average</em><small>{item.nines} complete nines</small></article>)}
           </div></section>
-          <section><header><h3>Casual and competition</h3><p>See how the occasion changes your scoring.</p></header><div className="analysis-card-row">
-            {analysis.byCategory.map((item) => <article key={item.category}><span>{item.category === 'CASUAL' ? 'Casual rounds' : 'Competitions'}</span><strong>{formatAverage(item.averageGrossScore)}</strong><em>{formatToPar(item.averageToPar)} average</em><small>{sampleLabel(item)}</small></article>)}
+          <section><header><h3>By round type</h3><p>See how the occasion changes your scoring.</p></header><div className="analysis-card-row">
+            {analysis.byCategory.map((item) => <article key={item.category}><span>{item.category === 'CASUAL' ? 'Casual rounds' : item.category === 'COMPETITION' ? 'Competitions' : 'Games with friends'}</span><strong>{formatAverage(item.averageGrossScore)}</strong><em>{formatToPar(item.averageToPar)} average</em><small>{sampleLabel(item)}</small></article>)}
           </div></section>
         </div>
 

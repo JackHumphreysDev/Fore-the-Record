@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'competition-and-social-games',
+    publishedAt: '2026-09-17',
+    title: 'Record the way you played',
+    summary:
+      'Choose a recognised competition format or keep a game with friends such as Wolf, Sixes, Skins, or Nassau on your record.',
+    highlights: [
+      'Record the format, field size, and an optional Won, Lost, or Tied result.',
+      'Link accepted friends or add guest names so your history remembers who joined you.',
+      'A friend can remove their own tag, and tagging never copies your score or changes their handicap.',
+    ],
+  },
+  {
     id: 'deeper-performance-analysis',
     publishedAt: '2026-09-17',
     title: 'See what is shaping your scores',

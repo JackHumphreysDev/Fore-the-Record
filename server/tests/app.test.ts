@@ -73,6 +73,9 @@ const {
   friendshipUpdateMock,
   friendshipDeleteMock,
   friendshipDeleteManyMock,
+  roundPlayingPartnerFindManyMock,
+  roundPlayingPartnerUpdateManyMock,
+  roundGuestPlayerFindManyMock,
   playerGoalFindManyMock,
   playerGoalUpsertMock,
   playerGoalDeleteManyMock,
@@ -152,6 +155,9 @@ const {
   friendshipUpdateMock: vi.fn(),
   friendshipDeleteMock: vi.fn(),
   friendshipDeleteManyMock: vi.fn(),
+  roundPlayingPartnerFindManyMock: vi.fn(),
+  roundPlayingPartnerUpdateManyMock: vi.fn(),
+  roundGuestPlayerFindManyMock: vi.fn(),
   playerGoalFindManyMock: vi.fn(),
   playerGoalUpsertMock: vi.fn(),
   playerGoalDeleteManyMock: vi.fn(),
@@ -215,6 +221,13 @@ vi.mock('../src/database.js', () => ({
       update: friendshipUpdateMock,
       delete: friendshipDeleteMock,
       deleteMany: friendshipDeleteManyMock,
+    },
+    roundPlayingPartner: {
+      findMany: roundPlayingPartnerFindManyMock,
+      updateMany: roundPlayingPartnerUpdateManyMock,
+    },
+    roundGuestPlayer: {
+      findMany: roundGuestPlayerFindManyMock,
     },
     playerGoal: {
       findMany: playerGoalFindManyMock,
@@ -343,6 +356,9 @@ beforeEach(() => {
   getVerifiedTokenSubjectMock.mockResolvedValue(null)
   getAccountStatusByAuthUserIdMock.mockReset()
   getAccountStatusByAuthUserIdMock.mockResolvedValue('ACTIVE')
+  roundPlayingPartnerFindManyMock.mockReset()
+  roundPlayingPartnerUpdateManyMock.mockReset()
+  roundGuestPlayerFindManyMock.mockReset()
   inviteAuthUserMock.mockReset()
   updateAuthUserEmailMock.mockReset()
   updateAuthUserEmailMock.mockResolvedValue(undefined)
@@ -2505,6 +2521,87 @@ describe('friend connections API', () => {
     expect(roundFindManyMock).not.toHaveBeenCalled()
   })
 
+  it('returns limited metadata for rounds the player was tagged in', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    roundPlayingPartnerFindManyMock.mockResolvedValueOnce([{
+      roundId: '55555555-5555-4555-8555-555555555555',
+      createdAt: new Date('2026-09-17T10:00:00.000Z'),
+      result: 'LOST',
+      round: {
+        datePlayed: new Date('2026-09-17T00:00:00.000Z'),
+        category: 'SOCIAL_GAME', competitionFormat: null, gameFormat: 'Wolf', gameResult: 'WON',
+        user: { id: otherUserId, name: 'Tiger Woods' },
+        tee: { teeName: 'White', course: { name: 'Main Course', club: { name: 'Example Club' } } },
+      },
+    }])
+
+    const response = await request(app).get('/api/users/me/round-tags')
+
+    expect(response.status).toBe(200)
+    expect(response.body.tags[0]).toMatchObject({
+      roundId: '55555555-5555-4555-8555-555555555555',
+      category: 'SOCIAL_GAME', gameFormat: 'Wolf', gameResult: 'WON',
+      player: { id: otherUserId, name: 'Tiger Woods' },
+    })
+    expect(response.body.tags[0]).not.toHaveProperty('notes')
+    expect(response.body.tags[0]).not.toHaveProperty('holeScores')
+  })
+
+  it('lets a tagged player remove only their own round tag', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    roundPlayingPartnerUpdateManyMock.mockResolvedValueOnce({ count: 1 })
+
+    const response = await request(app).delete('/api/users/me/round-tags/55555555-5555-4555-8555-555555555555')
+
+    expect(response.status).toBe(204)
+    expect(roundPlayingPartnerUpdateManyMock).toHaveBeenCalledWith({
+      where: {
+        roundId: '55555555-5555-4555-8555-555555555555',
+        userId: currentUserId,
+        tagRemovedAt: null,
+      },
+      data: { tagRemovedAt: expect.any(Date) },
+    })
+  })
+
+  it('returns head-to-head records against friends and normalized guests', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    roundPlayingPartnerFindManyMock.mockResolvedValueOnce([
+      {
+        userId: otherUserId,
+        result: 'WON',
+        user: { id: otherUserId, name: 'Tiger Woods', homeClub: null },
+        round: { user: { id: currentUserId, name: 'Jack Humphreys', homeClub: null } },
+      },
+      {
+        userId: currentUserId,
+        result: 'WON',
+        user: { id: currentUserId, name: 'Jack Humphreys', homeClub: null },
+        round: { user: { id: otherUserId, name: 'Tiger Woods', homeClub: null } },
+      },
+    ])
+    roundGuestPlayerFindManyMock.mockResolvedValueOnce([
+      { name: 'Guest Player', normalizedName: 'guest player', result: 'WON' },
+      { name: 'guest player', normalizedName: 'guest player', result: 'TIED' },
+    ])
+
+    const response = await request(app).get('/api/users/me/opponent-records')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      friends: [{
+        id: otherUserId,
+        name: 'Tiger Woods',
+        homeClub: null,
+        wins: 1,
+        losses: 1,
+        ties: 0,
+        played: 2,
+      }],
+      guests: [{ name: 'Guest Player', wins: 1, losses: 0, ties: 1, played: 2 }],
+    })
+  })
+
   it('creates one direction-independent friend request', async () => {
     userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
     userFindFirstMock.mockResolvedValueOnce(otherPlayer)
@@ -3118,6 +3215,7 @@ describe('GET /api/users/me/rounds', () => {
           competitionFormat: 'Medal',
           numberOfPlayers: 84,
           notes: 'Great recovery on the back nine.',
+          playingPartners: [],
           scorecardPhotoName: null,
           scorecardPhotoMimeType: null,
           scorecardPhotoSize: null,
@@ -3166,9 +3264,10 @@ describe('GET /api/users/me/rounds', () => {
         participation: 'INDIVIDUAL',
         competitionName: 'Captain’s Day',
         competitionFormat: 'Medal',
-          numberOfPlayers: 84,
-          notes: 'Great recovery on the back nine.',
-          scorecardPhoto: null,
+        numberOfPlayers: 84,
+        notes: 'Great recovery on the back nine.',
+        playingPartners: [],
+        scorecardPhoto: null,
         grossScore: 90,
         adjustedGrossScore: 88,
         isCapped: true,
