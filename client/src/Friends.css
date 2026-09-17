@@ -2,6 +2,20 @@
   padding: clamp(48px, 7vw, 92px) 0 72px;
 }
 
+.round-tags { margin-bottom: 30px; }
+.round-tags-intro { color: var(--ink-muted); line-height: 1.55; }
+.round-tag-card > div { min-width: 0; display: grid; gap: 5px; }
+.round-tag-card small { color: var(--ink-muted); }
+.opponent-records { margin-bottom: 30px; }
+.opponent-record-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.opponent-record-grid article { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.opponent-record-grid article > div { display: grid; gap: 4px; }
+.opponent-record-grid small { color: var(--ink-muted); }
+.opponent-record-grid dl { margin: 14px 0 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.opponent-record-grid dl div { display: grid; gap: 3px; }
+.opponent-record-grid dt { color: var(--ink-muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.opponent-record-grid dd { margin: 0; color: var(--forest-deep); font-size: 18px; font-weight: 800; }
+
 .friends-heading {
   max-width: 760px;
   margin-bottom: 36px;

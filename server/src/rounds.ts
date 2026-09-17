@@ -4,6 +4,8 @@ import {
   type NineHoleSegment as NineHoleSegmentValue,
   RoundCategory,
   type RoundCategory as RoundCategoryValue,
+  RoundGameResult,
+  type RoundGameResult as RoundGameResultValue,
   RoundParticipation,
   type RoundParticipation as RoundParticipationValue,
   RoundScoringFormat,
@@ -32,6 +34,32 @@ const HOLES_IN_ROUND = 18
 const INITIAL_HANDICAP_STROKES_PER_HOLE = 3
 const COMPETITION_NAME_MAX_LENGTH = 120
 const COMPETITION_FORMAT_MAX_LENGTH = 100
+const GAME_FORMAT_MAX_LENGTH = 100
+const PLAYER_NAME_MAX_LENGTH = 80
+const MAX_PLAYING_PARTNERS = 20
+
+export const INDIVIDUAL_COMPETITION_FORMATS = [
+  'Medal / Stroke Play',
+  'Medal',
+  'Stableford',
+  'Match Play',
+  'Bogey / Par',
+] as const
+export const TEAM_COMPETITION_FORMATS = [
+  'Fourball Better Ball',
+  'Foursomes',
+  'Greensomes',
+  'Scramble / Texas Scramble',
+  'Texas Scramble',
+] as const
+export const SOCIAL_GAME_FORMATS = [
+  'Wolf',
+  'Sixes / Sixers',
+  'Skins',
+  'Nassau',
+  'Match Play',
+  'Bingo Bango Bongo',
+] as const
 
 // Product configuration: scored individual rounds can qualify for the
 // simplified handicap calculation. Team entries are always record-only.
@@ -56,6 +84,12 @@ type LogRoundBase = {
   category: RoundCategoryValue
   competitionName: string | null
   competitionFormat: string | null
+  gameFormat: string | null
+  gameResult: RoundGameResultValue | null
+  playingPartnerIds: string[]
+  guestPlayerNames: string[]
+  playingPartnerResults: Record<string, RoundGameResultValue | null>
+  guestPlayerResults: Record<string, RoundGameResultValue | null>
   numberOfPlayers: number | null
   notes: string | null
   scoringFormat: RoundScoringFormatValue
@@ -94,6 +128,13 @@ export class RoundReferenceNotFoundError extends Error {
   constructor(readonly reference: 'user' | 'tee') {
     super(`${reference} not found`)
     this.name = 'RoundReferenceNotFoundError'
+  }
+}
+
+export class RoundPlayingPartnersError extends Error {
+  constructor() {
+    super('Every linked player must be an accepted active friend')
+    this.name = 'RoundPlayingPartnersError'
   }
 }
 
@@ -148,9 +189,83 @@ function getRoundCategory(value: unknown): RoundCategoryValue | null {
     return RoundCategory.CASUAL
   }
 
-  return value === RoundCategory.CASUAL || value === RoundCategory.COMPETITION
+  return value === RoundCategory.CASUAL ||
+    value === RoundCategory.COMPETITION ||
+    value === RoundCategory.SOCIAL_GAME
     ? value
     : null
+}
+
+function getGameResult(value: unknown): RoundGameResultValue | null {
+  if (value === undefined || value === null || value === '') return null
+  return value === RoundGameResult.WON ||
+    value === RoundGameResult.LOST ||
+    value === RoundGameResult.TIED
+    ? value
+    : null
+}
+
+function getPlayingPartnerIds(value: unknown): string[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.length > MAX_PLAYING_PARTNERS) return null
+  const ids = value.filter((item): item is string =>
+    typeof item === 'string' && UUID_PATTERN.test(item),
+  )
+  return ids.length === value.length && new Set(ids).size === ids.length
+    ? ids
+    : null
+}
+
+function getGuestPlayerNames(value: unknown): string[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.length > MAX_PLAYING_PARTNERS) return null
+  const names = value.map((item) => typeof item === 'string' ? item.trim() : '')
+  const normalized = names.map((name) => name.toLocaleLowerCase('en-GB'))
+  return names.every((name) => name.length >= 2 && name.length <= PLAYER_NAME_MAX_LENGTH) &&
+    new Set(normalized).size === normalized.length
+    ? names
+    : null
+}
+
+function getOpponentResults(
+  value: unknown,
+  allowedKeys: readonly string[],
+  normalizeKeys = false,
+): Record<string, RoundGameResultValue | null> | null {
+  if (value === undefined) return Object.fromEntries(allowedKeys.map((key) => [key, null]))
+  if (!isRecord(value)) return null
+  const normalizedAllowed = new Map(allowedKeys.map((key) => [
+    normalizeKeys ? key.toLocaleLowerCase('en-GB') : key,
+    key,
+  ]))
+  const results: Record<string, RoundGameResultValue | null> = {}
+  for (const [rawKey, rawResult] of Object.entries(value)) {
+    const key = normalizeKeys ? rawKey.toLocaleLowerCase('en-GB') : rawKey
+    const storedKey = normalizedAllowed.get(key)
+    const result = getGameResult(rawResult)
+    if (!storedKey || (rawResult !== null && rawResult !== '' && result === null)) return null
+    results[storedKey] = rawResult === null || rawResult === '' ? null : result
+  }
+  for (const key of allowedKeys) results[key] ??= null
+  return results
+}
+
+function isOtherFormat(value: string): boolean {
+  return value.startsWith('Other — ') && value.length > 'Other — '.length
+}
+
+function isCompetitionFormat(
+  value: string,
+  participation: RoundParticipationValue,
+): boolean {
+  const formats = participation === RoundParticipation.TEAM
+    ? TEAM_COMPETITION_FORMATS
+    : INDIVIDUAL_COMPETITION_FORMATS
+  return (formats as readonly string[]).includes(value) || isOtherFormat(value)
+}
+
+function isGameFormat(value: string): boolean {
+  return (SOCIAL_GAME_FORMATS as readonly string[]).includes(value) || isOtherFormat(value)
 }
 
 function getRoundParticipation(
@@ -283,6 +398,15 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   const category = getRoundCategory(value.category)
   const participation = getRoundParticipation(value.participation)
   const scoringFormat = getRoundScoringFormat(value.scoringFormat)
+  const gameResult = getGameResult(value.gameResult)
+  const playingPartnerIds = getPlayingPartnerIds(value.playingPartnerIds)
+  const guestPlayerNames = getGuestPlayerNames(value.guestPlayerNames)
+  const playingPartnerResults = playingPartnerIds === null
+    ? null
+    : getOpponentResults(value.playingPartnerResults, playingPartnerIds)
+  const guestPlayerResults = guestPlayerNames === null
+    ? null
+    : getOpponentResults(value.guestPlayerResults, guestPlayerNames, true)
   const holeCount = value.holeCount === undefined ? 18 : value.holeCount
   const nineHoleSegment = holeCount === 9
     ? getNineHoleSegment(value.nineHoleSegment)
@@ -307,6 +431,10 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     !category ||
     !participation ||
     !scoringFormat ||
+    playingPartnerIds === null ||
+    guestPlayerNames === null ||
+    playingPartnerResults === null ||
+    guestPlayerResults === null ||
     (holeCount !== 9 && holeCount !== 18) ||
     (holeCount === 9 && nineHoleSegment === null) ||
     (holeCount === 18 && value.nineHoleSegment !== undefined && value.nineHoleSegment !== null) ||
@@ -316,27 +444,57 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   }
 
   const isCompetition = category === RoundCategory.COMPETITION
+  const isSocialGame = category === RoundCategory.SOCIAL_GAME
   const competitionName = isCompetition
     ? getRequiredText(value.competitionName, COMPETITION_NAME_MAX_LENGTH)
     : null
   const competitionFormat = isCompetition
     ? getRequiredText(value.competitionFormat, COMPETITION_FORMAT_MAX_LENGTH)
     : null
-  const numberOfPlayers = isCompetition ? value.numberOfPlayers : null
+  const gameFormat = isSocialGame
+    ? getRequiredText(value.gameFormat, GAME_FORMAT_MAX_LENGTH)
+    : null
+  const numberOfPlayers = isCompetition || isSocialGame ? value.numberOfPlayers : null
 
   if (
     (category === RoundCategory.CASUAL &&
       (participation !== RoundParticipation.INDIVIDUAL ||
         value.competitionName !== undefined ||
         value.competitionFormat !== undefined ||
-        value.numberOfPlayers !== undefined)) ||
+        value.gameFormat !== undefined ||
+        value.gameResult !== undefined ||
+        value.numberOfPlayers !== undefined ||
+        value.playingPartnerIds !== undefined ||
+        value.guestPlayerNames !== undefined)) ||
     (isCompetition &&
       (!competitionName ||
         !competitionFormat ||
+        !isCompetitionFormat(competitionFormat, participation) ||
         typeof numberOfPlayers !== 'number' ||
         !Number.isInteger(numberOfPlayers) ||
         numberOfPlayers <= 0 ||
-        numberOfPlayers > 10000))
+        numberOfPlayers > 10000 ||
+        value.gameFormat !== undefined ||
+        value.gameResult !== undefined)) ||
+    (isSocialGame &&
+      (participation !== RoundParticipation.INDIVIDUAL ||
+        !gameFormat ||
+        !isGameFormat(gameFormat) ||
+        typeof numberOfPlayers !== 'number' ||
+        !Number.isInteger(numberOfPlayers) ||
+        numberOfPlayers <= 0 ||
+        numberOfPlayers > 100 ||
+        value.competitionName !== undefined ||
+        value.competitionFormat !== undefined ||
+        (value.gameResult !== undefined && gameResult === null)))
+  ) {
+    return null
+  }
+
+  if (
+    (isCompetition || isSocialGame) &&
+    typeof numberOfPlayers === 'number' &&
+    playingPartnerIds.length + guestPlayerNames.length > numberOfPlayers - 1
   ) {
     return null
   }
@@ -369,6 +527,12 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       participation,
       competitionName,
       competitionFormat,
+      gameFormat: null,
+      gameResult: null,
+      playingPartnerIds,
+      guestPlayerNames,
+      playingPartnerResults,
+      guestPlayerResults,
       numberOfPlayers,
       notes,
       scoringFormat: RoundScoringFormat.STROKE_PLAY,
@@ -435,6 +599,12 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     participation,
     competitionName,
     competitionFormat,
+    gameFormat,
+    gameResult,
+    playingPartnerIds,
+    guestPlayerNames,
+    playingPartnerResults,
+    guestPlayerResults,
     numberOfPlayers:
       typeof numberOfPlayers === 'number' ? numberOfPlayers : null,
     notes,
@@ -497,6 +667,33 @@ export async function logRound(input: LogRoundInput) {
       throw new RoundReferenceNotFoundError('tee')
     }
 
+    if (input.playingPartnerIds.includes(input.userId)) {
+      throw new RoundPlayingPartnersError()
+    }
+
+    if (input.playingPartnerIds.length > 0) {
+      const friendships = await transaction.friendship.findMany({
+        where: {
+          status: 'ACCEPTED',
+          requester: { status: 'ACTIVE' },
+          addressee: { status: 'ACTIVE' },
+          OR: input.playingPartnerIds.flatMap((friendId) => [
+            { requesterId: input.userId, addresseeId: friendId },
+            { requesterId: friendId, addresseeId: input.userId },
+          ]),
+        },
+        select: { requesterId: true, addresseeId: true },
+      })
+      const acceptedIds = new Set(friendships.map((friendship) =>
+        friendship.requesterId === input.userId
+          ? friendship.addresseeId
+          : friendship.requesterId,
+      ))
+      if (input.playingPartnerIds.some((friendId) => !acceptedIds.has(friendId))) {
+        throw new RoundPlayingPartnersError()
+      }
+    }
+
     const courseRating = Number(tee.courseRating)
     const currentHandicapIndex =
       user.handicapIndex === null ? null : Number(user.handicapIndex)
@@ -517,6 +714,9 @@ export async function logRound(input: LogRoundInput) {
           nineHoleSegment: null,
           competitionName: input.competitionName,
           competitionFormat: input.competitionFormat,
+          gameFormat: input.gameFormat,
+          gameResult: input.gameResult,
+          guestPlayerNames: input.guestPlayerNames,
           numberOfPlayers: input.numberOfPlayers,
           notes: input.notes,
           grossScore: null,
@@ -528,11 +728,28 @@ export async function logRound(input: LogRoundInput) {
           isAcceptable: false,
           usedInHandicapCalc: false,
           scorecardStatus: RoundScorecardStatus.NOT_REQUIRED,
+          playingPartners: {
+            create: input.playingPartnerIds.map((userId) => ({
+              user: { connect: { id: userId } },
+              result: input.playingPartnerResults[userId] ?? null,
+            })),
+          },
+          guestPlayers: {
+            create: input.guestPlayerNames.map((name) => ({
+              name,
+              normalizedName: name.toLocaleLowerCase('en-GB'),
+              result: input.guestPlayerResults[name] ?? null,
+            })),
+          },
         },
         include: {
           holeScores: {
             orderBy: { holeNumber: 'asc' },
           },
+          playingPartners: {
+            select: { result: true, user: { select: { id: true, name: true } } },
+          },
+          guestPlayers: { select: { name: true, result: true } },
         },
       })
       const countingRounds = await transaction.round.findMany({
@@ -546,6 +763,7 @@ export async function logRound(input: LogRoundInput) {
       return {
         round: {
           ...createdRound,
+          playingPartners: (createdRound.playingPartners ?? []).map(({ user, result }) => ({ ...user, result })),
           pccAdjustment: Number(createdRound.pccAdjustment),
           scoreDifferential: null,
           usedInHandicapCalc: false,
@@ -679,6 +897,9 @@ export async function logRound(input: LogRoundInput) {
         nineHoleSegment: input.nineHoleSegment,
         competitionName: input.competitionName,
         competitionFormat: input.competitionFormat,
+        gameFormat: input.gameFormat,
+        gameResult: input.gameResult,
+        guestPlayerNames: input.guestPlayerNames,
         numberOfPlayers: input.numberOfPlayers,
         notes: input.notes,
         grossScore: input.grossScore,
@@ -695,6 +916,19 @@ export async function logRound(input: LogRoundInput) {
           create: effectiveHoleScores.map(({ yardage: _yardage, ...hole }) => ({
             ...hole,
             strokesTaken: hole.strokesTaken ?? 0,
+          })),
+        },
+        playingPartners: {
+          create: input.playingPartnerIds.map((userId) => ({
+            user: { connect: { id: userId } },
+            result: input.playingPartnerResults[userId] ?? null,
+          })),
+        },
+        guestPlayers: {
+          create: input.guestPlayerNames.map((name) => ({
+            name,
+            normalizedName: name.toLocaleLowerCase('en-GB'),
+            result: input.guestPlayerResults[name] ?? null,
           })),
         },
         ...(manualReviewRequired
@@ -730,6 +964,10 @@ export async function logRound(input: LogRoundInput) {
         holeScores: {
           orderBy: { holeNumber: 'asc' },
         },
+      playingPartners: {
+        select: { result: true, user: { select: { id: true, name: true } } },
+      },
+      guestPlayers: { select: { name: true, result: true } },
       },
     })
 
@@ -787,6 +1025,7 @@ export async function logRound(input: LogRoundInput) {
     return {
       round: {
         ...createdRound,
+        playingPartners: (createdRound.playingPartners ?? []).map(({ user, result }) => ({ ...user, result })),
         pccAdjustment: Number(createdRound.pccAdjustment),
         scoreDifferential:
           createdRound.scoreDifferential === null

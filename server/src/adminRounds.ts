@@ -146,6 +146,8 @@ export async function updateRoundAsAdmin(input: {
       category: existing.category,
       competitionName: existing.competitionName,
       competitionFormat: existing.competitionFormat,
+      gameFormat: existing.gameFormat,
+      gameResult: existing.gameResult,
       scoringFormat: existing.scoringFormat,
       playingHandicap: existing.playingHandicap,
       stablefordPoints: existing.stablefordPoints,
@@ -168,6 +170,8 @@ export async function updateRoundAsAdmin(input: {
         category: parsed.category,
         competitionName: parsed.competitionName,
         competitionFormat: parsed.competitionFormat,
+        gameFormat: parsed.gameFormat,
+        gameResult: parsed.gameResult,
         numberOfPlayers: parsed.numberOfPlayers,
       }
     } else {
@@ -230,6 +234,8 @@ export async function updateRoundAsAdmin(input: {
         category: parsed.category,
         competitionName: parsed.competitionName,
         competitionFormat: parsed.competitionFormat,
+        gameFormat: parsed.gameFormat,
+        gameResult: parsed.gameResult,
         scoringFormat: parsed.scoringFormat,
         playingHandicap: parsed.playingHandicap,
         stablefordPoints,

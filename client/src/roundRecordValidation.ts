@@ -4,10 +4,11 @@ import {
 } from './scorecardPhotoApi.ts'
 
 export type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
-export type RoundCategory = 'CASUAL' | 'COMPETITION'
+export type RoundCategory = 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
 export type RoundParticipation = 'INDIVIDUAL' | 'TEAM'
 export type RoundScoringFormat = 'STROKE_PLAY' | 'STABLEFORD'
 export type NineHoleSegment = 'FRONT_NINE' | 'BACK_NINE'
+export type RoundGameResult = 'WON' | 'LOST' | 'TIED'
 
 type ClassifiedRound = {
   id: string
@@ -22,6 +23,16 @@ type ClassifiedRound = {
   stablefordPoints: number | null
   competitionName: string | null
   competitionFormat: string | null
+  gameFormat: string | null
+  gameResult: RoundGameResult | null
+  guestPlayerNames: string[]
+  playingPartners: Array<{
+    id: string
+    name: string
+    result: RoundGameResult | null
+    homeClub?: { id: string; name: string } | null
+  }>
+  guestPlayers: Array<{ name: string; result: RoundGameResult | null }>
   numberOfPlayers: number | null
   notes: string | null
   grossScore: number | null
@@ -102,8 +113,34 @@ function hasValidClassification(value: Record<string, unknown>): boolean {
       value.participation === 'INDIVIDUAL' &&
       value.competitionName === null &&
       value.competitionFormat === null &&
-      value.numberOfPlayers === null
+      value.gameFormat === null &&
+      value.gameResult === null &&
+      value.numberOfPlayers === null &&
+      Array.isArray(value.guestPlayerNames) && value.guestPlayerNames.length === 0 &&
+      Array.isArray(value.playingPartners) && value.playingPartners.length === 0 &&
+      Array.isArray(value.guestPlayers) && value.guestPlayers.length === 0
     )
+  }
+
+  const hasValidPeople =
+    Array.isArray(value.guestPlayerNames) &&
+    value.guestPlayerNames.every((name) => typeof name === 'string' && name.length >= 2) &&
+    Array.isArray(value.playingPartners) &&
+    value.playingPartners.every((partner) =>
+      isRecord(partner) && typeof partner.id === 'string' && typeof partner.name === 'string' &&
+      (partner.result === null || partner.result === 'WON' || partner.result === 'LOST' || partner.result === 'TIED')) &&
+    Array.isArray(value.guestPlayers) && value.guestPlayers.every((guest) =>
+      isRecord(guest) && typeof guest.name === 'string' &&
+      (guest.result === null || guest.result === 'WON' || guest.result === 'LOST' || guest.result === 'TIED'))
+  if (!hasValidPeople) return false
+
+  if (value.category === 'SOCIAL_GAME') {
+    return value.participation === 'INDIVIDUAL' &&
+      value.competitionName === null && value.competitionFormat === null &&
+      typeof value.gameFormat === 'string' && value.gameFormat.length >= 2 &&
+      (value.gameResult === null || value.gameResult === 'WON' ||
+        value.gameResult === 'LOST' || value.gameResult === 'TIED') &&
+      Number.isInteger(value.numberOfPlayers) && Number(value.numberOfPlayers) > 0
   }
 
   return (
@@ -116,6 +153,8 @@ function hasValidClassification(value: Record<string, unknown>): boolean {
     typeof value.competitionFormat === 'string' &&
     value.competitionFormat.length >= 2 &&
     value.competitionFormat.length <= 100 &&
+    value.gameFormat === null &&
+    value.gameResult === null &&
     Number.isInteger(value.numberOfPlayers) &&
     Number(value.numberOfPlayers) > 0 &&
     Number(value.numberOfPlayers) <= 10000

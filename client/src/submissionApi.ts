@@ -29,7 +29,7 @@ export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number]
 export type SubmissionRound = {
   id: string
   datePlayed: string
-  category: 'CASUAL' | 'COMPETITION'
+  category: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
   participation: 'INDIVIDUAL' | 'TEAM'
   grossScore: number | null
   tee: {
@@ -172,7 +172,7 @@ export function isSubmissionRound(value: unknown): value is SubmissionRound {
     typeof value.id === 'string' &&
     typeof value.datePlayed === 'string' &&
     !Number.isNaN(Date.parse(value.datePlayed)) &&
-    (value.category === 'CASUAL' || value.category === 'COMPETITION') &&
+    (value.category === 'CASUAL' || value.category === 'COMPETITION' || value.category === 'SOCIAL_GAME') &&
     (value.participation === 'INDIVIDUAL' || value.participation === 'TEAM') &&
     (value.grossScore === null || Number.isInteger(value.grossScore)) &&
     isRecord(value.tee) &&

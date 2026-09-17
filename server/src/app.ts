@@ -84,6 +84,7 @@ import {
 import {
   logRound,
   parseLogRoundInput,
+  RoundPlayingPartnersError,
   RoundReferenceNotFoundError,
 } from './rounds.js'
 import {
@@ -224,6 +225,9 @@ const ADMIN_ROUND_SELECT = {
   stablefordPoints: true,
   competitionName: true,
   competitionFormat: true,
+  gameFormat: true,
+  gameResult: true,
+  guestPlayerNames: true,
   numberOfPlayers: true,
   grossScore: true,
   adjustedGrossScore: true,
@@ -248,6 +252,10 @@ const ADMIN_ROUND_SELECT = {
       pickedUp: true,
     },
   },
+  playingPartners: {
+    select: { result: true, user: { select: { id: true, name: true } } },
+  },
+  guestPlayers: { select: { name: true, result: true } },
   tee: {
     select: {
       id: true,
@@ -583,6 +591,7 @@ function serializeAdminRound<
     scorecardPhotoMimeType: string | null
     scorecardPhotoSize: number | null
     scorecardPhotoUploadedAt: Date | null
+    playingPartners: Array<{ result: unknown | null; user: { id: string; name: string } }>
   },
 >(round: T) {
   const {
@@ -590,10 +599,12 @@ function serializeAdminRound<
     scorecardPhotoMimeType,
     scorecardPhotoSize,
     scorecardPhotoUploadedAt,
+    playingPartners = [],
     ...details
   } = round
   return {
     ...details,
+    playingPartners: playingPartners.map(({ user, result }) => ({ ...user, result })),
     datePlayed: round.datePlayed.toISOString(),
     pccAdjustment: Number(round.pccAdjustment),
     scoreDifferential:
@@ -2614,6 +2625,9 @@ app.get('/api/users/me/rounds', async (_request, response) => {
           stablefordPoints: true,
           competitionName: true,
           competitionFormat: true,
+          gameFormat: true,
+          gameResult: true,
+          guestPlayerNames: true,
           numberOfPlayers: true,
           notes: true,
           scorecardPhotoName: true,
@@ -2640,6 +2654,19 @@ app.get('/api/users/me/rounds', async (_request, response) => {
               pickedUp: true,
             },
           },
+          playingPartners: {
+            select: {
+              result: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  homeClub: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+          guestPlayers: { select: { name: true, result: true } },
           tee: {
             select: {
               id: true,
@@ -2682,10 +2709,12 @@ app.get('/api/users/me/rounds', async (_request, response) => {
         scorecardPhotoMimeType,
         scorecardPhotoSize,
         scorecardPhotoUploadedAt,
+        playingPartners,
         ...details
       } = round
       return {
         ...details,
+        playingPartners: (playingPartners ?? []).map(({ user: partner, result }) => ({ ...partner, result })),
         pccAdjustment: Number(round.pccAdjustment),
         scoreDifferential:
           round.scoreDifferential === null
@@ -3086,7 +3115,7 @@ app.get('/api/users/me/performance-analysis', async (request, response) => {
     (from && to && from > to) ||
     (courseId && !UUID_PATTERN.test(courseId)) ||
     (teeId && !UUID_PATTERN.test(teeId)) ||
-    (category && category !== 'CASUAL' && category !== 'COMPETITION')
+    (category && category !== 'CASUAL' && category !== 'COMPETITION' && category !== 'SOCIAL_GAME')
   ) {
     response.status(400).json({ error: 'Invalid performance analysis filters' })
     return
@@ -3097,7 +3126,7 @@ app.get('/api/users/me/performance-analysis', async (request, response) => {
     ...(to ? { to } : {}),
     ...(courseId ? { courseId } : {}),
     ...(teeId ? { teeId } : {}),
-    ...(category === 'CASUAL' || category === 'COMPETITION' ? { category } : {}),
+    ...(category === 'CASUAL' || category === 'COMPETITION' || category === 'SOCIAL_GAME' ? { category } : {}),
   }
   const user = await prisma.user.findUnique({
     where: { authUserId: authenticatedUser.id },
@@ -3597,6 +3626,150 @@ app.get('/api/users/me/friends', async (_request, response) => {
   response.status(200).json(result)
 })
 
+app.get('/api/users/me/round-tags', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const tags = await prisma.roundPlayingPartner.findMany({
+    where: { userId: user.id, tagRemovedAt: null },
+    orderBy: [{ round: { datePlayed: 'desc' } }, { createdAt: 'desc' }],
+    select: {
+      roundId: true,
+      createdAt: true,
+      result: true,
+      round: {
+        select: {
+          datePlayed: true,
+          category: true,
+          competitionFormat: true,
+          gameFormat: true,
+          gameResult: true,
+          user: { select: { id: true, name: true } },
+          tee: {
+            select: {
+              teeName: true,
+              course: {
+                select: {
+                  name: true,
+                  club: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  response.status(200).json({
+    tags: tags.map(({ round, ...tag }) => ({
+      ...tag,
+      datePlayed: round.datePlayed,
+      category: round.category,
+      competitionFormat: round.competitionFormat,
+      gameFormat: round.gameFormat,
+      gameResult: round.gameResult,
+      player: round.user,
+      tee: round.tee,
+    })),
+  })
+})
+
+app.delete('/api/users/me/round-tags/:roundId', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const roundId = request.params.roundId
+  if (!UUID_PATTERN.test(roundId)) {
+    response.status(400).json({ error: 'Invalid round reference' })
+    return
+  }
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+  const removed = await prisma.roundPlayingPartner.updateMany({
+    where: { roundId, userId: user.id, tagRemovedAt: null },
+    data: { tagRemovedAt: new Date() },
+  })
+  if (removed.count === 0) {
+    response.status(404).json({ error: 'Round tag not found' })
+    return
+  }
+  response.status(204).send()
+})
+
+app.get('/api/users/me/opponent-records', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const [friendResults, guestResults] = await Promise.all([
+    prisma.roundPlayingPartner.findMany({
+      where: {
+        result: { not: null },
+        OR: [{ round: { userId: user.id } }, { userId: user.id }],
+      },
+      select: {
+        userId: true,
+        result: true,
+        user: { select: { id: true, name: true, homeClub: { select: { id: true, name: true } } } },
+        round: { select: { user: { select: { id: true, name: true, homeClub: { select: { id: true, name: true } } } } } },
+      },
+    }),
+    prisma.roundGuestPlayer.findMany({
+      where: { round: { userId: user.id }, result: { not: null } },
+      select: { name: true, normalizedName: true, result: true },
+    }),
+  ])
+
+  type RecordTotals = { wins: number; losses: number; ties: number }
+  const addResult = (totals: RecordTotals, result: 'WON' | 'LOST' | 'TIED' | null, invert = false) => {
+    if (!result) return
+    if (result === 'TIED') totals.ties += 1
+    else if ((result === 'WON') !== invert) totals.wins += 1
+    else if (result === 'LOST' || result === 'WON') totals.losses += 1
+  }
+  const friendRecords = new Map<string, { player: typeof friendResults[number]['user']; totals: RecordTotals }>()
+  for (const item of friendResults) {
+    const isOwner = item.round.user.id === user.id
+    const player = isOwner ? item.user : item.round.user
+    const record = friendRecords.get(player.id) ?? { player, totals: { wins: 0, losses: 0, ties: 0 } }
+    addResult(record.totals, item.result, !isOwner)
+    friendRecords.set(player.id, record)
+  }
+  const guestRecords = new Map<string, { name: string; totals: RecordTotals }>()
+  for (const item of guestResults) {
+    const record = guestRecords.get(item.normalizedName) ?? { name: item.name, totals: { wins: 0, losses: 0, ties: 0 } }
+    addResult(record.totals, item.result)
+    guestRecords.set(item.normalizedName, record)
+  }
+
+  response.status(200).json({
+    friends: [...friendRecords.values()].map(({ player, totals }) => ({
+      ...player, ...totals, played: totals.wins + totals.losses + totals.ties,
+    })).sort((left, right) => right.played - left.played || left.name.localeCompare(right.name)),
+    guests: [...guestRecords.values()].map(({ name, totals }) => ({
+      name, ...totals, played: totals.wins + totals.losses + totals.ties,
+    })).sort((left, right) => right.played - left.played || left.name.localeCompare(right.name)),
+  })
+})
+
 app.get('/api/users/me/friends/activity', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const page = parsePaginationValue(request.query.page, 1)
@@ -3670,6 +3843,9 @@ app.get('/api/users/me/friends/activity', async (request, response) => {
         category: true,
         participation: true,
         scoringFormat: true,
+        competitionFormat: true,
+        gameFormat: true,
+        gameResult: true,
         holeCount: true,
         nineHoleSegment: true,
         grossScore: true,
@@ -4067,6 +4243,19 @@ app.get('/api/users/me/settings/export', async (_request, response) => {
         orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
         include: {
           holeScores: { orderBy: { holeNumber: 'asc' } },
+          playingPartners: {
+            select: {
+              result: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  homeClub: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+          guestPlayers: { select: { name: true, result: true } },
           tee: {
             select: {
               id: true,
@@ -5242,6 +5431,11 @@ app.post('/api/rounds', async (request, response) => {
         error.reference === 'user' ? 'User' : 'Tee'
 
       response.status(404).json({ error: `${referenceName} not found` })
+      return
+    }
+
+    if (error instanceof RoundPlayingPartnersError) {
+      response.status(400).json({ error: error.message })
       return
     }
 

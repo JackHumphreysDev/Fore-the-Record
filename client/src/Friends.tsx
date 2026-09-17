@@ -15,6 +15,8 @@ import {
   type FriendActivityResponse,
 } from './friendActivityApi.ts'
 import './Friends.css'
+import { buildRoundTagPath, isRoundTagsResponse, type RoundTag } from './roundTagsApi.ts'
+import { isOpponentRecordsResponse, type OpponentRecordsResponse } from './opponentRecordsApi.ts'
 
 type FriendsProps = { profileId: string }
 
@@ -91,6 +93,10 @@ function Friends({ profileId }: FriendsProps) {
   const [activityPage, setActivityPage] = useState(1)
   const [activityError, setActivityError] = useState('')
   const [isLoadingActivity, setIsLoadingActivity] = useState(true)
+  const [roundTags, setRoundTags] = useState<RoundTag[]>([])
+  const [tagError, setTagError] = useState('')
+  const [tagBusyId, setTagBusyId] = useState('')
+  const [opponentRecords, setOpponentRecords] = useState<OpponentRecordsResponse | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -127,6 +133,23 @@ function Friends({ profileId }: FriendsProps) {
 
   useEffect(() => {
     const controller = new AbortController()
+    async function loadOpponentRecords() {
+      try {
+        const response = await authenticatedFetch('/api/users/me/opponent-records', { signal: controller.signal })
+        if (!response.ok) throw new Error(await readError(response, 'We could not load your opponent records.'))
+        const body: unknown = await response.json()
+        if (!isOpponentRecordsResponse(body)) throw new Error('The opponent records returned were incomplete.')
+        if (!controller.signal.aborted) setOpponentRecords(body)
+      } catch (loadError: unknown) {
+        if (!controller.signal.aborted) setTagError(loadError instanceof Error ? loadError.message : 'We could not load your opponent records.')
+      }
+    }
+    void loadOpponentRecords()
+    return () => controller.abort()
+  }, [profileId, refresh])
+
+  useEffect(() => {
+    const controller = new AbortController()
     async function loadActivity() {
       setIsLoadingActivity(true)
       setActivityError('')
@@ -158,6 +181,37 @@ function Friends({ profileId }: FriendsProps) {
     void loadActivity()
     return () => controller.abort()
   }, [profileId, refresh, activityPage])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    async function loadTags() {
+      try {
+        const response = await authenticatedFetch('/api/users/me/round-tags', { signal: controller.signal })
+        if (!response.ok) throw new Error(await readError(response, 'We could not load rounds you were tagged in.'))
+        const body: unknown = await response.json()
+        if (!isRoundTagsResponse(body)) throw new Error('The round tags returned were incomplete.')
+        if (!controller.signal.aborted) setRoundTags(body.tags)
+      } catch (loadError: unknown) {
+        if (!controller.signal.aborted) setTagError(loadError instanceof Error ? loadError.message : 'We could not load rounds you were tagged in.')
+      }
+    }
+    void loadTags()
+    return () => controller.abort()
+  }, [profileId, refresh])
+
+  async function removeRoundTag(roundId: string) {
+    setTagBusyId(roundId)
+    setTagError('')
+    try {
+      const response = await authenticatedFetch(buildRoundTagPath(roundId), { method: 'DELETE' })
+      if (!response.ok) throw new Error(await readError(response, 'We could not remove that tag.'))
+      setRoundTags((current) => current.filter((tag) => tag.roundId !== roundId))
+    } catch (removeError: unknown) {
+      setTagError(removeError instanceof Error ? removeError.message : 'We could not remove that tag.')
+    } finally {
+      setTagBusyId('')
+    }
+  }
 
   async function runSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -299,7 +353,8 @@ function Friends({ profileId }: FriendsProps) {
                     <span className="friend-activity-chevron" aria-hidden="true">⌄</span>
                   </summary>
                   <dl>
-                    <div><dt>Round</dt><dd>{item.category === 'COMPETITION' ? 'Competition' : 'Casual'} · {item.participation === 'TEAM' ? 'Team' : 'Individual'}</dd></div>
+                    <div><dt>Round</dt><dd>{item.category === 'COMPETITION' ? 'Competition' : item.category === 'SOCIAL_GAME' ? 'Game with friends' : 'Casual'} · {item.participation === 'TEAM' ? 'Team' : 'Individual'}</dd></div>
+                    {item.gameFormat || item.competitionFormat ? <div><dt>Format</dt><dd>{item.gameFormat ?? item.competitionFormat}{item.gameResult ? ` · ${item.gameResult === 'WON' ? 'Won' : item.gameResult === 'LOST' ? 'Lost' : 'Tied'}` : ''}</dd></div> : null}
                     <div><dt>Length</dt><dd>{roundLengthLabel(item.holeCount, item.nineHoleSegment)}</dd></div>
                     <div><dt>Scoring</dt><dd>{item.participation === 'TEAM' ? 'Record only' : item.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'}</dd></div>
                     <div><dt>Tee</dt><dd>{item.tee.teeName}</dd></div>
@@ -324,6 +379,28 @@ function Friends({ profileId }: FriendsProps) {
           <p className="friends-empty">No shared rounds yet. Activity appears here after an accepted friend records a verified round and chooses to share it.</p>
         )}
       </section>
+
+      <section className="friend-section round-tags" aria-labelledby="round-tags-title">
+        <h2 id="round-tags-title">Rounds you were tagged in</h2>
+        <p className="round-tags-intro">A tag records who played together. It does not copy the round to your history or affect your handicap.</p>
+        {tagError ? <p className="friends-alert is-error" role="alert">{tagError}</p> : null}
+        {roundTags.length === 0 ? <p className="friends-empty">You have not been tagged in a round.</p> : (
+          <div className="friend-list">
+            {roundTags.map((tag) => <article className="friend-card round-tag-card" key={tag.roundId}>
+              <div><strong>{tag.gameFormat ?? tag.competitionFormat ?? 'Round'}{tag.result ? ` · ${tag.result === 'WON' ? 'Won' : tag.result === 'LOST' ? 'Lost' : 'Tied'}` : ''}</strong><small>{tag.player.name} · {tag.tee.course.club.name} · {tag.tee.course.name} · {formatActivityDate(tag.datePlayed)}</small></div>
+              <button className="is-secondary" type="button" disabled={tagBusyId === tag.roundId} onClick={() => void removeRoundTag(tag.roundId)}>{tagBusyId === tag.roundId ? 'Removing…' : 'Remove tag'}</button>
+            </article>)}
+          </div>
+        )}
+      </section>
+
+      {opponentRecords && (opponentRecords.friends.length > 0 || opponentRecords.guests.length > 0) ? <section className="friend-section opponent-records" aria-labelledby="opponent-records-title">
+        <h2 id="opponent-records-title">Head-to-head records</h2>
+        <p className="round-tags-intro">Only rounds with an individual opponent result are included.</p>
+        <div className="opponent-record-grid">
+          {[...opponentRecords.friends.map((record) => ({ ...record, detail: record.homeClub?.name ?? 'Home club not set' })), ...opponentRecords.guests.map((record) => ({ ...record, id: `guest:${record.name}`, detail: 'Guest player' }))].map((record) => <article key={record.id}><div><strong>{record.name}</strong><small>{record.detail}</small></div><dl><div><dt>Played</dt><dd>{record.played}</dd></div><div><dt>Won</dt><dd>{record.wins}</dd></div><div><dt>Lost</dt><dd>{record.losses}</dd></div><div><dt>Tied</dt><dd>{record.ties}</dd></div></dl></article>)}
+        </div>
+      </section> : null}
 
       <form className="friend-search" onSubmit={runSearch} noValidate>
         <label>

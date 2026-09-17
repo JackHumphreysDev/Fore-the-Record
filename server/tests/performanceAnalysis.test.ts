@@ -72,6 +72,7 @@ describe('buildPerformanceAnalysis', () => {
     expect(result.byCategory.map(({ category, rounds }) => ({ category, rounds }))).toEqual([
       { category: 'CASUAL', rounds: 1 },
       { category: 'COMPETITION', rounds: 1 },
+      { category: 'SOCIAL_GAME', rounds: 0 },
     ])
   })
 

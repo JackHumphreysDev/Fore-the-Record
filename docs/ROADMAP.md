@@ -30,7 +30,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 24. Friends activity feed. Completed in `0.28.0`.
 25. Scorecard photo. Completed in `0.29.0`.
 26. Deeper performance analysis by course, tee, par type, front/back nine, competition type, and date range. Completed in `0.30.0`.
-27. More competition formats.
+27. More competition formats and social games with optional playing-partner links. Completed in `0.31.0`.
 28. Challenges and leaderboards.
 29. Shared rounds.
 30. Admin reporting and exports.
@@ -38,6 +38,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 32. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Competition and social game formats — completed in 0.31.0
+
+Round Entry distinguishes casual golf, organized competition, and games with friends. Competition formats are selected from individual and team choices, while social rounds cover Wolf, Sixes, Skins, Nassau, Match Play, Bingo Bango Bongo, and a described Other option. A social game can retain a normal individual scorecard and remain eligible for the existing handicap rules; a team competition remains record-only.
+
+Players may optionally link accepted active friends and add guest names. A linked friend receives only a limited tag containing the owner, date, course, tee, and game or competition result, can remove their own tag, and never receives a copied round or Handicap Index effect. Notes, scorecard photos, and hole-by-hole scores remain private.
 
 ## Deeper performance analysis — completed in 0.30.0
 

@@ -123,6 +123,7 @@ describe('POST /api/rounds', () => {
       usedInHandicapCalc: false,
       createdAt,
       holeScores,
+      playingPartners: [],
     }
     roundCreateMock.mockResolvedValueOnce(createdRound)
     roundFindManyMock.mockResolvedValueOnce([
@@ -172,6 +173,9 @@ describe('POST /api/rounds', () => {
         stablefordPoints: null,
         competitionName: null,
         competitionFormat: null,
+        gameFormat: null,
+        gameResult: null,
+        guestPlayerNames: [],
         numberOfPlayers: null,
         notes: null,
         grossScore: 90,
@@ -185,11 +189,15 @@ describe('POST /api/rounds', () => {
         holeScores: {
           create: holeScores.map((hole) => ({ ...hole, pickedUp: false })),
         },
+        playingPartners: { create: [] },
+        guestPlayers: { create: [] },
       },
       include: {
         holeScores: {
           orderBy: { holeNumber: 'asc' },
         },
+        playingPartners: { select: { result: true, user: { select: { id: true, name: true } } } },
+        guestPlayers: { select: { name: true, result: true } },
       },
     })
     expect(roundUpdateManyMock).toHaveBeenNthCalledWith(1, {
@@ -331,6 +339,7 @@ describe('POST /api/rounds', () => {
       usedInHandicapCalc: false,
       createdAt,
       holeScores: [],
+      playingPartners: [],
     }
     roundCreateMock.mockResolvedValueOnce(createdRound)
     roundFindManyMock.mockResolvedValueOnce([
@@ -373,6 +382,9 @@ describe('POST /api/rounds', () => {
         stablefordPoints: null,
         competitionName: 'Invitation Day',
         competitionFormat: 'Texas Scramble',
+        gameFormat: null,
+        gameResult: null,
+        guestPlayerNames: [],
         numberOfPlayers: 64,
         notes: null,
         grossScore: null,
@@ -384,9 +396,13 @@ describe('POST /api/rounds', () => {
         isAcceptable: false,
         usedInHandicapCalc: false,
         scorecardStatus: 'NOT_REQUIRED',
+        playingPartners: { create: [] },
+        guestPlayers: { create: [] },
       },
       include: {
         holeScores: { orderBy: { holeNumber: 'asc' } },
+        playingPartners: { select: { result: true, user: { select: { id: true, name: true } } } },
+        guestPlayers: { select: { name: true, result: true } },
       },
     })
     expect(roundUpdateManyMock).not.toHaveBeenCalled()

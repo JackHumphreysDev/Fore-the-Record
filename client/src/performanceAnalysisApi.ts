@@ -12,7 +12,7 @@ export type PerformanceAnalysisData = {
     to: string | null
     courseId: string | null
     teeId: string | null
-    category: 'CASUAL' | 'COMPETITION' | null
+    category: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME' | null
   }
   options: {
     courses: Array<{ id: string; name: string; clubName: string }>
@@ -49,7 +49,7 @@ export type PerformanceAnalysisData = {
     averageToPar: number | null
   }>
   byCategory: Array<AnalysisAverage & {
-    category: 'CASUAL' | 'COMPETITION'
+    category: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
   }>
 }
 
@@ -58,7 +58,7 @@ export type PerformanceAnalysisFilters = {
   to?: string
   courseId?: string
   teeId?: string
-  category?: 'CASUAL' | 'COMPETITION'
+  category?: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -102,7 +102,7 @@ export function isPerformanceAnalysisData(
   const nullableString = (item: unknown) => item === null || typeof item === 'string'
   if (!nullableString(filters.from) || !nullableString(filters.to) ||
     !nullableString(filters.courseId) || !nullableString(filters.teeId) ||
-    !(filters.category === null || filters.category === 'CASUAL' || filters.category === 'COMPETITION')) {
+    !(filters.category === null || filters.category === 'CASUAL' || filters.category === 'COMPETITION' || filters.category === 'SOCIAL_GAME')) {
     return false
   }
 
@@ -134,7 +134,8 @@ export function isPerformanceAnalysisData(
     Array.isArray(value.byCategory) && value.byCategory.every((item) =>
       isRecord(item) && isAverage(item) &&
         ((item as Record<string, unknown>).category === 'CASUAL' ||
-          (item as Record<string, unknown>).category === 'COMPETITION'))
+          (item as Record<string, unknown>).category === 'COMPETITION' ||
+          (item as Record<string, unknown>).category === 'SOCIAL_GAME'))
 }
 
 export function buildPerformanceAnalysisPath(

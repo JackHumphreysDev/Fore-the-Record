@@ -14,6 +14,23 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.31.0 - 2026-09-17
+
+### User-facing changes
+
+- Added structured competition formats for individual and team events, including medal, Stableford, match play, fourball, foursomes, greensomes, and scramble formats.
+- Added **Game with friends** rounds for Wolf, Sixes, Skins, Nassau, Match Play, Bingo Bango Bongo, and custom games.
+- Added optional game results and the ability to link accepted friends or record guest player names.
+- Added game details and playing partners to Round History and safe format details to friend activity.
+- Added a Friends section where tagged players can see a limited round summary and remove their own tag without copying the score or affecting their handicap.
+
+### Developer and admin changes
+
+- Added persistent social-game classifications, results, guest names, and a many-to-many round-participant relation.
+- Enforced accepted active friendships before a profile can be linked to a round.
+- Kept individual scorecards eligible for the existing handicap workflow while team competitions remain record-only.
+- Extended administrator round correction, performance analysis, account exports, API validation, and regression coverage for the new classifications.
+
 ## 0.30.0 - 2026-09-17
 
 ### User-facing changes

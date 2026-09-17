@@ -12,11 +12,13 @@ import {
   isCoursePreferencesResponse,
   type CoursePreference,
 } from './coursePreferencesApi.ts'
+import { isFriendsResponse, type FriendshipItem } from './friendsApi.ts'
 import {
   isRoundResult,
   type RoundCategory,
   type RoundParticipation,
   type RoundResult,
+  type RoundGameResult,
   type RoundScoringFormat,
   type WeatherCondition,
 } from './roundRecordValidation.ts'
@@ -54,6 +56,14 @@ type RoundForm = {
   nineHoleSegment: 'FRONT_NINE' | 'BACK_NINE'
   competitionName: string
   competitionFormat: string
+  competitionFormatOther: string
+  gameFormat: string
+  gameFormatOther: string
+  gameResult: '' | 'WON' | 'LOST' | 'TIED'
+  playingPartnerIds: string[]
+  playingPartnerResults: Record<string, RoundGameResult | ''>
+  guestPlayerNames: string
+  guestPlayerResults: Record<string, RoundGameResult | ''>
   numberOfPlayers: string
   grossScore: string
   weatherCondition: WeatherCondition
@@ -67,6 +77,8 @@ type RoundFormErrors = Partial<
     | 'timePlayed'
     | 'competitionName'
     | 'competitionFormat'
+    | 'gameFormat'
+    | 'playingPartners'
     | 'numberOfPlayers'
     | 'grossScore'
     | 'playingHandicap'
@@ -105,6 +117,27 @@ type ScorecardResponse =
 type RoundConfirmation = RoundResult & {
   teeLabel: string
 }
+
+const INDIVIDUAL_COMPETITION_FORMATS = [
+  'Medal / Stroke Play',
+  'Stableford',
+  'Match Play',
+  'Bogey / Par',
+] as const
+const TEAM_COMPETITION_FORMATS = [
+  'Fourball Better Ball',
+  'Foursomes',
+  'Greensomes',
+  'Scramble / Texas Scramble',
+] as const
+const SOCIAL_GAME_FORMATS = [
+  'Wolf',
+  'Sixes / Sixers',
+  'Skins',
+  'Nassau',
+  'Match Play',
+  'Bingo Bango Bongo',
+] as const
 
 type RoundEntryProps = {
   profile: RoundEntryProfile | null
@@ -292,6 +325,14 @@ function RoundEntry({
     nineHoleSegment: 'FRONT_NINE',
     competitionName: '',
     competitionFormat: '',
+    competitionFormatOther: '',
+    gameFormat: '',
+    gameFormatOther: '',
+    gameResult: '',
+    playingPartnerIds: [],
+    playingPartnerResults: {},
+    guestPlayerNames: '',
+    guestPlayerResults: {},
     numberOfPlayers: '',
     grossScore: '',
     weatherCondition: 'DRY',
@@ -314,10 +355,14 @@ function RoundEntry({
   const [favourites, setFavourites] = useState<CoursePreference[]>([])
   const [favouritesError, setFavouritesError] = useState('')
   const [isLoadingFavourites, setIsLoadingFavourites] = useState(true)
+  const [friends, setFriends] = useState<FriendshipItem[]>([])
+  const [friendsError, setFriendsError] = useState('')
 
   const teeOptions = getTeeOptions(catalogueResponse, favourites)
   const selectedTee = teeOptions.find((option) => option.id === form.teeId)
   const isCompetition = form.category === 'COMPETITION'
+  const isSocialGame = form.category === 'SOCIAL_GAME'
+  const isOrganisedRound = isCompetition || isSocialGame
   const isTeamRound =
     isCompetition && form.participation === 'TEAM'
   const isStableford = !isTeamRound && form.scoringFormat === 'STABLEFORD'
@@ -422,6 +467,29 @@ function RoundEntry({
     }
 
     void loadFavourites()
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    async function loadFriends() {
+      try {
+        const response = await authenticatedFetch('/api/users/me/friends', {
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error(await readApiError(response, 'We could not load your friends.'))
+        const body: unknown = await response.json()
+        if (!isFriendsResponse(body)) throw new Error('Your friend details were incomplete.')
+        if (!controller.signal.aborted) {
+          setFriends(body.friends)
+          setFriendsError('')
+        }
+      } catch (error: unknown) {
+        if (controller.signal.aborted) return
+        setFriendsError(error instanceof Error ? error.message : 'We could not load your friends.')
+      }
+    }
+    void loadFriends()
     return () => controller.abort()
   }, [])
 
@@ -599,18 +667,30 @@ function RoundEntry({
       ...current,
       category,
       participation:
-        category === 'CASUAL' ? 'INDIVIDUAL' : current.participation,
+        category === 'COMPETITION' ? current.participation : 'INDIVIDUAL',
       competitionName:
-        category === 'CASUAL' ? '' : current.competitionName,
+        category === 'COMPETITION' ? current.competitionName : '',
       competitionFormat:
-        category === 'CASUAL' ? '' : current.competitionFormat,
+        category === 'COMPETITION'
+          ? current.competitionFormat || 'Medal / Stroke Play'
+          : '',
+      competitionFormatOther: category === 'COMPETITION' ? current.competitionFormatOther : '',
+      gameFormat: category === 'SOCIAL_GAME' ? current.gameFormat || 'Wolf' : '',
+      gameFormatOther: category === 'SOCIAL_GAME' ? current.gameFormatOther : '',
+      gameResult: category === 'SOCIAL_GAME' ? current.gameResult : '',
       numberOfPlayers:
-        category === 'CASUAL' ? '' : current.numberOfPlayers,
+        category === 'CASUAL' ? '' : current.numberOfPlayers || '1',
+      playingPartnerIds: category === 'CASUAL' ? [] : current.playingPartnerIds,
+      playingPartnerResults: category === 'CASUAL' ? {} : current.playingPartnerResults,
+      guestPlayerNames: category === 'CASUAL' ? '' : current.guestPlayerNames,
+      guestPlayerResults: category === 'CASUAL' ? {} : current.guestPlayerResults,
     }))
     setErrors((current) => ({
       ...current,
       competitionName: undefined,
       competitionFormat: undefined,
+      gameFormat: undefined,
+      playingPartners: undefined,
       numberOfPlayers: undefined,
       grossScore: undefined,
       scorecard: undefined,
@@ -626,6 +706,10 @@ function RoundEntry({
         participation === 'TEAM' ? 'STROKE_PLAY' : current.scoringFormat,
       playingHandicap: participation === 'TEAM' ? '' : current.playingHandicap,
       holeCount: participation === 'TEAM' ? 18 : current.holeCount,
+      competitionFormat: participation === 'TEAM'
+        ? 'Fourball Better Ball'
+        : 'Medal / Stroke Play',
+      competitionFormatOther: '',
     }))
     setErrors((current) => ({
       ...current,
@@ -657,6 +741,23 @@ function RoundEntry({
       scorecard: undefined,
     }))
     setSubmitError('')
+  }
+
+  function togglePlayingPartner(playerId: string) {
+    setForm((current) => {
+      const removing = current.playingPartnerIds.includes(playerId)
+      const playingPartnerResults = { ...current.playingPartnerResults }
+      if (removing) delete playingPartnerResults[playerId]
+      else playingPartnerResults[playerId] = ''
+      return {
+        ...current,
+        playingPartnerIds: removing
+          ? current.playingPartnerIds.filter((id) => id !== playerId)
+          : [...current.playingPartnerIds, playerId],
+        playingPartnerResults,
+      }
+    })
+    setErrors((current) => ({ ...current, playingPartners: undefined }))
   }
 
   function updateNineHoleSegment(
@@ -762,6 +863,16 @@ function RoundEntry({
     }
 
     const numberOfPlayers = Number(form.numberOfPlayers)
+    const guestPlayerNames = form.guestPlayerNames
+      .split(/[,\n]/)
+      .map((name) => name.trim())
+      .filter(Boolean)
+    const competitionFormat = form.competitionFormat === 'OTHER'
+      ? `Other — ${form.competitionFormatOther.trim()}`
+      : form.competitionFormat
+    const gameFormat = form.gameFormat === 'OTHER'
+      ? `Other — ${form.gameFormatOther.trim()}`
+      : form.gameFormat
 
     if (isCompetition) {
       if (
@@ -773,8 +884,9 @@ function RoundEntry({
       }
 
       if (
-        form.competitionFormat.trim().length < 2 ||
-        form.competitionFormat.trim().length > 100
+        competitionFormat.trim().length < 2 ||
+        competitionFormat.trim().length > 100 ||
+        (form.competitionFormat === 'OTHER' && form.competitionFormatOther.trim().length < 2)
       ) {
         nextErrors.competitionFormat =
           'Enter the competition format (2–100 characters)'
@@ -788,6 +900,30 @@ function RoundEntry({
       ) {
         nextErrors.numberOfPlayers =
           'Enter the number of players as a positive whole number'
+      }
+    }
+
+    if (isSocialGame) {
+      if (
+        gameFormat.trim().length < 2 || gameFormat.trim().length > 100 ||
+        (form.gameFormat === 'OTHER' && form.gameFormatOther.trim().length < 2)
+      ) {
+        nextErrors.gameFormat = 'Choose a game or describe the other format'
+      }
+      if (
+        form.numberOfPlayers.trim() === '' || !Number.isInteger(numberOfPlayers) ||
+        numberOfPlayers <= 0 || numberOfPlayers > 100
+      ) {
+        nextErrors.numberOfPlayers = 'Enter the number of players (1–100)'
+      }
+    }
+
+    if (isOrganisedRound) {
+      if (guestPlayerNames.length > 20 || guestPlayerNames.some((name) => name.length < 2 || name.length > 80)) {
+        nextErrors.playingPartners = 'Add no more than 20 guest names of 2–80 characters each'
+      }
+      if (form.playingPartnerIds.length + guestPlayerNames.length > Math.max(numberOfPlayers - 1, 0)) {
+        nextErrors.playingPartners = 'The named playing partners exceed the number of other players in this round'
       }
     }
 
@@ -878,8 +1014,23 @@ function RoundEntry({
           ...(isCompetition
             ? {
                 competitionName: form.competitionName.trim(),
-                competitionFormat: form.competitionFormat.trim(),
+                competitionFormat,
                 numberOfPlayers,
+              }
+            : {}),
+          ...(isSocialGame
+            ? {
+                gameFormat,
+                ...(form.gameResult ? { gameResult: form.gameResult } : {}),
+                numberOfPlayers,
+              }
+            : {}),
+          ...(isOrganisedRound
+            ? {
+                playingPartnerIds: form.playingPartnerIds,
+                guestPlayerNames,
+                playingPartnerResults: Object.fromEntries(form.playingPartnerIds.map((id) => [id, form.playingPartnerResults[id] || null])),
+                guestPlayerResults: Object.fromEntries(guestPlayerNames.map((name) => [name, form.guestPlayerResults[name] || null])),
               }
             : {}),
           ...(!isTeamRound
@@ -993,6 +1144,11 @@ function RoundEntry({
               {confirmation.round.competitionName}
             </p>
           ) : null}
+          {confirmation.round.gameFormat ? (
+            <p className="round-confirmation-competition">
+              {confirmation.round.gameFormat}{confirmation.round.gameResult ? ` · ${confirmation.round.gameResult === 'WON' ? 'Won' : confirmation.round.gameResult === 'LOST' ? 'Lost' : 'Tied'}` : ''}
+            </p>
+          ) : null}
 
           <div className="round-confirmation-grid">
             <div>
@@ -1017,6 +1173,13 @@ function RoundEntry({
                   <small>Entry</small>
                   <strong>Team record</strong>
                 </div>
+              </>
+            ) : confirmation.round.category === 'SOCIAL_GAME' ? (
+              <>
+                <div><small>Game</small><strong>{confirmation.round.gameFormat}</strong></div>
+                <div><small>Players</small><strong>{confirmation.round.numberOfPlayers}</strong></div>
+                <div><small>Result</small><strong>{confirmation.round.gameResult ? confirmation.round.gameResult.toLocaleLowerCase('en-GB') : 'Not recorded'}</strong></div>
+                <div><small>Gross score</small><strong>{confirmation.round.grossScore ?? '—'}</strong></div>
               </>
             ) : (
               <>
@@ -1097,6 +1260,14 @@ function RoundEntry({
                   nineHoleSegment: 'FRONT_NINE',
                   competitionName: '',
                   competitionFormat: '',
+                  competitionFormatOther: '',
+                  gameFormat: '',
+                  gameFormatOther: '',
+                  gameResult: '',
+                  playingPartnerIds: [],
+                  playingPartnerResults: {},
+                  guestPlayerNames: '',
+                  guestPlayerResults: {},
                   numberOfPlayers: '',
                   grossScore: '',
                   notes: '',
@@ -1132,7 +1303,7 @@ function RoundEntry({
           </h1>
         </div>
         <p>
-          Record a casual score, an individual competition, or a team event.
+          Record a casual score, a competition, or a game with friends.
           Only complete individual cards can affect your Handicap Index.
         </p>
         <div className="rounds-hero-engraving" aria-hidden="true">
@@ -1324,6 +1495,25 @@ function RoundEntry({
                     <small>Individual or team competition</small>
                   </span>
                 </label>
+                <label
+                  className={
+                    form.category === 'SOCIAL_GAME'
+                      ? 'round-choice-option round-choice-option-selected'
+                      : 'round-choice-option'
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="round-category"
+                    value="SOCIAL_GAME"
+                    checked={form.category === 'SOCIAL_GAME'}
+                    onChange={() => updateCategory('SOCIAL_GAME')}
+                  />
+                  <span>
+                    <strong>Game with friends</strong>
+                    <small>Wolf, Sixes, Skins and more</small>
+                  </span>
+                </label>
               </div>
             </fieldset>
 
@@ -1399,17 +1589,25 @@ function RoundEntry({
                     <label htmlFor="round-competition-format">
                       Competition format
                     </label>
-                    <input
+                    <select
                       id="round-competition-format"
-                      type="text"
-                      maxLength={100}
-                      placeholder="e.g. Medal or Texas Scramble"
                       value={form.competitionFormat}
                       aria-invalid={Boolean(errors.competitionFormat)}
-                      onChange={(event) =>
-                        updateField('competitionFormat', event.target.value)
-                      }
-                    />
+                      onChange={(event) => {
+                        const format = event.target.value
+                        setForm((current) => ({
+                          ...current,
+                          competitionFormat: format,
+                          competitionFormatOther: format === 'OTHER' ? current.competitionFormatOther : '',
+                          scoringFormat: format === 'Stableford' ? 'STABLEFORD' : format === 'Medal / Stroke Play' ? 'STROKE_PLAY' : current.scoringFormat,
+                        }))
+                        setErrors((current) => ({ ...current, competitionFormat: undefined }))
+                      }}
+                    >
+                      {(form.participation === 'TEAM' ? TEAM_COMPETITION_FORMATS : INDIVIDUAL_COMPETITION_FORMATS).map((format) => <option key={format} value={format}>{format}</option>)}
+                      <option value="OTHER">Other</option>
+                    </select>
+                    {form.competitionFormat === 'OTHER' ? <input type="text" maxLength={90} placeholder="Describe the format" value={form.competitionFormatOther} onChange={(event) => updateField('competitionFormatOther', event.target.value)} /> : null}
                     {errors.competitionFormat ? (
                       <span className="round-field-error">
                         {errors.competitionFormat}
@@ -1441,6 +1639,47 @@ function RoundEntry({
                   ) : null}
                 </div>
               </>
+            ) : null}
+
+            {isSocialGame ? (
+              <>
+                <div className="round-field-row">
+                  <div className="round-field">
+                    <label htmlFor="round-game-format">Game</label>
+                    <select id="round-game-format" value={form.gameFormat} aria-invalid={Boolean(errors.gameFormat)} onChange={(event) => updateField('gameFormat', event.target.value)}>
+                      {SOCIAL_GAME_FORMATS.map((format) => <option key={format} value={format}>{format}</option>)}
+                      <option value="OTHER">Other</option>
+                    </select>
+                    {form.gameFormat === 'OTHER' ? <input type="text" maxLength={90} placeholder="Describe the game" value={form.gameFormatOther} onChange={(event) => updateField('gameFormatOther', event.target.value)} /> : null}
+                    {errors.gameFormat ? <span className="round-field-error">{errors.gameFormat}</span> : null}
+                  </div>
+                  <div className="round-field">
+                    <label htmlFor="round-game-result">Your result</label>
+                    <select id="round-game-result" value={form.gameResult} onChange={(event) => updateField('gameResult', event.target.value as RoundForm['gameResult'])}>
+                      <option value="">Not recorded</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="TIED">Tied</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="round-field round-player-count-field">
+                  <label htmlFor="round-game-player-count">Number of players</label>
+                  <input id="round-game-player-count" type="number" min="1" max="100" step="1" value={form.numberOfPlayers} onChange={(event) => updateField('numberOfPlayers', event.target.value)} />
+                  {errors.numberOfPlayers ? <span className="round-field-error">{errors.numberOfPlayers}</span> : null}
+                </div>
+              </>
+            ) : null}
+
+            {isOrganisedRound ? (
+              <fieldset className="round-partners-fieldset">
+                <legend>Who played with you? <small>Optional</small></legend>
+                {friends.length > 0 ? <div className="round-partner-options">{friends.map((item) => {
+                  const selected = form.playingPartnerIds.includes(item.player.id)
+                  return <div className="round-partner-option" key={item.player.id}><label><input type="checkbox" checked={selected} onChange={() => togglePlayingPartner(item.player.id)} /><span><strong>{item.player.name}</strong><small>{item.player.homeClub?.name ?? 'Home club not set'}</small></span></label>{selected ? <select aria-label={`Result against ${item.player.name}`} value={form.playingPartnerResults[item.player.id] ?? ''} onChange={(event) => setForm((current) => ({ ...current, playingPartnerResults: { ...current.playingPartnerResults, [item.player.id]: event.target.value as RoundGameResult | '' } }))}><option value="">No result</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="TIED">Tied</option></select> : null}</div>
+                })}</div> : <p className="round-partners-help">{friendsError || 'Add accepted friends from the Friends screen to link their profiles.'}</p>}
+                <div className="round-field"><label htmlFor="round-guests">Guests without an account</label><textarea id="round-guests" rows={2} placeholder="One name per line, or separate names with commas" value={form.guestPlayerNames} onChange={(event) => updateField('guestPlayerNames', event.target.value)} /></div>
+                {form.guestPlayerNames.split(/[,\n]/).map((name) => name.trim()).filter(Boolean).map((name) => <label className="round-guest-result" key={name}>Result against {name}<select value={form.guestPlayerResults[name] ?? ''} onChange={(event) => setForm((current) => ({ ...current, guestPlayerResults: { ...current.guestPlayerResults, [name]: event.target.value as RoundGameResult | '' } }))}><option value="">No result</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="TIED">Tied</option></select></label>)}
+                <p className="round-partners-help">Linked friends can see this tag and remove themselves. They cannot see your private card, note, or photo.</p>
+                {errors.playingPartners ? <span className="round-field-error">{errors.playingPartners}</span> : null}
+              </fieldset>
             ) : null}
 
             <div className="round-field-row">
