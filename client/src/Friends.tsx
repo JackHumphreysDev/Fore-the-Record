@@ -17,6 +17,7 @@ import {
 import './Friends.css'
 import { buildRoundTagPath, isRoundTagsResponse, type RoundTag } from './roundTagsApi.ts'
 import { isOpponentRecordsResponse, type OpponentRecordsResponse } from './opponentRecordsApi.ts'
+import ChallengesBoard from './ChallengesBoard.tsx'
 
 type FriendsProps = { profileId: string }
 
@@ -401,6 +402,8 @@ function Friends({ profileId }: FriendsProps) {
           {[...opponentRecords.friends.map((record) => ({ ...record, detail: record.homeClub?.name ?? 'Home club not set' })), ...opponentRecords.guests.map((record) => ({ ...record, id: `guest:${record.name}`, detail: 'Guest player' }))].map((record) => <article key={record.id}><div><strong>{record.name}</strong><small>{record.detail}</small></div><dl><div><dt>Played</dt><dd>{record.played}</dd></div><div><dt>Won</dt><dd>{record.wins}</dd></div><div><dt>Lost</dt><dd>{record.losses}</dd></div><div><dt>Tied</dt><dd>{record.ties}</dd></div></dl></article>)}
         </div>
       </section> : null}
+
+      <ChallengesBoard profileId={profileId} friends={data?.friends ?? []} />
 
       <form className="friend-search" onSubmit={runSearch} noValidate>
         <label>

@@ -14,6 +14,18 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.32.0 - 2026-09-18
+
+### User-facing changes
+
+- Added private friend challenges for most rounds, most Stableford points, and lowest average gross score.
+- Added accept, decline, and cancel controls plus a live two-player leaderboard for active challenges.
+- Only verified individual rounds inside the selected date window contribute to standings.
+
+### Developer and admin changes
+
+- Added persistent challenge lifecycle, date validation, accepted-friend enforcement, and server-derived standings.
+
 ## 0.31.0 - 2026-09-17
 
 ### User-facing changes
