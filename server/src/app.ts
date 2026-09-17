@@ -51,6 +51,10 @@ import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
 import type { Prisma } from './generated/prisma/client.js'
 import { buildPerformanceSummary } from './performanceSummary.js'
+import {
+  buildPerformanceAnalysis,
+  type PerformanceAnalysisFilters,
+} from './performanceAnalysis.js'
 import { buildPersonalMilestones } from './personalMilestones.js'
 import {
   buildPlayerGoalMetrics,
@@ -3062,6 +3066,87 @@ app.get('/api/users/me/performance-summary', async (_request, response) => {
       })),
     ),
   )
+})
+
+app.get('/api/users/me/performance-analysis', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const readQueryValue = (value: unknown): string | undefined =>
+    typeof value === 'string' && value.trim() ? value.trim() : undefined
+  const from = readQueryValue(request.query.from)
+  const to = readQueryValue(request.query.to)
+  const courseId = readQueryValue(request.query.courseId)
+  const teeId = readQueryValue(request.query.teeId)
+  const category = readQueryValue(request.query.category)
+  const isDate = (value: string | undefined) =>
+    !value || /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
+
+  if (
+    !isDate(from) ||
+    !isDate(to) ||
+    (from && to && from > to) ||
+    (courseId && !UUID_PATTERN.test(courseId)) ||
+    (teeId && !UUID_PATTERN.test(teeId)) ||
+    (category && category !== 'CASUAL' && category !== 'COMPETITION')
+  ) {
+    response.status(400).json({ error: 'Invalid performance analysis filters' })
+    return
+  }
+
+  const filters: PerformanceAnalysisFilters = {
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {}),
+    ...(courseId ? { courseId } : {}),
+    ...(teeId ? { teeId } : {}),
+    ...(category === 'CASUAL' || category === 'COMPETITION' ? { category } : {}),
+  }
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      rounds: {
+        orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          id: true,
+          datePlayed: true,
+          category: true,
+          participation: true,
+          grossScore: true,
+          scorecardStatus: true,
+          holeCount: true,
+          nineHoleSegment: true,
+          tee: {
+            select: {
+              id: true,
+              teeName: true,
+              par: true,
+              course: {
+                select: {
+                  id: true,
+                  name: true,
+                  club: { select: { name: true } },
+                },
+              },
+            },
+          },
+          holeScores: {
+            orderBy: { holeNumber: 'asc' },
+            select: {
+              holeNumber: true,
+              par: true,
+              strokesTaken: true,
+              pickedUp: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  response.status(200).json(buildPerformanceAnalysis(user.rounds, filters))
 })
 
 app.get('/api/users/me/personal-milestones', async (_request, response) => {

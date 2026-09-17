@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'deeper-performance-analysis',
+    publishedAt: '2026-09-17',
+    title: 'See what is shaping your scores',
+    summary:
+      'Open Rounds to compare your scoring across courses, tees, different holes, and types of play.',
+    highlights: [
+      'Choose the last 30 days, 90 days, 12 months, all time, or your own dates.',
+      'Filter by course, tee, casual rounds, or competitions and see each sample beside its average.',
+      'Compare gross and score-to-par averages for par 3s, par 4s, par 5s, the Front 9, and the Back 9.',
+    ],
+  },
+  {
     id: 'scorecard-photo',
     publishedAt: '2026-09-16',
     title: 'Keep the card behind the score',

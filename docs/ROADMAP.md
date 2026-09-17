@@ -29,7 +29,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 23. Nine-hole rounds with Front 9 and Back 9 scorecards. Completed in `0.27.0`.
 24. Friends activity feed. Completed in `0.28.0`.
 25. Scorecard photo. Completed in `0.29.0`.
-26. Deeper performance analysis by course, tee, par type, front/back nine, competition type, and date range.
+26. Deeper performance analysis by course, tee, par type, front/back nine, competition type, and date range. Completed in `0.30.0`.
 27. More competition formats.
 28. Challenges and leaderboards.
 29. Shared rounds.
@@ -38,6 +38,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 32. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Deeper performance analysis — completed in 0.30.0
+
+The Rounds screen provides private scoring averages for the signed-in player across courses, tees, par 3/4/5 holes, Front 9 and Back 9, and casual or competition rounds. Players can combine course, tee, round-type, 30-day, 90-day, 12-month, all-time, and custom-date filters. Every figure shows its qualifying sample so an average based on a small record remains clear.
+
+Analysis is rebuilt from the player's existing verified individual rounds whenever it is requested. Team and record-only rounds do not contribute. Picked-up holes are excluded from hole averages, and a round containing a pickup does not receive an invented gross average. Complete scorecards supply par-type and nine-hole analysis; legacy total-only cards can still contribute to compatible course, tee, and competition averages.
 
 ## Scorecard photo — completed in 0.29.0
 

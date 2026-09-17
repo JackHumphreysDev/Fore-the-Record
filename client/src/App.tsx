@@ -15,6 +15,7 @@ import Friends from './Friends.tsx'
 import HomeClubSelector from './HomeClubSelector.tsx'
 import PasswordRecovery from './PasswordRecovery.tsx'
 import PerformanceSummary from './PerformanceSummary.tsx'
+import PerformanceAnalysis from './PerformanceAnalysis.tsx'
 import PersonalMilestones from './PersonalMilestones.tsx'
 import PlayerGoals from './PlayerGoals.tsx'
 import RoundEntry from './RoundEntry.tsx'
@@ -725,13 +726,16 @@ function App() {
             }}
           />
         ) : activeView === 'rounds' ? (
-          <RoundEntry
-            profile={profile}
-            onGoToCourses={() => setActiveView('courses')}
-            onGoToProfile={() => setActiveView('profile')}
-            onGoToHistory={() => setActiveView('history')}
-            onRoundLogged={updateHandicapIndex}
-          />
+          <>
+            <PerformanceAnalysis profileId={profile.id} />
+            <RoundEntry
+              profile={profile}
+              onGoToCourses={() => setActiveView('courses')}
+              onGoToProfile={() => setActiveView('profile')}
+              onGoToHistory={() => setActiveView('history')}
+              onRoundLogged={updateHandicapIndex}
+            />
+          </>
         ) : activeView === 'history' ? (
           <RoundHistory
             profile={profile}
