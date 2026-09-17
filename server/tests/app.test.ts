@@ -2882,6 +2882,88 @@ describe('GET /api/users/me/performance-summary', () => {
   })
 })
 
+describe('GET /api/users/me/performance-analysis', () => {
+  const courseId = '11111111-1111-4111-8111-111111111111'
+  const teeId = '22222222-2222-4222-8222-222222222222'
+
+  it('returns filtered private scoring averages for the authenticated player', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          datePlayed: new Date('2026-09-10T00:00:00.000Z'),
+          category: 'COMPETITION',
+          participation: 'INDIVIDUAL',
+          grossScore: 81,
+          scorecardStatus: 'VERIFIED',
+          holeCount: 18,
+          nineHoleSegment: null,
+          tee: {
+            id: teeId,
+            teeName: 'White',
+            par: 72,
+            course: {
+              id: courseId,
+              name: 'Main Course',
+              club: { name: 'Example Golf Club' },
+            },
+          },
+          holeScores: Array.from({ length: 18 }, (_, index) => ({
+            holeNumber: index + 1,
+            par: 4,
+            strokesTaken: index % 2 === 0 ? 4 : 5,
+            pickedUp: false,
+          })),
+        },
+      ],
+    })
+
+    const response = await request(app).get(
+      `/api/users/me/performance-analysis?from=2026-09-01&to=2026-09-30&courseId=${courseId}&teeId=${teeId}&category=COMPETITION`,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.appliedFilters).toEqual({
+      from: '2026-09-01',
+      to: '2026-09-30',
+      courseId,
+      teeId,
+      category: 'COMPETITION',
+    })
+    expect(response.body.overall).toEqual({
+      rounds: 1,
+      scoredRounds: 1,
+      averageGrossScore: 81,
+      relativeToParRounds: 1,
+      averageToPar: 9,
+    })
+    expect(response.body.byCourse[0]).toMatchObject({
+      clubName: 'Example Golf Club',
+      courseName: 'Main Course',
+      rounds: 1,
+    })
+    expect(response.body.byNine).toEqual([
+      { segment: 'FRONT_NINE', nines: 1, averageGrossScore: 40, averageToPar: 4 },
+      { segment: 'BACK_NINE', nines: 1, averageGrossScore: 41, averageToPar: 5 },
+    ])
+    expect(userFindUniqueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      }),
+    )
+  })
+
+  it('rejects invalid filters before querying the profile', async () => {
+    const response = await request(app).get(
+      '/api/users/me/performance-analysis?from=2026-10-01&to=2026-09-01&category=TEAM',
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Invalid performance analysis filters' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('PATCH /api/users/me', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
   const homeClubId = '22222222-2222-4222-8222-222222222222'

@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.30.0 - 2026-09-17
+
+### User-facing changes
+
+- Added private performance analysis to the Rounds screen with all-time, recent, and custom date ranges.
+- Added course, tee, and casual-or-competition filters that can be combined.
+- Added average gross and score-to-par views by course, tee, par 3/4/5, Front 9/Back 9, and round type.
+- Added the qualifying round or hole sample beside every average and clear empty states when no matching data exists.
+
+### Developer and admin changes
+
+- Added authenticated server-side aggregation over the current player's verified individual rounds.
+- Excluded team records, unverified scorecards, and invented pickup values from scoring averages.
+- Added query validation, response-contract validation, calculation coverage, and endpoint regression tests.
+
 ## 0.29.0 - 2026-09-16
 
 ### User-facing changes

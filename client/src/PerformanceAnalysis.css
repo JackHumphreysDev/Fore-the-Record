@@ -1,0 +1,215 @@
+.performance-analysis {
+  width: min(1180px, calc(100% - 40px));
+  margin: 42px auto 28px;
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(249, 247, 239, 0.82);
+}
+
+.performance-analysis-heading {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  align-items: end;
+  gap: 24px;
+}
+
+.performance-analysis-heading h2 {
+  margin: 4px 0 0;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(34px, 5vw, 58px);
+  font-weight: 400;
+  line-height: 0.95;
+}
+
+.performance-analysis-heading > p,
+.performance-analysis-grid header p,
+.performance-analysis-tables header p,
+.performance-analysis-note {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.performance-analysis-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+  padding: 16px;
+  border-radius: 15px;
+  color: white;
+  background: var(--forest);
+}
+
+.performance-analysis-filters label {
+  display: grid;
+  gap: 7px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.performance-analysis-filters select,
+.performance-analysis-filters input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9px;
+  color: white;
+  background: #152019;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.performance-analysis-state {
+  min-height: 140px;
+  margin-top: 20px;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--ink-muted);
+}
+
+.performance-analysis-state strong { color: var(--forest-deep); }
+.performance-analysis-state p { margin: 0; font-size: 11px; }
+.performance-analysis-state button {
+  justify-self: center;
+  padding: 9px 14px;
+  border-radius: 8px;
+  color: white;
+  background: var(--forest);
+}
+
+.performance-analysis-overview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 22px 0 0;
+  border-block: 1px solid var(--line);
+}
+
+.performance-analysis-overview div { padding: 19px 14px; }
+.performance-analysis-overview div + div { border-left: 1px solid var(--line); }
+.performance-analysis-overview dt,
+.performance-analysis-grid article span {
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+.performance-analysis-overview dd {
+  margin: 5px 0 2px;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 35px;
+}
+.performance-analysis-overview small,
+.performance-analysis-grid article small,
+.performance-analysis-grid article em,
+.performance-analysis-tables td small,
+.performance-analysis-tables th small {
+  display: block;
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.performance-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.performance-analysis-grid > section,
+.performance-analysis-tables > section {
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.performance-analysis-grid h3,
+.performance-analysis-tables h3 {
+  margin: 0 0 4px;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.analysis-card-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.performance-analysis-grid article {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(23, 56, 42, 0.07);
+}
+.performance-analysis-grid article strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 25px;
+  font-weight: 400;
+}
+.performance-analysis-grid article em { margin: 1px 0 5px; color: var(--forest); }
+
+.performance-analysis-tables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.performance-analysis-tables header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.analysis-table-scroll { margin-top: 12px; overflow-x: auto; }
+.performance-analysis-tables table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.performance-analysis-tables th,
+.performance-analysis-tables td { padding: 10px 8px; border-top: 1px solid var(--line); text-align: right; }
+.performance-analysis-tables thead th {
+  border-top: 0;
+  color: var(--ink-muted);
+  font-size: 8px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.performance-analysis-tables th:first-child { min-width: 145px; text-align: left; }
+.performance-analysis-tables tbody th strong { display: block; color: var(--forest-deep); font-size: 10px; }
+.performance-analysis-note { margin-top: 15px; text-align: center; }
+
+@media (max-width: 900px) {
+  .performance-analysis-filters,
+  .performance-analysis-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .performance-analysis-tables { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .performance-analysis { width: min(100% - 20px, 1180px); padding: 20px 14px; }
+  .performance-analysis-heading { grid-template-columns: 1fr; }
+  .performance-analysis-filters,
+  .performance-analysis-grid { grid-template-columns: 1fr; }
+  .performance-analysis-overview { grid-template-columns: 1fr; }
+  .performance-analysis-overview div + div { border-left: 0; border-top: 1px solid var(--line); }
+}

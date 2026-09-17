@@ -30,6 +30,8 @@ Player support activity is protected by persistent rolling limits of five new re
 
 The Profile screen includes a private performance summary with round-type totals, verified scored and counting-round totals, best and average score differentials, and the five most recent verified differentials. Pending and rejected player-entered scorecards cannot distort the official performance figures.
 
+The Rounds screen includes deeper private performance analysis with date, course, tee, and round-type filters. It compares average gross and score-to-par results by course, tee, par type, Front 9 or Back 9, and casual or competition play. Every average includes its qualifying sample, while team records, unverified cards, and invented pickup scores remain excluded.
+
 The protected administrator portal includes searchable course catalogue management. The administrator can create and correct clubs, courses, rated tees, and complete hole-by-hole scorecards. Referenced records cannot be deleted, and tee ratings, par, and scorecards are locked once a round uses that tee so historical handicap results remain stable.
 
 The Rounds screen includes a Handicap Index journey for the latest 20 verified eligible rounds. Round Entry calculates Front 9, Back 9, and complete totals automatically, and saved History rounds can be expanded to inspect every recorded hole and score-to-par result.
@@ -60,7 +62,7 @@ The production application is deployed on Vercel. The current RapidAPI allowance
 
 ## Roadmap and releases
 
-The current application version is `0.29.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.30.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)
