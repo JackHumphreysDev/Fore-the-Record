@@ -129,8 +129,40 @@ model User {
   receivedFriendships    Friendship[]           @relation("FriendshipAddressee")
   playerGoals            PlayerGoal[]
   roundPlayingPartners   RoundPlayingPartner[]
+  createdChallenges      PlayerChallenge[]      @relation("ChallengeCreator")
+  receivedChallenges     PlayerChallenge[]      @relation("ChallengeOpponent")
 
   @@index([status, createdAt])
+}
+
+enum ChallengeMetric {
+  ROUND_COUNT
+  STABLEFORD_POINTS
+  LOWEST_GROSS_SCORE
+}
+
+enum ChallengeStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  CANCELLED
+}
+
+model PlayerChallenge {
+  id          String          @id @default(uuid()) @db.Uuid
+  creatorId   String          @db.Uuid
+  opponentId  String          @db.Uuid
+  metric      ChallengeMetric
+  status      ChallengeStatus @default(PENDING)
+  startsOn    DateTime        @db.Date
+  endsOn      DateTime        @db.Date
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
+  creator     User            @relation("ChallengeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  opponent    User            @relation("ChallengeOpponent", fields: [opponentId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, status, endsOn])
+  @@index([opponentId, status, endsOn])
 }
 
 model PlayerGoal {

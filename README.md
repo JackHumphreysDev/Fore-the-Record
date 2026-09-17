@@ -62,7 +62,7 @@ The production application is deployed on Vercel. The current RapidAPI allowance
 
 ## Roadmap and releases
 
-The current application version is `0.31.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.32.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)

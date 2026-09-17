@@ -8,6 +8,17 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'challenges-and-leaderboards',
+    publishedAt: '2026-09-18',
+    title: 'Challenge a friend',
+    summary: 'Invite an accepted friend to a private, date-limited golf challenge and follow the live standings together.',
+    highlights: [
+      'Compete for most rounds, most Stableford points, or the lowest average gross score.',
+      'Accept, decline, or cancel challenges without exposing private scorecard detail.',
+      'Only verified individual rounds played during the challenge count.',
+    ],
+  },
+  {
     id: 'competition-and-social-games',
     publishedAt: '2026-09-17',
     title: 'Record the way you played',

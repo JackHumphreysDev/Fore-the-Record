@@ -80,6 +80,8 @@ import {
   RoundParticipation,
   RoundScoringFormat,
   RoundScorecardStatus,
+  ChallengeMetric,
+  ChallengeStatus,
 } from './generated/prisma/enums.js'
 import {
   logRound,
@@ -3768,6 +3770,113 @@ app.get('/api/users/me/opponent-records', async (_request, response) => {
       name, ...totals, played: totals.wins + totals.losses + totals.ties,
     })).sort((left, right) => right.played - left.played || left.name.localeCompare(right.name)),
   })
+})
+
+const challengePlayerSelect = {
+  id: true,
+  name: true,
+  homeClub: { select: { id: true, name: true } },
+} satisfies Prisma.UserSelect
+
+function parseChallengeDate(value: unknown): Date | null {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const date = new Date(`${value}T00:00:00.000Z`)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+app.get('/api/users/me/challenges', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+
+  const challenges = await prisma.playerChallenge.findMany({
+    where: { OR: [{ creatorId: user.id }, { opponentId: user.id }] },
+    orderBy: [{ status: 'asc' }, { endsOn: 'desc' }],
+    select: {
+      id: true, metric: true, status: true, startsOn: true, endsOn: true,
+      creatorId: true, opponentId: true, createdAt: true,
+      creator: { select: challengePlayerSelect },
+      opponent: { select: challengePlayerSelect },
+    },
+  })
+
+  const serialized = await Promise.all(challenges.map(async (challenge) => {
+    const rounds = challenge.status === ChallengeStatus.ACTIVE
+      ? await prisma.round.findMany({
+          where: {
+            userId: { in: [challenge.creatorId, challenge.opponentId] },
+            datePlayed: { gte: challenge.startsOn, lte: challenge.endsOn },
+            participation: RoundParticipation.INDIVIDUAL,
+            scorecardStatus: RoundScorecardStatus.VERIFIED,
+          },
+          select: { userId: true, grossScore: true, stablefordPoints: true },
+        })
+      : []
+    const scoreFor = (playerId: string) => {
+      const playerRounds = rounds.filter((round) => round.userId === playerId)
+      if (challenge.metric === ChallengeMetric.ROUND_COUNT) return playerRounds.length
+      if (challenge.metric === ChallengeMetric.STABLEFORD_POINTS) {
+        return playerRounds.reduce((total, round) => total + (round.stablefordPoints ?? 0), 0)
+      }
+      const gross = playerRounds.flatMap((round) => round.grossScore === null ? [] : [round.grossScore])
+      return gross.length === 0 ? null : Number((gross.reduce((total, score) => total + score, 0) / gross.length).toFixed(1))
+    }
+    return {
+      ...challenge,
+      startsOn: challenge.startsOn.toISOString().slice(0, 10),
+      endsOn: challenge.endsOn.toISOString().slice(0, 10),
+      createdAt: challenge.createdAt.toISOString(),
+      standings: [
+        { player: challenge.creator, score: scoreFor(challenge.creatorId) },
+        { player: challenge.opponent, score: scoreFor(challenge.opponentId) },
+      ],
+    }
+  }))
+  response.status(200).json({ challenges: serialized })
+})
+
+app.post('/api/users/me/challenges', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const opponentId = typeof request.body?.opponentId === 'string' ? request.body.opponentId : ''
+  const metric = Object.values(ChallengeMetric).includes(request.body?.metric) ? request.body.metric as ChallengeMetric : null
+  const startsOn = parseChallengeDate(request.body?.startsOn)
+  const endsOn = parseChallengeDate(request.body?.endsOn)
+  if (!opponentId || !metric || !startsOn || !endsOn || endsOn < startsOn || endsOn.getTime() - startsOn.getTime() > 366 * 86400000) {
+    return response.status(400).json({ error: 'Invalid challenge details' })
+  }
+  const friendship = await prisma.friendship.findFirst({
+    where: { status: FriendshipStatus.ACCEPTED, OR: [
+      { requesterId: user.id, addresseeId: opponentId },
+      { requesterId: opponentId, addresseeId: user.id },
+    ] },
+    select: { id: true },
+  })
+  if (!friendship) return response.status(400).json({ error: 'Challenges can only be sent to accepted friends' })
+  const challenge = await prisma.playerChallenge.create({
+    data: { creatorId: user.id, opponentId, metric, startsOn, endsOn },
+    select: { id: true },
+  })
+  response.status(201).json(challenge)
+})
+
+app.patch('/api/users/me/challenges/:id', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const action = request.body?.action
+  const challenge = await prisma.playerChallenge.findUnique({ where: { id: request.params.id }, select: { creatorId: true, opponentId: true, status: true } })
+  if (!challenge) return response.status(404).json({ error: 'Challenge not found' })
+  let status: ChallengeStatus | null = null
+  if (challenge.opponentId === user.id && challenge.status === ChallengeStatus.PENDING) {
+    if (action === 'accept') status = ChallengeStatus.ACTIVE
+    if (action === 'decline') status = ChallengeStatus.DECLINED
+  }
+  if (challenge.creatorId === user.id && ['PENDING', 'ACTIVE'].includes(challenge.status) && action === 'cancel') status = ChallengeStatus.CANCELLED
+  if (!status) return response.status(403).json({ error: 'This challenge cannot be updated' })
+  await prisma.playerChallenge.update({ where: { id: request.params.id }, data: { status } })
+  response.status(200).json({ id: request.params.id, status })
 })
 
 app.get('/api/users/me/friends/activity', async (request, response) => {

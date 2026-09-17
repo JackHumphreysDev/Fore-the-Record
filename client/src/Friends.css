@@ -389,6 +389,19 @@
   outline-offset: 3px;
 }
 
+.challenge-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: .75rem; align-items: end; margin: 1rem 0 1.5rem; }
+.challenge-form label { display: grid; gap: .35rem; font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; }
+.challenge-form select, .challenge-form input { min-height: 2.75rem; border: 1px solid rgba(214, 205, 181, .2); border-radius: .5rem; padding: .6rem; background: #161b19; color: inherit; }
+.challenge-list { display: grid; gap: 1rem; }
+.challenge-card { border: 1px solid rgba(214, 205, 181, .14); border-radius: .75rem; padding: 1rem; background: rgba(17, 24, 21, .62); }
+.challenge-card header, .challenge-card li, .challenge-actions { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+.challenge-card header div, .challenge-card li span { display: grid; gap: .2rem; }
+.challenge-card header span { text-transform: capitalize; }
+.challenge-card ol { display: grid; gap: .5rem; padding: .75rem 0; margin: 0; list-style-position: inside; }
+.challenge-actions { justify-content: flex-start; }
+
+@media (max-width: 900px) { .challenge-form { grid-template-columns: 1fr 1fr; } }
+
 @media (max-width: 700px) {
   .friend-activity-card dl {
     grid-template-columns: repeat(2, minmax(0, 1fr));
