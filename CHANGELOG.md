@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.39.0 - 2026-09-22
+
+### User-facing changes
+
+- Added private performance insights comparing the latest five complete rounds with the previous five for Stroke Play and Stableford separately.
+- Added scoring consistency, strongest and weakest par types, Front 9 and Back 9 comparisons, and strongest course-and-tee summaries with clear sample sizes.
+- Added Hole Performance History so players can select an exact course, tee, and hole, follow chronological scores against par and their average, and open the matching round in History.
+
+### Developer and admin changes
+
+- Added authenticated server-side insight aggregation over verified individual rounds with scoring-format separation and minimum-sample safeguards.
+- Excluded team rounds, unverified cards, and invented pickup values; picked-up holes remain visible as missing observations in hole history.
+- Added response validation, calculation coverage, chart selection handling, and focused History navigation without changing stored round data.
+
 ## 0.38.0 - 2026-09-22
 
 ### User-facing changes

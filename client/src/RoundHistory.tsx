@@ -30,6 +30,7 @@ type RoundHistoryProfile = {
 
 type RoundHistoryProps = {
   profile: RoundHistoryProfile | null
+  focusedRoundId?: string
   onGoToProfile: () => void
   onLogRound: () => void
 }
@@ -187,6 +188,7 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
 
 function RoundHistory({
   profile,
+  focusedRoundId = '',
   onGoToProfile,
   onLogRound,
 }: RoundHistoryProps) {
@@ -306,6 +308,16 @@ function RoundHistory({
         }
 
         setRounds(body)
+        if (focusedRoundId && body.some((round) => round.id === focusedRoundId)) {
+          setFilters({ ...EMPTY_ROUND_HISTORY_FILTERS })
+          setExpandedRoundId(focusedRoundId)
+          window.requestAnimationFrame(() => {
+            document.getElementById(`history-round-${focusedRoundId}`)?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            })
+          })
+        }
       } catch (error: unknown) {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return
@@ -328,7 +340,7 @@ function RoundHistory({
     void loadRoundHistory()
 
     return () => controller.abort()
-  }, [profileId, loadAttempt])
+  }, [focusedRoundId, profileId, loadAttempt])
 
   if (!profile) {
     return (
@@ -566,7 +578,7 @@ function RoundHistory({
           ) : (
           <ol className="history-list" aria-label={`${profile.name}'s filtered rounds`}>
             {filteredRounds.map((round) => (
-              <li key={round.id}>
+              <li key={round.id} id={`history-round-${round.id}`}>
                 <article className="history-round-card">
                   <div className="history-round-number" aria-hidden="true">
                     <span>Round</span>

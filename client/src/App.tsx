@@ -16,6 +16,7 @@ import HomeClubSelector from './HomeClubSelector.tsx'
 import PasswordRecovery from './PasswordRecovery.tsx'
 import PerformanceSummary from './PerformanceSummary.tsx'
 import PerformanceAnalysis from './PerformanceAnalysis.tsx'
+import PerformanceInsights from './PerformanceInsights.tsx'
 import CoursePersonalBests from './CoursePersonalBests.tsx'
 import PersonalMilestones from './PersonalMilestones.tsx'
 import PlayerGoals from './PlayerGoals.tsx'
@@ -127,6 +128,7 @@ function App() {
   const [authSetup] = useState(getAuthSetup)
   const profileRequestNumber = useRef(0)
   const [activeView, setActiveView] = useState<ActiveView>('profile')
+  const [historyFocusRoundId, setHistoryFocusRoundId] = useState('')
   const [supportInitialType, setSupportInitialType] =
     useState<SubmissionType>('IDEA')
   const [session, setSession] = useState<Session | null>(null)
@@ -523,7 +525,10 @@ function App() {
             <button
               type="button"
               aria-current={activeView === 'history' ? 'page' : undefined}
-              onClick={() => setActiveView('history')}
+              onClick={() => {
+                setHistoryFocusRoundId('')
+                setActiveView('history')
+              }}
             >
               History
             </button>
@@ -733,19 +738,30 @@ function App() {
           />
         ) : activeView === 'rounds' ? (
           <>
+            <PerformanceInsights
+              profileId={profile.id}
+              onOpenRound={(roundId) => {
+                setHistoryFocusRoundId(roundId)
+                setActiveView('history')
+              }}
+            />
             <PerformanceAnalysis profileId={profile.id} />
             <CoursePersonalBests profileId={profile.id} />
             <RoundEntry
               profile={profile}
               onGoToCourses={() => setActiveView('courses')}
               onGoToProfile={() => setActiveView('profile')}
-              onGoToHistory={() => setActiveView('history')}
+              onGoToHistory={() => {
+                setHistoryFocusRoundId('')
+                setActiveView('history')
+              }}
               onRoundLogged={updateHandicapIndex}
             />
           </>
         ) : activeView === 'history' ? (
           <RoundHistory
             profile={profile}
+            focusedRoundId={historyFocusRoundId}
             onGoToProfile={() => setActiveView('profile')}
             onLogRound={() => setActiveView('rounds')}
           />
