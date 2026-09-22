@@ -740,6 +740,140 @@
   border-color: rgba(164, 63, 50, 0.3);
 }
 
+.admin-reports {
+  margin-top: 34px;
+}
+
+.admin-report-dates {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 240px)) auto;
+  align-items: end;
+  gap: 14px;
+}
+
+.admin-report-dates label {
+  display: grid;
+  gap: 7px;
+  color: var(--forest-deep);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.admin-report-dates input,
+.admin-report-dates button,
+.admin-export-list button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--forest-deep);
+  background: white;
+}
+
+.admin-report-dates button,
+.admin-export-list button {
+  border-color: var(--forest);
+  color: white;
+  background: var(--forest);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.admin-report-dates button:disabled,
+.admin-export-list button:disabled {
+  opacity: 0.5;
+}
+
+.admin-report-period,
+.admin-export-note {
+  margin: 20px 0 0;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.admin-report-groups {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-report-groups article {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(23, 56, 42, 0.04);
+}
+
+.admin-report-groups h3 {
+  margin: 0 0 14px;
+  color: var(--forest-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.admin-report-groups dl {
+  margin: 0;
+  display: grid;
+  gap: 9px;
+}
+
+.admin-report-groups dl div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-report-groups dt {
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+
+.admin-report-groups dd {
+  margin: 0;
+  color: var(--forest-deep);
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.admin-export-list {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-export-list article {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+}
+
+.admin-export-list article div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-export-list strong {
+  color: var(--forest-deep);
+  font-size: 11px;
+}
+
+.admin-export-list span {
+  color: var(--ink-muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
 .admin-search button:focus-visible,
 .admin-state button:focus-visible,
 .admin-pagination button:focus-visible {
@@ -787,6 +921,10 @@
 
   .admin-round-holes {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-report-groups {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -854,5 +992,15 @@
   .admin-round-fields,
   .admin-round-holes {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-report-dates,
+  .admin-export-list {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-export-list article {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

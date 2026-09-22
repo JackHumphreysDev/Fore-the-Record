@@ -27,6 +27,11 @@ import {
   parseAdminUserStatus,
   parseDeleteConfirmation,
 } from './adminUsers.js'
+import {
+  createCsv,
+  parseAdminReportExportType,
+  parseAdminReportRange,
+} from './adminReports.js'
 import adminCatalogueRouter from './adminCatalogueRoutes.js'
 import {
   getAuthenticatedUser,
@@ -78,6 +83,7 @@ import {
   ScorecardSource,
   NineHoleSegment,
   RoundParticipation,
+  RoundCategory,
   RoundScoringFormat,
   RoundScorecardStatus,
   ChallengeMetric,
@@ -850,6 +856,215 @@ app.get('/api/admin/overview', async (_request, response) => {
     },
     recentRegistrations: recentRegistrations.map(serializeAdminUser),
   })
+})
+
+app.get('/api/admin/reports', async (request, response) => {
+  const range = parseAdminReportRange(request.query.from, request.query.to)
+
+  if (!range) {
+    response.status(400).json({ error: 'Choose a valid report date range' })
+    return
+  }
+
+  const createdAt = { gte: range.fromDate, lt: range.toExclusive }
+  const datePlayed = { gte: range.fromDate, lt: range.toExclusive }
+  const [
+    registrations,
+    activeAccounts,
+    suspendedAccounts,
+    rounds,
+    casualRounds,
+    competitionRounds,
+    socialRounds,
+    supportRequests,
+    openSupportRequests,
+    pendingScorecardReviews,
+    clubs,
+    courses,
+    tees,
+  ] = await prisma.$transaction([
+    prisma.user.count({ where: { createdAt } }),
+    prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
+    prisma.user.count({ where: { status: UserStatus.SUSPENDED } }),
+    prisma.round.count({ where: { datePlayed } }),
+    prisma.round.count({ where: { datePlayed, category: RoundCategory.CASUAL } }),
+    prisma.round.count({ where: { datePlayed, category: RoundCategory.COMPETITION } }),
+    prisma.round.count({ where: { datePlayed, category: RoundCategory.SOCIAL_GAME } }),
+    prisma.submission.count({ where: { createdAt } }),
+    prisma.submission.count({ where: { status: { not: SubmissionStatus.CLOSED } } }),
+    prisma.scorecardReview.count({ where: { reviewedAt: null } }),
+    prisma.club.count(),
+    prisma.course.count(),
+    prisma.tee.count(),
+  ])
+
+  response.setHeader('Cache-Control', 'private, no-store')
+  response.status(200).json({
+    period: { from: range.from, to: range.to },
+    activity: {
+      registrations,
+      rounds,
+      casualRounds,
+      competitionRounds,
+      socialRounds,
+      supportRequests,
+    },
+    accounts: { active: activeAccounts, suspended: suspendedAccounts },
+    workQueue: { openSupportRequests, pendingScorecardReviews },
+    catalogue: { clubs, courses, tees },
+  })
+})
+
+app.get('/api/admin/reports/export/:type', async (request, response) => {
+  const exportType = parseAdminReportExportType(request.params.type)
+  const range = parseAdminReportRange(request.query.from, request.query.to)
+
+  if (!exportType || !range) {
+    response.status(400).json({ error: 'Choose a valid report and date range' })
+    return
+  }
+
+  const createdAt = { gte: range.fromDate, lt: range.toExclusive }
+  const datePlayed = { gte: range.fromDate, lt: range.toExclusive }
+  let columns: string[] = []
+  let rows: Array<Record<string, string | number | boolean | null>> = []
+
+  if (exportType === 'users') {
+    const users = await prisma.user.findMany({
+      where: { createdAt },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: ADMIN_USER_SELECT,
+    })
+    columns = ['id', 'name', 'email', 'role', 'status', 'has_login', 'home_club', 'handicap_index', 'round_count', 'created_at']
+    rows = users.map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      has_login: user.authUserId !== null,
+      home_club: user.homeClub?.name ?? null,
+      handicap_index: user.handicapIndex === null ? null : Number(user.handicapIndex),
+      round_count: user._count.rounds,
+      created_at: user.createdAt.toISOString(),
+    }))
+  } else if (exportType === 'rounds') {
+    const rounds = await prisma.round.findMany({
+      where: { datePlayed },
+      orderBy: [{ datePlayed: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        datePlayed: true,
+        category: true,
+        participation: true,
+        scoringFormat: true,
+        holeCount: true,
+        grossScore: true,
+        stablefordPoints: true,
+        scoreDifferential: true,
+        scorecardStatus: true,
+        isAcceptable: true,
+        usedInHandicapCalc: true,
+        user: { select: { name: true, email: true } },
+        tee: { select: { teeName: true, course: { select: { name: true, club: { select: { name: true } } } } } },
+      },
+    })
+    columns = ['id', 'date_played', 'player_name', 'player_email', 'club', 'course', 'tee', 'holes', 'category', 'participation', 'scoring_format', 'gross_score', 'stableford_points', 'score_differential', 'scorecard_status', 'handicap_acceptable', 'used_in_handicap']
+    rows = rounds.map((round) => ({
+      id: round.id,
+      date_played: round.datePlayed.toISOString().slice(0, 10),
+      player_name: round.user.name,
+      player_email: round.user.email,
+      club: round.tee.course.club.name,
+      course: round.tee.course.name,
+      tee: round.tee.teeName,
+      holes: round.holeCount,
+      category: round.category,
+      participation: round.participation,
+      scoring_format: round.scoringFormat,
+      gross_score: round.grossScore,
+      stableford_points: round.stablefordPoints,
+      score_differential: round.scoreDifferential === null ? null : Number(round.scoreDifferential),
+      scorecard_status: round.scorecardStatus,
+      handicap_acceptable: round.isAcceptable,
+      used_in_handicap: round.usedInHandicapCalc,
+    }))
+  } else if (exportType === 'support') {
+    const submissions = await prisma.submission.findMany({
+      where: { createdAt },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        subject: true,
+        clubName: true,
+        courseName: true,
+        createdAt: true,
+        updatedAt: true,
+        user: { select: { name: true, email: true } },
+      },
+    })
+    columns = ['id', 'created_at', 'updated_at', 'player_name', 'player_email', 'type', 'status', 'subject', 'club_name', 'course_name']
+    rows = submissions.map((submission) => ({
+      id: submission.id,
+      created_at: submission.createdAt.toISOString(),
+      updated_at: submission.updatedAt.toISOString(),
+      player_name: submission.user.name,
+      player_email: submission.user.email,
+      type: submission.type,
+      status: submission.status,
+      subject: submission.subject,
+      club_name: submission.clubName,
+      course_name: submission.courseName,
+    }))
+  } else {
+    const [clubs, courses, tees] = await prisma.$transaction([
+      prisma.club.findMany({
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        select: { id: true, name: true, city: true, county: true, postcode: true, countryCode: true },
+      }),
+      prisma.course.findMany({
+        orderBy: [{ club: { name: 'asc' } }, { name: 'asc' }, { id: 'asc' }],
+        select: { id: true, name: true, holes: true, par: true, club: { select: { id: true, name: true } } },
+      }),
+      prisma.tee.findMany({
+        orderBy: [{ course: { club: { name: 'asc' } } }, { course: { name: 'asc' } }, { teeName: 'asc' }, { id: 'asc' }],
+        select: {
+          id: true, teeName: true, colour: true, gender: true, totalYardage: true, totalMetres: true,
+          par: true, courseRating: true, slopeRating: true, source: true,
+          course: { select: { id: true, name: true, club: { select: { id: true, name: true } } } },
+        },
+      }),
+    ])
+    columns = ['record_type', 'club_id', 'club_name', 'city', 'county', 'postcode', 'country_code', 'course_id', 'course_name', 'holes', 'course_par', 'tee_id', 'tee_name', 'colour', 'gender', 'total_yardage', 'total_metres', 'tee_par', 'course_rating', 'slope_rating', 'source']
+    rows = [
+      ...clubs.map((club) => ({ record_type: 'CLUB', club_id: club.id, club_name: club.name, city: club.city, county: club.county, postcode: club.postcode, country_code: club.countryCode })),
+      ...courses.map((course) => ({ record_type: 'COURSE', club_id: course.club.id, club_name: course.club.name, course_id: course.id, course_name: course.name, holes: course.holes, course_par: course.par })),
+      ...tees.map((tee) => ({
+        record_type: 'TEE', club_id: tee.course.club.id, club_name: tee.course.club.name,
+        course_id: tee.course.id, course_name: tee.course.name, tee_id: tee.id, tee_name: tee.teeName,
+        colour: tee.colour, gender: tee.gender, total_yardage: tee.totalYardage, total_metres: tee.totalMetres,
+        tee_par: tee.par, course_rating: Number(tee.courseRating), slope_rating: tee.slopeRating, source: tee.source,
+      })),
+    ]
+  }
+
+  const administrator = getAdminProfile(response.locals)
+  await prisma.adminAuditLog.create({
+    data: {
+      actorUserId: administrator.id,
+      action: 'ADMIN_REPORT_EXPORTED',
+      targetType: 'AdminReport',
+      targetId: exportType,
+      after: { from: range.from, to: range.to, rowCount: rows.length },
+    },
+  })
+
+  const filename = `fore-the-record-${exportType}-${range.from}-to-${range.to}.csv`
+  response.setHeader('Cache-Control', 'private, no-store')
+  response.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+  response.type('text/csv').status(200).send(createCsv(columns, rows))
 })
 
 app.get('/api/admin/users', async (request, response) => {

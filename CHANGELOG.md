@@ -14,6 +14,18 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.34.0 - 2026-09-22
+
+### User-facing changes
+
+- No player-facing changes in this administrator release.
+
+### Developer and admin changes
+
+- Added an administrator reporting dashboard with date-filtered registration, round, and support activity plus current account, work-queue, and catalogue totals.
+- Added audited CSV exports for users, rounds, support-request metadata, and the full course catalogue.
+- Exports omit authentication identifiers, credentials, private messages, round notes, and scorecard-photo locations, and protect spreadsheet cells from formula injection.
+
 ## 0.33.0 - 2026-09-22
 
 ### User-facing changes

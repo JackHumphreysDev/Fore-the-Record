@@ -28,10 +28,13 @@ const {
   getProviderTeeScorecardMock,
   teeFindUniqueMock,
   teeFindFirstMock,
+  teeFindManyMock,
+  teeCountMock,
   teeUpdateMock,
   teeHoleCreateManyMock,
   teeHoleDeleteManyMock,
   scorecardReviewFindManyMock,
+  scorecardReviewCountMock,
   scorecardReviewDeleteManyMock,
   logRoundMock,
   parseLogRoundInputMock,
@@ -110,10 +113,13 @@ const {
   getProviderTeeScorecardMock: vi.fn(),
   teeFindUniqueMock: vi.fn(),
   teeFindFirstMock: vi.fn(),
+  teeFindManyMock: vi.fn(),
+  teeCountMock: vi.fn(),
   teeUpdateMock: vi.fn(),
   teeHoleCreateManyMock: vi.fn(),
   teeHoleDeleteManyMock: vi.fn(),
   scorecardReviewFindManyMock: vi.fn(),
+  scorecardReviewCountMock: vi.fn(),
   scorecardReviewDeleteManyMock: vi.fn(),
   logRoundMock: vi.fn(),
   parseLogRoundInputMock: vi.fn(),
@@ -185,6 +191,8 @@ vi.mock('../src/database.js', () => ({
       update: courseUpdateMock,
     },
     tee: {
+      count: teeCountMock,
+      findMany: teeFindManyMock,
       findFirst: teeFindFirstMock,
       findUnique: teeFindUniqueMock,
       update: teeUpdateMock,
@@ -194,6 +202,7 @@ vi.mock('../src/database.js', () => ({
       deleteMany: teeHoleDeleteManyMock,
     },
     scorecardReview: {
+      count: scorecardReviewCountMock,
       findMany: scorecardReviewFindManyMock,
       deleteMany: scorecardReviewDeleteManyMock,
     },
@@ -386,11 +395,15 @@ beforeEach(() => {
   getProviderTeeScorecardMock.mockReset()
   teeFindUniqueMock.mockReset()
   teeFindFirstMock.mockReset()
+  teeFindManyMock.mockReset()
+  teeFindManyMock.mockResolvedValue([])
+  teeCountMock.mockReset()
   teeUpdateMock.mockReset()
   teeHoleCreateManyMock.mockReset()
   teeHoleDeleteManyMock.mockReset()
   scorecardReviewFindManyMock.mockReset()
   scorecardReviewFindManyMock.mockResolvedValue([])
+  scorecardReviewCountMock.mockReset()
   scorecardReviewDeleteManyMock.mockReset()
   scorecardReviewDeleteManyMock.mockResolvedValue({ count: 0 })
   teeHoleCreateManyMock.mockResolvedValue({ count: 0 })
@@ -657,6 +670,112 @@ describe('GET /api/admin/overview', () => {
     expect(userCountMock).not.toHaveBeenCalled()
     expect(roundCountMock).not.toHaveBeenCalled()
     expect(clubCountMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('administrator reports and exports', () => {
+  const adminProfile = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Site Administrator',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  }
+
+  it('returns date-filtered activity and current operational totals', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    userCountMock
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(18)
+      .mockResolvedValueOnce(2)
+    roundCountMock
+      .mockResolvedValueOnce(12)
+      .mockResolvedValueOnce(6)
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(2)
+    submissionCountMock
+      .mockResolvedValueOnce(5)
+      .mockResolvedValueOnce(3)
+    scorecardReviewCountMock.mockResolvedValueOnce(1)
+    clubCountMock.mockResolvedValueOnce(40)
+    courseCountMock.mockResolvedValueOnce(48)
+    teeCountMock.mockResolvedValueOnce(210)
+
+    const response = await request(app).get(
+      '/api/admin/reports?from=2026-09-01&to=2026-09-22',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers['cache-control']).toBe('private, no-store')
+    expect(response.body).toEqual({
+      period: { from: '2026-09-01', to: '2026-09-22' },
+      activity: {
+        registrations: 3,
+        rounds: 12,
+        casualRounds: 6,
+        competitionRounds: 4,
+        socialRounds: 2,
+        supportRequests: 5,
+      },
+      accounts: { active: 18, suspended: 2 },
+      workQueue: { openSupportRequests: 3, pendingScorecardReviews: 1 },
+      catalogue: { clubs: 40, courses: 48, tees: 210 },
+    })
+    expect(roundCountMock).toHaveBeenCalledWith({
+      where: {
+        datePlayed: {
+          gte: new Date('2026-09-01T00:00:00.000Z'),
+          lt: new Date('2026-09-23T00:00:00.000Z'),
+        },
+      },
+    })
+  })
+
+  it('exports safe user columns and audits the download', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+    userFindManyMock.mockResolvedValueOnce([{
+      id: '22222222-2222-4222-8222-222222222222',
+      authUserId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      name: '=Unsafe spreadsheet name',
+      email: 'player@example.com',
+      role: 'PLAYER',
+      status: 'ACTIVE',
+      handicapIndex: '12.4',
+      createdAt: new Date('2026-09-10T10:00:00.000Z'),
+      homeClub: { id: '33333333-3333-4333-8333-333333333333', name: 'Example Club' },
+      _count: { rounds: 4 },
+    }])
+    adminAuditLogCreateMock.mockResolvedValueOnce({})
+
+    const response = await request(app).get(
+      '/api/admin/reports/export/users?from=2026-09-01&to=2026-09-22',
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers['content-type']).toContain('text/csv')
+    expect(response.headers['content-disposition']).toContain('fore-the-record-users-2026-09-01-to-2026-09-22.csv')
+    expect(response.text).toContain("'=Unsafe spreadsheet name")
+    expect(response.text).not.toContain('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')
+    expect(response.text).not.toContain('password')
+    expect(adminAuditLogCreateMock).toHaveBeenCalledWith({
+      data: {
+        actorUserId: adminProfile.id,
+        action: 'ADMIN_REPORT_EXPORTED',
+        targetType: 'AdminReport',
+        targetId: 'users',
+        after: { from: '2026-09-01', to: '2026-09-22', rowCount: 1 },
+      },
+    })
+  })
+
+  it('rejects invalid ranges before reading report data', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(adminProfile)
+
+    const response = await request(app).get(
+      '/api/admin/reports?from=2026-09-22&to=2026-09-01',
+    )
+
+    expect(response.status).toBe(400)
+    expect(userCountMock).not.toHaveBeenCalled()
   })
 })
 

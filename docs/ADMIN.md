@@ -1,6 +1,6 @@
 # Administration
 
-Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, version `0.9.0` adds guarded player-account management, version `0.10.0` adds audited round correction and deletion, version `0.12.0` links correction requests to affected rounds, version `0.13.0` adds participant-specific unread indicators, version `0.13.1` adds persistent player support rate limits, version `0.15.0` adds guarded course catalogue management, and version `0.27.0` adds nine-hole round and rating support.
+Version `0.2.0` established administrator authorization and auditing. Version `0.3.0` added the first read-only portal, version `0.4.0` added support-request review, version `0.5.0` added audited replies and status controls, version `0.7.0` added manual scorecard review, version `0.8.1` separates active support work from a searchable closed archive, version `0.9.0` adds guarded player-account management, version `0.10.0` adds audited round correction and deletion, version `0.12.0` links correction requests to affected rounds, version `0.13.0` adds participant-specific unread indicators, version `0.13.1` adds persistent player support rate limits, version `0.15.0` adds guarded course catalogue management, version `0.27.0` adds nine-hole round and rating support, and version `0.34.0` adds operational reporting and audited CSV exports.
 
 ## Security model
 
@@ -52,6 +52,10 @@ Before running it, the owner must already have registered, confirmed their email
 `GET /api/admin/me` is the first route behind the administrator guard. A verified administrator access token receives the administrator's safe profile identity. A signed-in non-administrator receives `403 Administrator access required`, and a request without a verified session receives `401 Authentication required`.
 
 `GET /api/admin/overview` returns profile, round, and saved-club totals plus the five most recent registrations.
+
+`GET /api/admin/reports` accepts optional inclusive `from` and `to` dates in `YYYY-MM-DD` format and defaults to the latest 30 UTC calendar days. It returns period activity for registrations, played rounds, round types, and support requests plus current active/suspended account, open-request, pending-scorecard-review, and catalogue totals.
+
+`GET /api/admin/reports/export/:type` accepts the same dates and supports `users`, `rounds`, `support`, and `catalogue`. Catalogue export always contains the complete current catalogue because its records do not have creation timestamps. Every download creates a safe `ADMIN_REPORT_EXPORTED` audit entry. CSVs exclude authentication IDs, passwords, tokens, support-message bodies, round notes, and scorecard-photo paths, and neutralise spreadsheet formula markers.
 
 `GET /api/admin/catalogue` searches club, location, course, and tee names and returns paginated nested catalogue records with their scorecards and usage controls. The catalogue management routes create and update clubs, courses, rated tees, optional official Front 9 and Back 9 rating pairs, and complete 18-hole scorecards. Every successful mutation is audited. A nine-hole rating requires both its Course Rating and Slope Rating; never derive either by halving the 18-hole values.
 

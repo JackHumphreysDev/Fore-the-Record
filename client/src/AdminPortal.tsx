@@ -4,6 +4,7 @@ import AdminSubmissionQueue from './AdminSubmissionQueue.tsx'
 import AdminScorecardReviews from './AdminScorecardReviews.tsx'
 import AdminCourseCatalogue from './AdminCourseCatalogue.tsx'
 import AdminUserDirectory from './AdminUserDirectory.tsx'
+import AdminReports from './AdminReports.tsx'
 import {
   isAdminOverview,
   type AdminOverview,
@@ -201,6 +202,8 @@ function AdminPortal({
           </section>
         </>
       ) : null}
+
+      <AdminReports />
 
       <AdminSubmissionQueue
         onUnreadChanged={onUnreadChanged}
