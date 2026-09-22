@@ -8,6 +8,17 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'course-personal-bests',
+    publishedAt: '2026-09-22',
+    title: 'See your best at every course',
+    summary: 'Open Rounds to see the personal records you have set from each course and tee you have played.',
+    highlights: [
+      'See your lowest 18-hole gross score and highest 18-hole Stableford points total.',
+      'Compare your best Front 9, Back 9, and completed score on every individual hole.',
+      'Each record includes the date it was first set, while pickups and cards awaiting review are handled fairly.',
+    ],
+  },
+  {
     id: 'account-security-centre',
     publishedAt: '2026-09-22',
     title: 'Keep an eye on your account security',

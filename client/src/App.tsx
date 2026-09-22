@@ -16,6 +16,7 @@ import HomeClubSelector from './HomeClubSelector.tsx'
 import PasswordRecovery from './PasswordRecovery.tsx'
 import PerformanceSummary from './PerformanceSummary.tsx'
 import PerformanceAnalysis from './PerformanceAnalysis.tsx'
+import CoursePersonalBests from './CoursePersonalBests.tsx'
 import PersonalMilestones from './PersonalMilestones.tsx'
 import PlayerGoals from './PlayerGoals.tsx'
 import RoundEntry from './RoundEntry.tsx'
@@ -733,6 +734,7 @@ function App() {
         ) : activeView === 'rounds' ? (
           <>
             <PerformanceAnalysis profileId={profile.id} />
+            <CoursePersonalBests profileId={profile.id} />
             <RoundEntry
               profile={profile}
               onGoToCourses={() => setActiveView('courses')}

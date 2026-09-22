@@ -61,6 +61,7 @@ import {
   type PerformanceAnalysisFilters,
 } from './performanceAnalysis.js'
 import { buildPersonalMilestones } from './personalMilestones.js'
+import { buildCoursePersonalBests } from './coursePersonalBests.js'
 import {
   buildPlayerGoalMetrics,
   buildPlayerGoalProgress,
@@ -3393,6 +3394,58 @@ app.get('/api/users/me/performance-analysis', async (request, response) => {
   }
 
   response.status(200).json(buildPerformanceAnalysis(user.rounds, filters))
+})
+
+app.get('/api/users/me/course-personal-bests', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      rounds: {
+        orderBy: [{ datePlayed: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          datePlayed: true,
+          participation: true,
+          scoringFormat: true,
+          scorecardStatus: true,
+          holeCount: true,
+          nineHoleSegment: true,
+          grossScore: true,
+          stablefordPoints: true,
+          tee: {
+            select: {
+              id: true,
+              teeName: true,
+              course: {
+                select: {
+                  id: true,
+                  name: true,
+                  club: { select: { name: true } },
+                },
+              },
+            },
+          },
+          holeScores: {
+            orderBy: { holeNumber: 'asc' },
+            select: {
+              holeNumber: true,
+              par: true,
+              strokesTaken: true,
+              pickedUp: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  response.status(200).json(buildCoursePersonalBests(user.rounds))
 })
 
 app.get('/api/users/me/personal-milestones', async (_request, response) => {

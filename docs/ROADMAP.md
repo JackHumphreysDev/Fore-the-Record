@@ -35,9 +35,20 @@ This roadmap records agreed future work. Items are planned requirements, not com
 29. Shared rounds. Completed in `0.33.0`.
 30. Admin reporting and exports. Completed in `0.34.0`.
 31. Account security centre. Completed in `0.35.0`.
-32. Live Round mode.
+32. Course personal bests. Completed in `0.36.0`.
+33. Match-play scoring.
+34. Friends groups and advanced leaderboards.
+35. Performance insights.
+36. Full team-game scoring.
+37. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Course personal bests — completed in 0.36.0
+
+The Rounds screen keeps a separate record book for each exact course and tee combination. It shows the player's lowest completed 18-hole gross score, highest 18-hole Stableford points total, best complete Front 9 and Back 9, and lowest completed score for every recorded hole, including the date each record was first set.
+
+Only verified individual rounds qualify. Stroke-play records exclude picked-up holes rather than inventing a score, while a valid Stableford total may still set the points record. Nine-hole cards can set the matching Front 9 or Back 9 record but cannot set an 18-hole record.
 
 ## Account security centre — completed in 0.35.0
 
