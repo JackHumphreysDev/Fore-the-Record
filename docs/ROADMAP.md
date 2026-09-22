@@ -34,10 +34,16 @@ This roadmap records agreed future work. Items are planned requirements, not com
 28. Challenges and leaderboards. Completed in `0.32.0`.
 29. Shared rounds. Completed in `0.33.0`.
 30. Admin reporting and exports. Completed in `0.34.0`.
-31. Account security centre.
+31. Account security centre. Completed in `0.35.0`.
 32. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Account security centre — completed in 0.35.0
+
+Account Settings now shows the authenticated identity's verified-email state, sign-in method, account creation time, and latest successful sign-in made available by Supabase. Existing password changes continue to require the current password through a non-persistent verification client.
+
+Players can revoke every other refreshable session without closing the current browser, or type an exact confirmation before signing out across all devices. Session revocation is performed directly by Supabase Auth. Fore the Record does not store or display passwords, access or refresh tokens, a guessed device inventory, or a fabricated failed-login history.
 
 ## Admin reporting and exports — completed in 0.34.0
 

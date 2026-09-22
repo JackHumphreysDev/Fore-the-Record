@@ -62,8 +62,116 @@
 }
 
 .settings-security-card,
-.settings-privacy-card {
+.settings-privacy-card,
+.settings-security-centre {
   grid-column: 1 / -1;
+}
+
+.settings-security-centre {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.72), transparent 54%),
+    var(--paper);
+}
+
+.security-summary {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.security-summary div {
+  min-width: 0;
+  padding: 16px;
+  display: grid;
+  gap: 7px;
+  border: 1px solid rgba(23, 56, 42, 0.14);
+  border-radius: 11px;
+  background: rgba(49, 88, 68, 0.035);
+}
+
+.security-summary dt {
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.security-summary dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--forest-deep);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.security-summary dd.is-secure {
+  color: var(--forest-soft);
+}
+
+.security-summary dd.is-warning {
+  color: var(--danger);
+}
+
+.security-session-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.security-session-actions article,
+.security-session-actions form {
+  padding: 20px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  border: 1px solid rgba(23, 56, 42, 0.14);
+  border-radius: 12px;
+  background: white;
+}
+
+.security-session-actions article > div,
+.security-session-actions form > div {
+  display: grid;
+  gap: 6px;
+}
+
+.security-session-actions strong {
+  color: var(--forest-deep);
+  font-size: 13px;
+}
+
+.security-session-actions span,
+.security-limit-note {
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.security-session-actions button {
+  min-height: 48px;
+  padding: 0 17px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: var(--forest);
+  font-weight: 800;
+}
+
+.security-session-actions form button {
+  background: var(--danger);
+}
+
+.security-session-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.security-limit-note {
+  margin: 0;
+  padding-top: 4px;
 }
 
 .settings-security-card {
@@ -216,7 +324,9 @@
 @media (max-width: 820px) {
   .settings-grid,
   .settings-security-card,
-  .settings-toggle-list {
+  .settings-toggle-list,
+  .security-summary,
+  .security-session-actions {
     grid-template-columns: 1fr;
   }
 

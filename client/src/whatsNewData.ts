@@ -8,6 +8,17 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'account-security-centre',
+    publishedAt: '2026-09-22',
+    title: 'Keep an eye on your account security',
+    summary: 'Review your latest sign-in details and close sessions you no longer want to keep active.',
+    highlights: [
+      'See whether your sign-in email is verified and when your account last signed in successfully.',
+      'Sign out other devices while keeping the browser in front of you active.',
+      'Use an exact confirmation when you need to sign out everywhere, including the current device.',
+    ],
+  },
+  {
     id: 'shared-rounds',
     publishedAt: '2026-09-22',
     title: 'Share a round with a friend',
