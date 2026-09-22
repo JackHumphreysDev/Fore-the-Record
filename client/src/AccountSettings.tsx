@@ -9,7 +9,12 @@ import {
   type AccountProfile,
 } from './accountSettingsApi.ts'
 import { getAuthErrorMessage } from './authErrors.ts'
-import { createCredentialVerificationClient } from './supabase.ts'
+import { createCredentialVerificationClient, getSupabaseClient } from './supabase.ts'
+import {
+  buildAccountSecuritySnapshot,
+  isGlobalSignOutConfirmation,
+  type AccountSecuritySnapshot,
+} from './accountSecurity.ts'
 import {
   deleteOwnAccount,
   getPersonalDataExport,
@@ -24,6 +29,7 @@ type AccountSettingsProps = {
   onBack: () => void
   onProfileUpdated: (profile: AccountProfile) => void
   onAccountDeleted: () => Promise<void>
+  onSessionEnded: () => void
 }
 
 async function verifyCurrentPassword(email: string, password: string) {
@@ -45,6 +51,7 @@ function AccountSettings({
   onBack,
   onProfileUpdated,
   onAccountDeleted,
+  onSessionEnded,
 }: AccountSettingsProps) {
   const [name, setName] = useState(profile.name)
   const [nameError, setNameError] = useState('')
@@ -73,6 +80,12 @@ function AccountSettings({
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteError, setDeleteError] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
+  const [security, setSecurity] = useState<AccountSecuritySnapshot | null>(null)
+  const [securityError, setSecurityError] = useState('')
+  const [securityMessage, setSecurityMessage] = useState('')
+  const [isSigningOutOthers, setIsSigningOutOthers] = useState(false)
+  const [isSigningOutEverywhere, setIsSigningOutEverywhere] = useState(false)
+  const [globalSignOutConfirmation, setGlobalSignOutConfirmation] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -93,6 +106,61 @@ function AccountSettings({
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void getSupabaseClient().auth.getUser().then(({ data, error }) => {
+      if (cancelled) return
+      if (error || !data.user) {
+        setSecurityError('We could not load your current security details.')
+        return
+      }
+      setSecurity(buildAccountSecuritySnapshot(data.user))
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  async function signOutOtherDevices() {
+    setIsSigningOutOthers(true)
+    setSecurityError('')
+    setSecurityMessage('')
+    try {
+      const { error } = await getSupabaseClient().auth.signOut({ scope: 'others' })
+      if (error) throw error
+      setSecurityMessage('Other device sessions have been signed out. This device remains signed in.')
+    } catch (error: unknown) {
+      setSecurityError(error instanceof Error ? getAuthErrorMessage(error) : 'We could not sign out other devices.')
+    } finally {
+      setIsSigningOutOthers(false)
+    }
+  }
+
+  async function signOutEverywhere(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!isGlobalSignOutConfirmation(globalSignOutConfirmation)) {
+      setSecurityError('Type SIGN OUT exactly to confirm')
+      return
+    }
+    setIsSigningOutEverywhere(true)
+    setSecurityError('')
+    setSecurityMessage('')
+    try {
+      const { error } = await getSupabaseClient().auth.signOut({ scope: 'global' })
+      if (error) throw error
+      onSessionEnded()
+    } catch (error: unknown) {
+      setSecurityError(error instanceof Error ? getAuthErrorMessage(error) : 'We could not sign out every device.')
+      setIsSigningOutEverywhere(false)
+    }
+  }
+
+  function formatSecurityDate(value: string | null): string {
+    if (!value) return 'Not available'
+    return new Intl.DateTimeFormat('en-GB', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value))
+  }
 
   async function saveName(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -379,6 +447,37 @@ function AccountSettings({
             {isSavingEmail ? 'Sending…' : 'Send confirmation'}
           </button>
         </form>
+
+        <section className="settings-card settings-security-centre">
+          <div>
+            <p className="form-kicker">Account security centre</p>
+            <h2>Protect your sign-in</h2>
+            <p>Review the security information Supabase provides and close sessions you no longer recognise.</p>
+          </div>
+          {security ? (
+            <dl className="security-summary">
+              <div><dt>Sign-in email</dt><dd>{security.email}</dd></div>
+              <div><dt>Email status</dt><dd className={security.emailVerified ? 'is-secure' : 'is-warning'}>{security.emailVerified ? 'Verified' : 'Confirmation required'}</dd></div>
+              <div><dt>Sign-in method</dt><dd>{security.signInMethod}</dd></div>
+              <div><dt>Last successful sign-in</dt><dd>{formatSecurityDate(security.lastSignInAt)}</dd></div>
+              <div><dt>Account created</dt><dd>{formatSecurityDate(security.accountCreatedAt)}</dd></div>
+            </dl>
+          ) : !securityError ? <p>Loading your security details…</p> : null}
+          <div className="security-session-actions">
+            <article>
+              <div><strong>Other devices</strong><span>Close every other refreshable session while keeping this browser signed in.</span></div>
+              <button type="button" disabled={isSigningOutOthers || isSigningOutEverywhere} onClick={() => void signOutOtherDevices()}>{isSigningOutOthers ? 'Signing out…' : 'Sign out other devices'}</button>
+            </article>
+            <form onSubmit={signOutEverywhere}>
+              <div><strong>Every device</strong><span>Type <b>SIGN OUT</b> to close all sessions, including this one.</span></div>
+              <label>Confirmation<input type="text" autoComplete="off" value={globalSignOutConfirmation} onChange={(event) => { setGlobalSignOutConfirmation(event.target.value); setSecurityError(''); setSecurityMessage('') }} /></label>
+              <button type="submit" disabled={isSigningOutEverywhere || isSigningOutOthers}>{isSigningOutEverywhere ? 'Signing out…' : 'Sign out everywhere'}</button>
+            </form>
+          </div>
+          {securityError ? <p className="settings-error" role="alert">{securityError}</p> : null}
+          {securityMessage ? <p className="settings-success" role="status">{securityMessage}</p> : null}
+          <p className="security-limit-note">Fore the Record can show your latest successful sign-in, but it does not receive a complete device list, failed-login history, passwords, or authentication tokens from Supabase.</p>
+        </section>
 
         <form className="settings-card settings-security-card" onSubmit={savePassword} noValidate>
           <div>

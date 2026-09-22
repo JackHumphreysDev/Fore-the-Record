@@ -14,6 +14,19 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.35.0 - 2026-09-22
+
+### User-facing changes
+
+- Added an Account Security Centre showing verified email status, sign-in method, account creation date, and the latest successful sign-in supplied by Supabase.
+- Added controls to sign out other devices while keeping the current browser active, or confirmation-gated sign-out across every device.
+- Kept password changes protected by current-password verification and clearly explained which security information Fore the Record cannot access.
+
+### Developer and admin changes
+
+- Added client-side security summary normalization and exact global sign-out confirmation tests.
+- Session revocation uses Supabase Auth scopes directly; Fore the Record does not store passwords, access tokens, device inventories, or failed-login histories.
+
 ## 0.34.0 - 2026-09-22
 
 ### User-facing changes

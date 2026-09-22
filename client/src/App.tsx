@@ -380,17 +380,21 @@ function App() {
     setUnreadRefresh((value) => value + 1)
   }
 
+  function clearSignedOutState() {
+    profileRequestNumber.current += 1
+    setSession(null)
+    setProfile(null)
+    setAdminIdentity(null)
+    setActiveView('profile')
+    setSupportUnreadCount(0)
+    setAdminUnreadCount(0)
+  }
+
   async function signOut() {
     try {
       await getSupabaseClient().auth.signOut()
     } finally {
-      profileRequestNumber.current += 1
-      setSession(null)
-      setProfile(null)
-      setAdminIdentity(null)
-      setActiveView('profile')
-      setSupportUnreadCount(0)
-      setAdminUnreadCount(0)
+      clearSignedOutState()
     }
   }
 
@@ -715,6 +719,7 @@ function App() {
             onBack={() => setActiveView('profile')}
             onProfileUpdated={updateProfileDetails}
             onAccountDeleted={signOut}
+            onSessionEnded={clearSignedOutState}
           />
         ) : activeView === 'friends' ? (
           <Friends profileId={profile.id} />
