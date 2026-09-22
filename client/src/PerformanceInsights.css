@@ -1,0 +1,35 @@
+.performance-insights { width:min(1180px,calc(100% - 40px)); margin:42px auto 28px; padding:clamp(22px,4vw,42px); border:1px solid var(--line); border-radius:24px; background:rgba(249,247,239,.88); }
+.performance-insights-heading,.hole-insights>header { display:grid; grid-template-columns:1.2fr .8fr; gap:24px; align-items:end; }
+.performance-insights-heading h2,.hole-insights h3 { margin:4px 0 0; color:var(--forest-deep); font-family:Georgia,"Times New Roman",serif; font-size:clamp(34px,5vw,58px); font-weight:400; line-height:.95; }
+.performance-insights-heading>p,.hole-insights>header>p,.performance-insights article p,.performance-insights article small,.hole-insights-note { margin:0; color:var(--ink-muted); font-size:11px; line-height:1.55; }
+.performance-insights-state { min-height:150px; display:grid; place-content:center; gap:10px; text-align:center; color:var(--ink-muted); }
+.performance-insights-state button { justify-self:center; padding:9px 14px; border-radius:8px; color:white; background:var(--forest); }
+.performance-insights-trends { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; margin-top:28px; }
+.performance-insights-trends article,.performance-insights-breakdown article,.performance-insights-venues>div { padding:18px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.5); }
+.performance-insights article>span,.performance-insights-venues span { display:block; color:var(--ink-muted); font-size:9px; font-weight:800; letter-spacing:.7px; text-transform:uppercase; }
+.performance-insights article>strong,.performance-insights-venues strong { display:block; margin:8px 0 5px; color:var(--forest-deep); font-family:Georgia,"Times New Roman",serif; font-size:25px; font-weight:400; text-transform:capitalize; }
+.performance-insights article small { display:block; margin-top:8px; }
+.insight-direction-improving { color:#2d6a4f!important; }.insight-direction-declining { color:#a14235!important; }
+.performance-insights-breakdown { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; margin-top:13px; }
+.performance-insights-venues { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; margin-top:13px; }
+.hole-insights { margin-top:30px; padding-top:30px; border-top:1px solid var(--line); }
+.hole-insights h3 { font-size:clamp(28px,4vw,44px); }
+.hole-insights-filters { display:grid; grid-template-columns:2fr 1fr 1fr; gap:12px; margin-top:24px; padding:16px; border-radius:15px; background:var(--forest); }
+.hole-insights-filters label { display:grid; gap:7px; color:rgba(255,255,255,.72); font-size:9px; font-weight:800; letter-spacing:.8px; text-transform:uppercase; }
+.hole-insights-filters select { min-width:0; width:100%; padding:11px 12px; border:1px solid rgba(255,255,255,.16); border-radius:9px; color:white; background:#152019; font:inherit; font-size:11px; letter-spacing:0; text-transform:none; }
+.hole-insights-filters select:disabled { opacity:.55; }
+.hole-insights-empty { min-height:130px; display:grid; place-content:center; color:var(--ink-muted); font-size:12px; text-align:center; }
+.hole-insights-summary { display:grid; grid-template-columns:repeat(5,1fr); margin:22px 0 0; border-block:1px solid var(--line); }
+.hole-insights-summary div { padding:14px; }.hole-insights-summary div+div { border-left:1px solid var(--line); }
+.hole-insights-summary dt { color:var(--ink-muted); font-size:8px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; }
+.hole-insights-summary dd { margin:5px 0 0; color:var(--forest-deep); font-family:Georgia,"Times New Roman",serif; font-size:22px; }
+.hole-insights-legend { display:flex; flex-wrap:wrap; gap:18px; margin:18px 0 8px; color:var(--ink-muted); font-size:10px; }
+.hole-key { display:inline-block; width:10px; height:10px; margin-right:6px; border-radius:50%; background:var(--forest); }.hole-key-par { border-radius:0; background:#ba613c; }.hole-key-average { border-radius:0; background:#8a9a2b; }.hole-key-pickup { background:#8d8174; }
+.hole-insights-chart-scroll { overflow-x:auto; }.hole-insights-chart-scroll svg { display:block; min-width:680px; width:100%; }
+.hole-chart-grid { stroke:rgba(32,43,34,.12); stroke-width:1; }.hole-chart-axis,.hole-chart-date { fill:var(--ink-muted); font-size:10px; }.hole-chart-par { stroke:#ba613c; stroke-width:2; stroke-dasharray:7 5; }.hole-chart-average { stroke:#8a9a2b; stroke-width:2; stroke-dasharray:3 5; }.hole-chart-line { fill:none; stroke:var(--forest); stroke-width:3; }.hole-chart-point { fill:#f8f5e8; stroke:var(--forest); stroke-width:4; cursor:pointer; }.hole-chart-point:focus { outline:none; stroke:#86a300; stroke-width:6; }.hole-chart-pickup { fill:#8d8174; font-size:25px; cursor:pointer; }
+.hole-insights-detail { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:16px 18px; border-radius:12px; background:rgba(23,56,42,.08); }
+.hole-insights-detail div { display:grid; gap:2px; }.hole-insights-detail small,.hole-insights-detail span { color:var(--ink-muted); font-size:10px; }.hole-insights-detail strong { color:var(--forest-deep); font-size:15px; }
+.hole-insights-detail button { padding:10px 14px; border-radius:9px; color:white; background:var(--forest); font-size:11px; font-weight:700; }
+.hole-insights-note { margin-top:14px; text-align:center; }
+@media(max-width:900px){.performance-insights-trends{grid-template-columns:1fr}.performance-insights-breakdown{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.performance-insights{width:min(100% - 20px,1180px);padding:20px 14px}.performance-insights-heading,.hole-insights>header{grid-template-columns:1fr}.performance-insights-breakdown,.performance-insights-venues,.hole-insights-filters,.hole-insights-summary{grid-template-columns:1fr}.hole-insights-summary div+div{border-left:0;border-top:1px solid var(--line)}.hole-insights-detail{align-items:stretch;flex-direction:column}.hole-insights-detail button{width:100%}}

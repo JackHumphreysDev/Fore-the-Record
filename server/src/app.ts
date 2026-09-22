@@ -56,6 +56,7 @@ import { mergeCourseSearchData } from './courseSearch.js'
 import { prisma } from './database.js'
 import type { Prisma } from './generated/prisma/client.js'
 import { buildPerformanceSummary } from './performanceSummary.js'
+import { buildPerformanceInsights } from './performanceInsights.js'
 import {
   buildPerformanceAnalysis,
   type PerformanceAnalysisFilters,
@@ -3330,6 +3331,38 @@ app.get('/api/users/me/performance-summary', async (_request, response) => {
       })),
     ),
   )
+})
+
+app.get('/api/users/me/performance-insights', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const teeId = typeof request.query.teeId === 'string' && request.query.teeId.trim() ? request.query.teeId.trim() : undefined
+  const holeText = typeof request.query.hole === 'string' ? request.query.hole : undefined
+  const hole = holeText ? Number(holeText) : undefined
+  if ((teeId && !UUID_PATTERN.test(teeId)) || (hole !== undefined && (!Number.isInteger(hole) || hole < 1 || hole > 18)) || Boolean(teeId) !== Boolean(hole)) {
+    return response.status(400).json({ error: 'Choose a valid tee and hole together' })
+  }
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      rounds: {
+        orderBy: [{ datePlayed: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true, datePlayed: true, createdAt: true, participation: true, scorecardStatus: true,
+          scoringFormat: true, holeCount: true, grossScore: true, stablefordPoints: true,
+          tee: {
+            select: {
+              id: true, teeName: true,
+              course: { select: { id: true, name: true, club: { select: { name: true } } } },
+              holes: { orderBy: { holeNumber: 'asc' }, select: { holeNumber: true, par: true, strokeIndex: true, yardage: true } },
+            },
+          },
+          holeScores: { orderBy: { holeNumber: 'asc' }, select: { holeNumber: true, par: true, strokesTaken: true, pickedUp: true } },
+        },
+      },
+    },
+  })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  response.status(200).json(buildPerformanceInsights(user.rounds, teeId, hole))
 })
 
 app.get('/api/users/me/performance-analysis', async (request, response) => {

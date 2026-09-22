@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'performance-insights',
+    publishedAt: '2026-09-22',
+    title: 'Follow the patterns in your game',
+    summary: 'See whether your recent scoring is improving and revisit how you have played any recorded hole over time.',
+    highlights: [
+      'Compare your latest five rounds with the previous five, with Stroke Play and Stableford kept separate.',
+      'See scoring consistency, stronger and weaker par types, Front 9 and Back 9 form, and your strongest course and tee.',
+      'Choose an exact course, tee, and hole to plot every score against par and your own average.',
+      'Open any plotted score in Round History, while picked-up holes remain clearly marked and never receive a made-up score.',
+    ],
+  },
+  {
     id: 'friend-groups-leaderboards',
     publishedAt: '2026-09-22',
     title: 'Bring your golf group together',

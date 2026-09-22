@@ -38,11 +38,17 @@ This roadmap records agreed future work. Items are planned requirements, not com
 32. Course personal bests. Completed in `0.36.0`.
 33. Match-play scoring. Completed in `0.37.0`.
 34. Friends groups and advanced leaderboards. Completed in `0.38.0`.
-35. Performance insights.
+35. Performance insights. Completed in `0.39.0`.
 36. Full team-game scoring.
 37. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Performance insights — completed in 0.39.0
+
+The Rounds screen now turns verified individual play into private form and consistency insights. Stroke Play and Stableford are compared separately over the latest five complete 18-hole rounds and the previous five, with improving, steady, declining, and insufficient-data states. Players can also compare par 3, par 4, and par 5 scoring, complete Front 9 and Back 9 performance, gross-score consistency and range, and their strongest course-and-tee combinations. Every result retains its qualifying sample.
+
+Hole Performance History lets a player choose an exact course, tee, and hole and plot every recorded score in chronological order against par and their personal average. Selecting a point shows its date and score-to-par result and can open the full matching round in History. Team rounds and unverified scorecards are excluded. A picked-up hole is shown as a missing observation and never receives an invented stroke score.
 
 ## Friends groups and advanced leaderboards — completed in 0.38.0
 
