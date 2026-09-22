@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'team-game-scoring',
+    publishedAt: '2026-09-23',
+    title: 'Keep the complete team competition',
+    summary: 'Record every team across all 18 holes and see the full finishing order without changing anyone’s Handicap Index.',
+    highlights: [
+      'Name your team, link accepted friends or add guests, and list every opposing team and player.',
+      'Choose Gross Strokes or Stableford Points and enter one score for each team on every hole.',
+      'See automatic Front 9, Back 9, total, tied position, and full-field leaderboard results.',
+      'Review the complete card later in History or an accepted friend’s profile.',
+    ],
+  },
+  {
     id: 'performance-insights',
     publishedAt: '2026-09-22',
     title: 'Follow the patterns in your game',

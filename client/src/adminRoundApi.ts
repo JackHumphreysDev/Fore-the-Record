@@ -4,6 +4,7 @@ import type {
   WeatherCondition,
 } from './roundRecordValidation.ts'
 import { isScorecardPhoto, type ScorecardPhoto } from './scorecardPhotoApi.ts'
+import { isTeamCompetition, type TeamCompetition } from './teamCompetition.ts'
 
 export type AdminRound = {
   id: string
@@ -21,6 +22,7 @@ export type AdminRound = {
   competitionFormat: string | null
   gameFormat: string | null
   gameResult: 'WON' | 'LOST' | 'TIED' | null
+  teamCompetition: TeamCompetition | null
   guestPlayerNames: string[]
   playingPartners: Array<{ id: string; name: string; result: 'WON' | 'LOST' | 'TIED' | null }>
   guestPlayers: Array<{ name: string; result: 'WON' | 'LOST' | 'TIED' | null }>
@@ -83,6 +85,7 @@ export function isAdminRound(value: unknown): value is AdminRound {
     (value.stablefordPoints === null || Number.isInteger(value.stablefordPoints)) &&
     (value.gameFormat === null || typeof value.gameFormat === 'string') &&
     (value.gameResult === null || value.gameResult === 'WON' || value.gameResult === 'LOST' || value.gameResult === 'TIED') &&
+    (value.teamCompetition === null || isTeamCompetition(value.teamCompetition)) &&
     Array.isArray(value.guestPlayerNames) && value.guestPlayerNames.every((name) => typeof name === 'string') &&
     Array.isArray(value.playingPartners) && value.playingPartners.every((player) => isRecord(player) && typeof player.id === 'string' && typeof player.name === 'string' && (player.result === null || player.result === 'WON' || player.result === 'LOST' || player.result === 'TIED')) &&
     Array.isArray(value.guestPlayers) && value.guestPlayers.every((player) => isRecord(player) && typeof player.name === 'string' && (player.result === null || player.result === 'WON' || player.result === 'LOST' || player.result === 'TIED')) &&

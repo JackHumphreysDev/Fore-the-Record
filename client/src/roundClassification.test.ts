@@ -4,6 +4,32 @@ import {
   isRoundResult,
 } from './roundRecordValidation.ts'
 
+const teamCompetition = {
+  scoring: 'GROSS_STROKES',
+  teams: [
+    {
+      name: 'Home team',
+      members: ['Test Player'],
+      isPlayerTeam: true,
+      holeScores: Array.from({ length: 18 }, () => 4),
+      frontNine: 36,
+      backNine: 36,
+      total: 72,
+      position: 1,
+    },
+    {
+      name: 'Visitors',
+      members: ['Guest Player'],
+      isPlayerTeam: false,
+      holeScores: Array.from({ length: 18 }, () => 5),
+      frontNine: 45,
+      backNine: 45,
+      total: 90,
+      position: 2,
+    },
+  ],
+}
+
 const teamRound = {
   id: 'round-1',
   datePlayed: '2026-09-02T00:00:00.000Z',
@@ -19,6 +45,7 @@ const teamRound = {
   competitionFormat: 'Texas Scramble',
   gameFormat: null,
   gameResult: null,
+  teamCompetition,
   guestPlayerNames: [],
   guestPlayers: [],
   playingPartners: [],
@@ -78,8 +105,12 @@ describe('round classification response validation', () => {
     ).toBe(false)
   })
 
-  it('accepts a record-only team entry in round history', () => {
+  it('accepts a full team competition in round history', () => {
     expect(isHistoryRound({ ...teamRound, tee })).toBe(true)
+  })
+
+  it('accepts a legacy record-only team entry in round history', () => {
+    expect(isHistoryRound({ ...teamRound, teamCompetition: null, tee })).toBe(true)
   })
 
   it('rejects a team history entry marked as a counting round', () => {
@@ -97,6 +128,7 @@ describe('round classification response validation', () => {
       isHistoryRound({
         ...teamRound,
         participation: 'INDIVIDUAL',
+        teamCompetition: null,
         grossScore: 82,
         adjustedGrossScore: 80,
         weatherCondition: 'DRY',
@@ -114,6 +146,7 @@ describe('round classification response validation', () => {
         ...teamRound,
         category: 'CASUAL',
         participation: 'INDIVIDUAL',
+        teamCompetition: null,
         scoringFormat: 'STABLEFORD',
         playingHandicap: 18,
         stablefordPoints: 34,
@@ -143,6 +176,7 @@ describe('round classification response validation', () => {
       isHistoryRound({
         ...teamRound,
         participation: 'INDIVIDUAL',
+        teamCompetition: null,
         holeCount: 9,
         nineHoleSegment: 'FRONT_NINE',
         grossScore: 44,

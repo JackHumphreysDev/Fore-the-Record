@@ -10,6 +10,13 @@ import {
 } from './adminRoundApi.ts'
 import type { AdminUser } from './adminApi.ts'
 import ScorecardPhoto from './ScorecardPhoto.tsx'
+import TeamCompetitionEntry from './TeamCompetitionEntry.tsx'
+import {
+  emptyTeamCompetitionDraft,
+  parseTeamCompetitionDraft,
+  type TeamCompetitionDraft,
+} from './teamCompetitionDraft.ts'
+import { teamPositionLabel } from './teamCompetition.ts'
 
 type Props = {
   user: AdminUser
@@ -31,6 +38,7 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
   const [form, setForm] = useState<Record<string, string>>({})
   const [strokes, setStrokes] = useState<number[]>([])
   const [pickups, setPickups] = useState<boolean[]>([])
+  const [teamCompetitionDraft, setTeamCompetitionDraft] = useState<TeamCompetitionDraft>(emptyTeamCompetitionDraft)
   const [confirmation, setConfirmation] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -119,6 +127,17 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
     })
     setStrokes(round.holeScores.map((hole) => hole.strokesTaken))
     setPickups(round.holeScores.map((hole) => hole.pickedUp))
+    if (round.teamCompetition) {
+      const playerTeam = round.teamCompetition.teams.find((team) => team.isPlayerTeam)!
+      setTeamCompetitionDraft({
+        scoring: round.teamCompetition.scoring,
+        playerTeamName: playerTeam.name,
+        playerHoleScores: playerTeam.holeScores.map(String),
+        opponents: round.teamCompetition.teams.filter((team) => !team.isPlayerTeam).map((team, index) => ({ id: `admin-opponent-${index}`, name: team.name, members: team.members.join('\n'), holeScores: team.holeScores.map(String) })),
+      })
+    } else {
+      setTeamCompetitionDraft(emptyTeamCompetitionDraft())
+    }
     setConfirmation('')
     setMessage('')
     setError('')
@@ -137,6 +156,12 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
     const competition = form.category === 'COMPETITION'
     const socialGame = form.category === 'SOCIAL_GAME'
     const individual = selected.participation === 'INDIVIDUAL'
+    const parsedTeamCompetition = individual ? null : parseTeamCompetitionDraft(teamCompetitionDraft)
+    if (!individual && (!parsedTeamCompetition || 'error' in parsedTeamCompetition)) {
+      setError(parsedTeamCompetition?.error ?? 'Complete the team competition card.')
+      setSaving(false)
+      return
+    }
     const body = {
       datePlayed: form.datePlayed,
       ...(form.timePlayed ? { timePlayed: form.timePlayed } : {}),
@@ -167,7 +192,7 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
           strokesTaken: pickups[index] ? null : strokes[index],
           pickedUp: pickups[index] ?? false,
         })),
-      } : {}),
+      } : parsedTeamCompetition && 'input' in parsedTeamCompetition ? { teamCompetition: parsedTeamCompetition.input } : {}),
     }
     try {
       const response = await authenticatedFetch(buildAdminRoundPath(selected.id), {
@@ -216,7 +241,7 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
         <button className="admin-round-row" type="button" key={round.id} onClick={() => selectRound(round)}>
           <span><strong>{round.tee.course.club.name}</strong>{round.tee.course.name} · {round.tee.teeName}</span>
           <span>{round.datePlayed.slice(0, 10)}</span>
-          <span>{round.participation === 'TEAM' ? 'Team record' : `${round.holeCount} holes · ${round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints} pts` : `Gross ${round.grossScore}`}`}</span>
+          <span>{round.participation === 'TEAM' ? round.teamCompetition ? `${teamPositionLabel(round.teamCompetition.teams.find((team) => team.isPlayerTeam)?.position ?? 0)} · ${round.teamCompetition.teams.find((team) => team.isPlayerTeam)?.total} ${round.teamCompetition.scoring === 'GROSS_STROKES' ? 'strokes' : 'pts'}` : 'Legacy team record' : `${round.holeCount} holes · ${round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints} pts` : `Gross ${round.grossScore}`}`}</span>
           <span>Edit</span>
         </button>
       ))}
@@ -261,7 +286,7 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
         </div>
         {selected.participation === 'INDIVIDUAL' ? <div className="admin-round-holes">
           {selected.holeScores.map((hole, index) => <label key={hole.holeNumber}><span>Hole {hole.holeNumber}<small>Par {hole.par} · SI {hole.strokeIndex}</small></span><input type="number" min="1" disabled={pickups[index]} value={pickups[index] ? '' : (strokes[index] ?? '')} onChange={(e) => setStrokes((current) => current.map((value, position) => position === index ? Number(e.target.value) : value))} />{selected.scoringFormat === 'STABLEFORD' ? <span><input type="checkbox" checked={pickups[index] ?? false} onChange={(e) => setPickups((current) => current.map((value, position) => position === index ? e.target.checked : value))} /> Picked up</span> : null}</label>)}
-        </div> : null}
+        </div> : <TeamCompetitionEntry value={teamCompetitionDraft} onChange={setTeamCompetitionDraft} />}
         <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save round corrections'}</button>
         </form>
         {error ? <p className="admin-account-error" role="alert">{error}</p> : null}

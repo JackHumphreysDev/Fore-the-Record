@@ -26,6 +26,11 @@ import {
 import { parseRoundNotes, RoundNotesValidationError } from './roundNotes.js'
 import { calculateStablefordRound } from './stableford.js'
 import { parseMatchPlay, type MatchPlaySummary } from './matchPlay.js'
+import {
+  buildTeamCompetition,
+  parseTeamCompetition,
+  type TeamCompetitionInput,
+} from './teamCompetition.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -122,6 +127,7 @@ export type LogTeamRoundInput = LogRoundBase & {
   scoringFormat: typeof RoundScoringFormat.STROKE_PLAY
   playingHandicap: null
   stablefordPoints: null
+  teamCompetition: TeamCompetitionInput
 }
 
 export type LogRoundInput = LogIndividualRoundInput | LogTeamRoundInput
@@ -506,6 +512,10 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   }
 
   if (participation === RoundParticipation.TEAM) {
+    const teamCompetition = parseTeamCompetition(value.teamCompetition)
+    const teamCompetitionPlayerCount = teamCompetition
+      ? 1 + playingPartnerIds.length + guestPlayerNames.length + teamCompetition.opponents.reduce((sum, team) => sum + team.members.length, 0)
+      : 0
     if (
       category !== RoundCategory.COMPETITION ||
       timePlayed === null ||
@@ -521,7 +531,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       value.playingHandicap !== undefined ||
       value.matchPlayOpponentName !== undefined ||
       value.matchPlayHoles !== undefined
-      || holeCount !== 18
+      || holeCount !== 18 || !teamCompetition || numberOfPlayers !== teamCompetitionPlayerCount
     ) {
       return null
     }
@@ -553,7 +563,12 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       stablefordPoints: null,
       holeCount: 18,
       nineHoleSegment: null,
+      teamCompetition,
     }
+  }
+
+  if (value.teamCompetition !== undefined && value.teamCompetition !== null) {
+    return null
   }
 
   const weatherCondition = getWeatherCondition(value.weatherCondition)
@@ -658,7 +673,7 @@ export async function logRound(input: LogRoundInput) {
     const [user, tee] = await Promise.all([
       transaction.user.findUnique({
         where: { id: input.userId },
-        select: { handicapIndex: true },
+        select: { name: true, handicapIndex: true },
       }),
       transaction.tee.findUnique({
         where: { id: input.teeId },
@@ -730,6 +745,16 @@ export async function logRound(input: LogRoundInput) {
       user.handicapIndex === null ? null : Number(user.handicapIndex)
 
     if (input.participation === RoundParticipation.TEAM) {
+      const partnerUsers = input.playingPartnerIds.length === 0 ? [] : await transaction.user.findMany({
+        where: { id: { in: input.playingPartnerIds } },
+        select: { id: true, name: true },
+      })
+      const partnerNames = new Map(partnerUsers.map((partner) => [partner.id, partner.name]))
+      const teamCompetition = buildTeamCompetition(input.teamCompetition, [
+        user.name,
+        ...input.playingPartnerIds.flatMap((id) => partnerNames.get(id) ?? []),
+        ...input.guestPlayerNames,
+      ])
       const createdRound = await transaction.round.create({
         data: {
           userId: input.userId,
@@ -747,6 +772,7 @@ export async function logRound(input: LogRoundInput) {
           competitionFormat: input.competitionFormat,
           gameFormat: input.gameFormat,
           gameResult: input.gameResult,
+          teamCompetition,
           guestPlayerNames: input.guestPlayerNames,
           numberOfPlayers: input.numberOfPlayers,
           notes: input.notes,

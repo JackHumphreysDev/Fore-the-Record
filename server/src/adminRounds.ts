@@ -146,7 +146,12 @@ export async function updateRoundAsAdmin(input: {
                 ? body.playingHandicap
                 : null,
           }
-        : { holeScores: null, grossScore: null, weatherCondition: null }),
+        : {
+            holeScores: null,
+            grossScore: null,
+            weatherCondition: null,
+            teamCompetition: body.teamCompetition ?? existing.teamCompetition,
+          }),
     })
     if (!parsed) {
       throw new AdminRoundError(
@@ -167,6 +172,7 @@ export async function updateRoundAsAdmin(input: {
         matchPlayOpponentName: existing.matchPlayOpponentName,
         matchPlayFinalScore: existing.matchPlayFinalScore,
       } : {}),
+      teamCompetition: existing.teamCompetition,
       scoringFormat: existing.scoringFormat,
       playingHandicap: existing.playingHandicap,
       stablefordPoints: existing.stablefordPoints,
@@ -191,6 +197,7 @@ export async function updateRoundAsAdmin(input: {
         competitionFormat: parsed.competitionFormat,
         gameFormat: parsed.gameFormat,
         gameResult: parsed.gameResult,
+        teamCompetition: parsed.teamCompetition,
         numberOfPlayers: parsed.numberOfPlayers,
       }
     } else {

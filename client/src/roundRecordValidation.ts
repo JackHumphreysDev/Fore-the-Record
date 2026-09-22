@@ -2,6 +2,7 @@ import {
   isScorecardPhoto,
   type ScorecardPhoto,
 } from './scorecardPhotoApi.ts'
+import { isTeamCompetition, type TeamCompetition } from './teamCompetition.ts'
 
 export type WeatherCondition = 'DRY' | 'MOIST' | 'WET' | 'SUPER_WET'
 export type RoundCategory = 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
@@ -34,6 +35,7 @@ type ClassifiedRound = {
   matchPlayOpponentName?: string | null
   matchPlayFinalScore?: string | null
   matchPlayHoles?: MatchPlayHole[] | null
+  teamCompetition?: TeamCompetition | null
   guestPlayerNames: string[]
   playingPartners: Array<{
     id: string
@@ -202,6 +204,7 @@ export function isRoundResult(value: unknown): value is RoundResult {
   const round = value.round
   const hasValidScoredResult =
     round.participation === 'INDIVIDUAL' &&
+    (round.teamCompetition === null || round.teamCompetition === undefined) &&
     typeof round.adjustedGrossScore === 'number' &&
     ((round.holeCount === 18 &&
       round.nineHoleSegment === null &&
@@ -231,6 +234,7 @@ export function isRoundResult(value: unknown): value is RoundResult {
     round.adjustedGrossScore === null &&
     round.scoreDifferential === null &&
     round.scorecardStatus === 'NOT_REQUIRED'
+    && isTeamCompetition(round.teamCompetition)
     && round.holeCount === 18
     && round.nineHoleSegment === null
 
@@ -260,6 +264,7 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
 
   const hasValidIndividualScore =
     value.participation === 'INDIVIDUAL' &&
+    (value.teamCompetition === null || value.teamCompetition === undefined) &&
     isFiniteNumber(value.adjustedGrossScore) &&
     typeof value.weatherCondition === 'string' &&
     WEATHER_CONDITIONS.includes(value.weatherCondition as WeatherCondition) &&
@@ -293,6 +298,7 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
     value.isAcceptable === false &&
     value.usedInHandicapCalc === false &&
     value.scorecardStatus === 'NOT_REQUIRED'
+    && (value.teamCompetition === null || isTeamCompetition(value.teamCompetition))
     && value.holeCount === 18
     && value.nineHoleSegment === null
   const hasValidHoleScores =

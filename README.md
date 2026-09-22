@@ -46,7 +46,7 @@ Round History can be filtered by club, course, tee, competition text, round type
 
 Players can add a private note while recording any individual or team round, then read, edit, clear, or search that note from Round History. Notes remain inside the authenticated player's record and never affect scoring or Handicap Index calculations.
 
-Players can attach one optional photo of a signed scorecard to a saved individual round. Photos are stored in a private Supabase Storage bucket, opened through short-lived links, and visible only to the round owner and administrator. Replacing or removing a photo never changes the saved strokes, review status, or Handicap Index calculation.
+Players can attach one optional photo of a signed scorecard to a saved individual round. Photos are stored in a private Supabase Storage bucket and opened through short-lived links for the round owner, administrator, and accepted friends who can view the round. Replacing or removing a photo never changes the saved strokes, review status, or Handicap Index calculation.
 
 Account Settings includes privacy choices for player discovery, new friend requests, Handicap Index visibility, and sharing limited round activity with accepted friends. Players can download a JSON copy of their own Fore the Record data and permanently delete a non-administrator account after password verification and exact email confirmation.
 
@@ -62,7 +62,7 @@ The Profile screen includes private Player Goals for Handicap Index, lowest gros
 
 The application features are still under development. Core profile, authentication, course catalogue, scorecard, round-history, handicap, support, social, privacy, goal, milestone, and administrator workflows are implemented. Authenticated API requests derive ownership from the verified Supabase session rather than trusting a browser-supplied profile ID.
 
-Round Entry supports casual rounds, individual competitions, record-only team competitions, and games with friends. Structured competition and social-game formats can include optional accepted-friend links, guest names, and a Won/Lost/Tied result. A linked friend can remove their tag, but the round is never copied to their record and never affects their handicap. Individual cards can use Stroke play or Stableford scoring. Stableford stores the Playing Handicap used, allocates strokes by the approved hole indexes, calculates every hole's net score and points, and supports explicit picked-up holes. A pickup records zero points and no invented gross score; Net Double Bogey is used only for handicap processing. Manually supplied course definitions remain provisional until administrator approval.
+Round Entry supports casual rounds, individual competitions, complete team competitions, and games with friends. A team card records the player's team and every opposing team over all 18 holes, then calculates Gross Strokes or Stableford Points leaderboards with Front 9, Back 9, totals, and tied positions. Team records remain outside the Handicap Index. Structured competition and social-game formats can include accepted-friend links, guest names, and a Won/Lost/Tied result. A linked friend can remove their tag, but the round is never copied to their record and never affects their handicap. Individual cards can use Stroke play or Stableford scoring. Stableford stores the Playing Handicap used, allocates strokes by the approved hole indexes, calculates every hole's net score and points, and supports explicit picked-up holes. A pickup records zero points and no invented gross score; Net Double Bogey is used only for handicap processing. Manually supplied course definitions remain provisional until administrator approval.
 
 Individual Match Play competitions and games now include a separate head-to-head card. Players can enter the opponent's score for an automatic hole result or record a concession, and Fore the Record calculates the running outcome and final result such as **3 & 2**, **1 up**, or **All square**. The player's complete stroke card remains separate and continues through the normal handicap rules.
 
@@ -74,7 +74,7 @@ The production application is deployed on Vercel. The current RapidAPI allowance
 
 ## Roadmap and releases
 
-The current application version is `0.39.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.40.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)
