@@ -30,6 +30,7 @@ import {
   calculateCourseHandicap,
   calculateStablefordTotals,
 } from './stableford.ts'
+import { buildMatchPlayPreview, type MatchPlayDraft } from './matchPlay.ts'
 
 type RoundEntryProfile = {
   id: string
@@ -60,6 +61,7 @@ type RoundForm = {
   gameFormat: string
   gameFormatOther: string
   gameResult: '' | 'WON' | 'LOST' | 'TIED'
+  matchPlayOpponentName: string
   playingPartnerIds: string[]
   playingPartnerResults: Record<string, RoundGameResult | ''>
   guestPlayerNames: string
@@ -79,6 +81,7 @@ type RoundFormErrors = Partial<
     | 'competitionFormat'
     | 'gameFormat'
     | 'playingPartners'
+    | 'matchPlay'
     | 'numberOfPlayers'
     | 'grossScore'
     | 'playingHandicap'
@@ -329,6 +332,7 @@ function RoundEntry({
     gameFormat: '',
     gameFormatOther: '',
     gameResult: '',
+    matchPlayOpponentName: '',
     playingPartnerIds: [],
     playingPartnerResults: {},
     guestPlayerNames: '',
@@ -357,6 +361,7 @@ function RoundEntry({
   const [isLoadingFavourites, setIsLoadingFavourites] = useState(true)
   const [friends, setFriends] = useState<FriendshipItem[]>([])
   const [friendsError, setFriendsError] = useState('')
+  const [matchPlayDraft, setMatchPlayDraft] = useState<MatchPlayDraft>({})
 
   const teeOptions = getTeeOptions(catalogueResponse, favourites)
   const selectedTee = teeOptions.find((option) => option.id === form.teeId)
@@ -366,6 +371,13 @@ function RoundEntry({
   const isTeamRound =
     isCompetition && form.participation === 'TEAM'
   const isStableford = !isTeamRound && form.scoringFormat === 'STABLEFORD'
+  const isMatchPlay = !isTeamRound &&
+    (isCompetition && form.competitionFormat === 'Match Play' ||
+      isSocialGame && form.gameFormat === 'Match Play')
+  const matchPlayOpponentOptions = [
+    ...friends.filter((item) => form.playingPartnerIds.includes(item.player.id)).map((item) => item.player.name),
+    ...form.guestPlayerNames.split(/[,\n]/).map((name) => name.trim()).filter(Boolean),
+  ].filter((name, index, names) => names.indexOf(name) === index)
   const expectedHoleCount = form.holeCount
   const hasPickedUpHole = holeEntries.some((hole) => hole.pickedUp)
   const completedStrokeCount = holeEntries.filter(({ strokesTaken, pickedUp }) => {
@@ -392,6 +404,12 @@ function RoundEntry({
     [...holeEntries]
       .sort((left, right) => Number(left.strokeIndex) - Number(right.strokeIndex))
       .map((hole, index) => [hole.holeNumber, index + 1]),
+  )
+  const matchPlayPreview = buildMatchPlayPreview(
+    holeEntries.map((hole) => hole.holeNumber),
+    new Map(holeEntries.map((hole) => [hole.holeNumber,
+      hole.pickedUp || hole.strokesTaken === '' ? null : Number(hole.strokesTaken)])),
+    matchPlayDraft,
   )
 
   const suggestedPlayingHandicap = (() => {
@@ -660,6 +678,7 @@ function RoundEntry({
       playingHandicap: undefined,
     }))
     setSubmitError('')
+    setMatchPlayDraft({})
   }
 
   function updateCategory(category: RoundCategory) {
@@ -696,6 +715,7 @@ function RoundEntry({
       scorecard: undefined,
     }))
     setSubmitError('')
+    setMatchPlayDraft({})
   }
 
   function updateParticipation(participation: RoundParticipation) {
@@ -717,6 +737,7 @@ function RoundEntry({
       scorecard: undefined,
     }))
     setSubmitError('')
+    setMatchPlayDraft({})
 
     if (participation === 'TEAM') {
       setScorecardStatus('idle')
@@ -741,6 +762,7 @@ function RoundEntry({
       scorecard: undefined,
     }))
     setSubmitError('')
+    setMatchPlayDraft({})
   }
 
   function togglePlayingPartner(playerId: string) {
@@ -777,6 +799,7 @@ function RoundEntry({
       scorecard: undefined,
     }))
     setSubmitError('')
+    setMatchPlayDraft({})
   }
 
   function updateScoringFormat(scoringFormat: RoundScoringFormat) {
@@ -816,6 +839,14 @@ function RoundEntry({
     )
     if (pickedUp) {
       updateField('grossScore', '')
+    }
+    if (isMatchPlay) {
+      setMatchPlayDraft((current) => ({
+        ...current,
+        [holeNumber]: pickedUp
+          ? { opponentStrokes: '', result: 'LOST' }
+          : { opponentStrokes: '', result: '' },
+      }))
     }
     setErrors((current) => ({ ...current, scorecard: undefined, grossScore: undefined }))
   }
@@ -927,6 +958,19 @@ function RoundEntry({
       }
     }
 
+    if (isMatchPlay) {
+      if (matchPlayOpponentOptions.length !== 1) {
+        nextErrors.matchPlay = 'Select exactly one friend or enter exactly one guest for an individual match'
+      } else if (!matchPlayOpponentOptions.includes(form.matchPlayOpponentName)) {
+        nextErrors.matchPlay = 'Choose the named friend or guest as your match-play opponent'
+      } else if (!matchPlayPreview) {
+        nextErrors.matchPlay = 'Complete each played match hole until the match is finished'
+      }
+      if (isSocialGame && numberOfPlayers !== 2) {
+        nextErrors.numberOfPlayers = 'Individual match play must have exactly 2 players'
+      }
+    }
+
     if (!isTeamRound) {
       if (isStableford && (
         form.playingHandicap.trim() === '' ||
@@ -1029,8 +1073,14 @@ function RoundEntry({
             ? {
                 playingPartnerIds: form.playingPartnerIds,
                 guestPlayerNames,
-                playingPartnerResults: Object.fromEntries(form.playingPartnerIds.map((id) => [id, form.playingPartnerResults[id] || null])),
-                guestPlayerResults: Object.fromEntries(guestPlayerNames.map((name) => [name, form.guestPlayerResults[name] || null])),
+                playingPartnerResults: Object.fromEntries(form.playingPartnerIds.map((id) => [id, isMatchPlay && matchPlayPreview ? matchPlayPreview.result : form.playingPartnerResults[id] || null])),
+                guestPlayerResults: Object.fromEntries(guestPlayerNames.map((name) => [name, isMatchPlay && matchPlayPreview ? matchPlayPreview.result : form.guestPlayerResults[name] || null])),
+              }
+            : {}),
+          ...(isMatchPlay && matchPlayPreview
+            ? {
+                matchPlayOpponentName: form.matchPlayOpponentName,
+                matchPlayHoles: matchPlayPreview.holes,
               }
             : {}),
           ...(!isTeamRound
@@ -1149,6 +1199,9 @@ function RoundEntry({
               {confirmation.round.gameFormat}{confirmation.round.gameResult ? ` · ${confirmation.round.gameResult === 'WON' ? 'Won' : confirmation.round.gameResult === 'LOST' ? 'Lost' : 'Tied'}` : ''}
             </p>
           ) : null}
+          {confirmation.round.matchPlayFinalScore && confirmation.round.matchPlayOpponentName ? (
+            <p className="round-confirmation-competition">Versus {confirmation.round.matchPlayOpponentName} · {confirmation.round.gameResult === 'WON' ? 'Won' : confirmation.round.gameResult === 'LOST' ? 'Lost' : 'Halved'} {confirmation.round.matchPlayFinalScore}</p>
+          ) : null}
 
           <div className="round-confirmation-grid">
             <div>
@@ -1264,6 +1317,7 @@ function RoundEntry({
                   gameFormat: '',
                   gameFormatOther: '',
                   gameResult: '',
+                  matchPlayOpponentName: '',
                   playingPartnerIds: [],
                   playingPartnerResults: {},
                   guestPlayerNames: '',
@@ -1600,7 +1654,9 @@ function RoundEntry({
                           competitionFormat: format,
                           competitionFormatOther: format === 'OTHER' ? current.competitionFormatOther : '',
                           scoringFormat: format === 'Stableford' ? 'STABLEFORD' : format === 'Medal / Stroke Play' ? 'STROKE_PLAY' : current.scoringFormat,
+                          matchPlayOpponentName: format === 'Match Play' ? current.matchPlayOpponentName : '',
                         }))
+                        setMatchPlayDraft({})
                         setErrors((current) => ({ ...current, competitionFormat: undefined }))
                       }}
                     >
@@ -1646,7 +1702,7 @@ function RoundEntry({
                 <div className="round-field-row">
                   <div className="round-field">
                     <label htmlFor="round-game-format">Game</label>
-                    <select id="round-game-format" value={form.gameFormat} aria-invalid={Boolean(errors.gameFormat)} onChange={(event) => updateField('gameFormat', event.target.value)}>
+                    <select id="round-game-format" value={form.gameFormat} aria-invalid={Boolean(errors.gameFormat)} onChange={(event) => { updateField('gameFormat', event.target.value); setMatchPlayDraft({}); if (event.target.value !== 'Match Play') updateField('matchPlayOpponentName', '') }}>
                       {SOCIAL_GAME_FORMATS.map((format) => <option key={format} value={format}>{format}</option>)}
                       <option value="OTHER">Other</option>
                     </select>
@@ -1655,9 +1711,9 @@ function RoundEntry({
                   </div>
                   <div className="round-field">
                     <label htmlFor="round-game-result">Your result</label>
-                    <select id="round-game-result" value={form.gameResult} onChange={(event) => updateField('gameResult', event.target.value as RoundForm['gameResult'])}>
+                    {isMatchPlay ? <div className="round-derived-result">Calculated from the match card</div> : <select id="round-game-result" value={form.gameResult} onChange={(event) => updateField('gameResult', event.target.value as RoundForm['gameResult'])}>
                       <option value="">Not recorded</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="TIED">Tied</option>
-                    </select>
+                    </select>}
                   </div>
                 </div>
                 <div className="round-field round-player-count-field">
@@ -1680,6 +1736,15 @@ function RoundEntry({
                 <p className="round-partners-help">Linked friends can see this tag and remove themselves. They cannot see your private card, note, or photo.</p>
                 {errors.playingPartners ? <span className="round-field-error">{errors.playingPartners}</span> : null}
               </fieldset>
+            ) : null}
+
+            {isMatchPlay ? (
+              <section className="round-match-play-setup" aria-labelledby="match-play-setup-title">
+                <div><p className="form-kicker">Head to head</p><h3 id="match-play-setup-title">Match-play opponent</h3></div>
+                {matchPlayOpponentOptions.length > 0 ? <label>Opponent<select value={form.matchPlayOpponentName} onChange={(event) => updateField('matchPlayOpponentName', event.target.value)}><option value="">Choose the opponent</option>{matchPlayOpponentOptions.map((name) => <option key={name} value={name}>{name}</option>)}</select></label> : <p>Add one friend or guest above, then choose them as the opponent.</p>}
+                <small>Enter the opponent’s gross score for automatic hole results. Leave their score blank and choose the result when a hole was conceded or decided after handicap strokes.</small>
+                {errors.matchPlay ? <span className="round-field-error" role="alert">{errors.matchPlay}</span> : null}
+              </section>
             ) : null}
 
             <div className="round-field-row">
@@ -2019,6 +2084,23 @@ function RoundEntry({
                 </p>
               ) : null}
             </section>
+
+            {isMatchPlay && holeEntries.length > 0 ? (
+              <section className="round-match-play-card" aria-labelledby="match-play-card-title">
+                <header><div><p className="form-kicker">Hole by hole</p><h3 id="match-play-card-title">Build the match.</h3></div>{matchPlayPreview ? <strong>{matchPlayPreview.result === 'WON' ? 'Won' : matchPlayPreview.result === 'LOST' ? 'Lost' : 'Halved'} · {matchPlayPreview.finalScore}</strong> : <span>Match unfinished</span>}</header>
+                <div className="round-scorecard-scroll"><table><thead><tr><th>Hole</th><th>Your score</th><th>Opponent</th><th>Hole result</th></tr></thead><tbody>{holeEntries.map((hole) => {
+                  const entry = matchPlayDraft[hole.holeNumber] ?? { opponentStrokes: '', result: '' as const }
+                  const playerScore = hole.pickedUp || hole.strokesTaken === '' ? null : Number(hole.strokesTaken)
+                  const opponentScore = entry.opponentStrokes === '' ? null : Number(entry.opponentStrokes)
+                  const derivedResult = playerScore !== null && opponentScore !== null && Number.isInteger(opponentScore)
+                    ? playerScore < opponentScore ? 'WON' : playerScore > opponentScore ? 'LOST' : 'HALVED'
+                    : ''
+                  const matchAlreadyFinished = matchPlayPreview && !matchPlayPreview.holes.some((item) => item.holeNumber === hole.holeNumber)
+                  return <tr key={hole.holeNumber}><th>{hole.holeNumber}</th><td>{hole.pickedUp ? 'Picked up' : hole.strokesTaken || '—'}</td><td><input aria-label={`Hole ${hole.holeNumber} opponent strokes`} type="number" min="1" max="30" disabled={Boolean(matchAlreadyFinished)} value={entry.opponentStrokes} onChange={(event) => setMatchPlayDraft((current) => ({ ...current, [hole.holeNumber]: { ...entry, opponentStrokes: event.target.value, result: '' } }))} /></td><td><select aria-label={`Hole ${hole.holeNumber} match result`} disabled={Boolean(derivedResult) || Boolean(matchAlreadyFinished)} value={derivedResult || entry.result} onChange={(event) => setMatchPlayDraft((current) => ({ ...current, [hole.holeNumber]: { ...entry, opponentStrokes: '', result: event.target.value as MatchPlayDraft[number]['result'] } }))}><option value="">Choose</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="HALVED">Halved</option></select></td></tr>
+                })}</tbody></table></div>
+                <p>Once one player leads by more holes than remain, the match closes automatically and unused holes are left out of the match card.</p>
+              </section>
+            ) : null}
 
             <fieldset className="weather-fieldset">
               <legend>Playing conditions</legend>

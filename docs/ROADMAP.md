@@ -36,13 +36,19 @@ This roadmap records agreed future work. Items are planned requirements, not com
 30. Admin reporting and exports. Completed in `0.34.0`.
 31. Account security centre. Completed in `0.35.0`.
 32. Course personal bests. Completed in `0.36.0`.
-33. Match-play scoring.
+33. Match-play scoring. Completed in `0.37.0`.
 34. Friends groups and advanced leaderboards.
 35. Performance insights.
 36. Full team-game scoring.
 37. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Match-play scoring — completed in 0.37.0
+
+Individual Match Play competitions and social games now keep a head-to-head hole card alongside the player's ordinary scorecard. Selecting exactly one linked friend or named guest identifies the opponent. Entering both gross scores determines the hole automatically, while Won, Lost, or Halved can be selected for concessions and net decisions.
+
+The server calculates the final result and conventional margin, including early finishes such as **3 & 2**, a completed **1 up**, and **All square**. Unplayed holes after an early finish are omitted. Match results are visible in confirmation and expandable Round History, while the player's complete scorecard independently follows the existing handicap workflow.
 
 ## Course personal bests — completed in 0.36.0
 

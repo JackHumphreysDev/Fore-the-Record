@@ -9,6 +9,12 @@ export type RoundParticipation = 'INDIVIDUAL' | 'TEAM'
 export type RoundScoringFormat = 'STROKE_PLAY' | 'STABLEFORD'
 export type NineHoleSegment = 'FRONT_NINE' | 'BACK_NINE'
 export type RoundGameResult = 'WON' | 'LOST' | 'TIED'
+export type MatchPlayHoleResult = 'WON' | 'LOST' | 'HALVED'
+export type MatchPlayHole = {
+  holeNumber: number
+  opponentStrokes: number | null
+  result: MatchPlayHoleResult
+}
 
 type ClassifiedRound = {
   id: string
@@ -25,6 +31,9 @@ type ClassifiedRound = {
   competitionFormat: string | null
   gameFormat: string | null
   gameResult: RoundGameResult | null
+  matchPlayOpponentName?: string | null
+  matchPlayFinalScore?: string | null
+  matchPlayHoles?: MatchPlayHole[] | null
   guestPlayerNames: string[]
   playingPartners: Array<{
     id: string
@@ -98,6 +107,23 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+function hasValidMatchPlay(value: Record<string, unknown>): boolean {
+  const isMatchPlay = value.participation === 'INDIVIDUAL' &&
+    (value.competitionFormat === 'Match Play' || value.gameFormat === 'Match Play')
+  if (!isMatchPlay) {
+    return (value.matchPlayOpponentName === null || value.matchPlayOpponentName === undefined) &&
+      (value.matchPlayFinalScore === null || value.matchPlayFinalScore === undefined) &&
+      (value.matchPlayHoles === null || value.matchPlayHoles === undefined)
+  }
+  return typeof value.matchPlayOpponentName === 'string' && value.matchPlayOpponentName.length >= 2 &&
+    typeof value.matchPlayFinalScore === 'string' && value.matchPlayFinalScore.length > 0 &&
+    (value.gameResult === 'WON' || value.gameResult === 'LOST' || value.gameResult === 'TIED') &&
+    Array.isArray(value.matchPlayHoles) && value.matchPlayHoles.length > 0 &&
+    value.matchPlayHoles.every((hole) => isRecord(hole) && Number.isInteger(hole.holeNumber) &&
+      (hole.opponentStrokes === null || Number.isInteger(hole.opponentStrokes) && Number(hole.opponentStrokes) > 0) &&
+      (hole.result === 'WON' || hole.result === 'LOST' || hole.result === 'HALVED'))
+}
+
 function hasValidClassification(value: Record<string, unknown>): boolean {
   const hasValidTime =
     value.timePlayed === null ||
@@ -154,7 +180,9 @@ function hasValidClassification(value: Record<string, unknown>): boolean {
     value.competitionFormat.length >= 2 &&
     value.competitionFormat.length <= 100 &&
     value.gameFormat === null &&
-    value.gameResult === null &&
+    (value.competitionFormat === 'Match Play'
+      ? value.gameResult === 'WON' || value.gameResult === 'LOST' || value.gameResult === 'TIED'
+      : value.gameResult === null) &&
     Number.isInteger(value.numberOfPlayers) &&
     Number(value.numberOfPlayers) > 0 &&
     Number(value.numberOfPlayers) <= 10000
@@ -213,6 +241,7 @@ export function isRoundResult(value: unknown): value is RoundResult {
       round.notes === null ||
       (typeof round.notes === 'string' && round.notes.length <= 2000)) &&
     hasValidClassification(round) &&
+    hasValidMatchPlay(round) &&
     typeof round.isCapped === 'boolean' &&
     (hasValidScoredResult || hasValidTeamResult)
   )
@@ -291,6 +320,7 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
       value.notes === null ||
       (typeof value.notes === 'string' && value.notes.length <= 2000)) &&
     hasValidClassification(value) &&
+    hasValidMatchPlay(value) &&
     (hasValidIndividualScore || hasValidTeamRecord) &&
     typeof value.isCapped === 'boolean' &&
     isFiniteNumber(value.pccAdjustment) &&

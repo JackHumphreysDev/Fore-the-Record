@@ -132,6 +132,7 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
       .sort((left, right) => left.strokeIndex - right.strokeIndex)
       .map((hole, index) => [hole.holeNumber, index + 1]),
   )
+  const matchPlayByHole = new Map(round.matchPlayHoles?.map((hole) => [hole.holeNumber, hole]) ?? [])
   const parTotal = (holes: typeof round.holeScores) =>
     holes.reduce((sum, hole) => sum + hole.par, 0)
 
@@ -145,6 +146,8 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
               <th scope="col">Par</th>
               <th scope="col">SI</th>
               <th scope="col">Score</th>
+              {round.matchPlayHoles ? <th scope="col">Opponent</th> : null}
+              {round.matchPlayHoles ? <th scope="col">Match</th> : null}
               <th scope="col">To par</th>
               {isStableford ? <th scope="col">Net</th> : null}
               {isStableford ? <th scope="col">Points</th> : null}
@@ -157,6 +160,8 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
                 <td>{hole.par}</td>
                 <td>{hole.strokeIndex}</td>
                 <td>{hole.pickedUp ? 'Picked up' : hole.strokesTaken}</td>
+                {round.matchPlayHoles ? <td>{matchPlayByHole.get(hole.holeNumber)?.opponentStrokes ?? '—'}</td> : null}
+                {round.matchPlayHoles ? <td>{matchPlayByHole.get(hole.holeNumber)?.result === 'WON' ? 'Won' : matchPlayByHole.get(hole.holeNumber)?.result === 'LOST' ? 'Lost' : matchPlayByHole.get(hole.holeNumber)?.result === 'HALVED' ? 'Halved' : 'Not played'}</td> : null}
                 <td>{hole.pickedUp ? '—' : scoreToPar(hole.strokesTaken, hole.par)}</td>
                 {isStableford ? (
                   <td>
@@ -614,6 +619,9 @@ function RoundHistory({
                       <p className="history-competition-name">
                         {round.gameFormat}{round.gameResult ? ` · ${round.gameResult === 'WON' ? 'Won' : round.gameResult === 'LOST' ? 'Lost' : 'Tied'}` : ''}
                       </p>
+                    ) : null}
+                    {round.matchPlayFinalScore && round.matchPlayOpponentName ? (
+                      <p className="history-competition-name">Match versus {round.matchPlayOpponentName} · {round.gameResult === 'WON' ? 'Won' : round.gameResult === 'LOST' ? 'Lost' : 'Halved'} {round.matchPlayFinalScore}</p>
                     ) : null}
 
                     {round.playingPartners.length > 0 || round.guestPlayerNames.length > 0 ? (
