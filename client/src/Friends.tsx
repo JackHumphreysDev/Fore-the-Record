@@ -18,6 +18,7 @@ import './Friends.css'
 import { buildRoundTagPath, isRoundTagsResponse, type RoundTag } from './roundTagsApi.ts'
 import { isOpponentRecordsResponse, type OpponentRecordsResponse } from './opponentRecordsApi.ts'
 import ChallengesBoard from './ChallengesBoard.tsx'
+import SharedRounds from './SharedRounds.tsx'
 
 type FriendsProps = { profileId: string }
 
@@ -404,6 +405,7 @@ function Friends({ profileId }: FriendsProps) {
       </section> : null}
 
       <ChallengesBoard profileId={profileId} friends={data?.friends ?? []} />
+      <SharedRounds profileId={profileId} friends={data?.friends ?? []} />
 
       <form className="friend-search" onSubmit={runSearch} noValidate>
         <label>

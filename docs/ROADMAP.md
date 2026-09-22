@@ -32,7 +32,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 26. Deeper performance analysis by course, tee, par type, front/back nine, competition type, and date range. Completed in `0.30.0`.
 27. More competition formats and social games with optional playing-partner links. Completed in `0.31.0`.
 28. Challenges and leaderboards. Completed in `0.32.0`.
-29. Shared rounds.
+29. Shared rounds. Completed in `0.33.0`.
 30. Admin reporting and exports.
 31. Account security centre.
 32. Live Round mode.
