@@ -18,7 +18,7 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 ### User-facing changes
 
-- Added private groups made from accepted friends, with owner-managed membership and member leave controls.
+- Added named private groups or leagues made from accepted friends, with an optional description and group image plus owner-managed membership and member leave controls.
 - Added date-filtered leaderboards for rounds played, Stableford points, lowest average gross, best gross score, and Handicap Index improvement.
 - Added a private group message board for general leaderboard discussion and comments attached to recent verified group rounds.
 
@@ -26,7 +26,7 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - Added group-scoped authorization, accepted-friend membership validation, owner moderation, and automatic membership removal when a friendship ends.
 - Derived standings from verified individual rounds on demand; gross rankings use completed 18-hole scores and do not expose private round notes or scorecard details.
-- Added persistent group, membership, and message records with cascading account and group cleanup.
+- Added persistent group, membership, message, description, and private image records with account, group, and stored-file cleanup.
 
 ## 0.37.0 - 2026-09-22
 

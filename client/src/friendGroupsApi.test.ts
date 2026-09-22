@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildFriendGroupLeaderboardPath, isFriendGroupLeaderboardResponse, isFriendGroupMessagesResponse, isFriendGroupsResponse, sortFriendGroupStandings } from './friendGroupsApi.ts'
 
-const group = { id: 'group', name: 'Sunday golfers', ownerId: 'one', isOwner: true, createdAt: 'date', updatedAt: 'date', players: [{ id: 'one', name: 'One', homeClub: null, joinedAt: 'date', isOwner: true }] }
+const group = { id: 'group', name: 'Sunday golfers', description: 'Weekend league', image: null, ownerId: 'one', isOwner: true, createdAt: 'date', updatedAt: 'date', players: [{ id: 'one', name: 'One', homeClub: null, joinedAt: 'date', isOwner: true }] }
 
 describe('friend group API contracts', () => {
   it('accepts complete group and leaderboard responses', () => {

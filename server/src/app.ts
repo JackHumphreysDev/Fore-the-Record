@@ -76,6 +76,7 @@ import {
   FriendGroupValidationError,
   parseFriendGroupMemberIds,
   parseFriendGroupMessage,
+  parseFriendGroupDescription,
   parseFriendGroupName,
   parseFriendGroupPeriod,
 } from './friendGroups.js'
@@ -1717,15 +1718,16 @@ app.delete('/api/admin/users/:userId', async (request, response) => {
     return
   }
 
-  const photoRounds = await prisma.round.findMany({
-    where: { userId },
-    select: { scorecardPhotoPath: true },
-  })
+  const [photoRounds, ownedGroupImages] = await Promise.all([
+    prisma.round.findMany({ where: { userId }, select: { scorecardPhotoPath: true } }),
+    prisma.friendGroup.findMany({ where: { ownerId: userId }, select: { imagePath: true } }),
+  ])
   try {
-    await deleteScorecardPhotos(
-      photoRounds.flatMap((round) =>
+    await deleteScorecardPhotos([
+      ...photoRounds.flatMap((round) =>
         round.scorecardPhotoPath ? [round.scorecardPhotoPath] : []),
-    )
+      ...ownedGroupImages.flatMap((group) => group.imagePath ? [group.imagePath] : []),
+    ])
   } catch (error: unknown) {
     const storageError = getScorecardPhotoErrorResponse(error)
     if (storageError) {
@@ -3868,6 +3870,12 @@ const FRIEND_GROUP_PLAYER_SELECT = {
 const FRIEND_GROUP_SELECT = {
   id: true,
   name: true,
+  description: true,
+  imagePath: true,
+  imageName: true,
+  imageMimeType: true,
+  imageSize: true,
+  imageUploadedAt: true,
   ownerId: true,
   createdAt: true,
   updatedAt: true,
@@ -3886,10 +3894,14 @@ function serializeFriendGroup(group: Prisma.FriendGroupGetPayload<{ select: type
   return {
     id: group.id,
     name: group.name,
+    description: group.description,
     ownerId: group.ownerId,
     isOwner: group.ownerId === viewerId,
     createdAt: group.createdAt.toISOString(),
     updatedAt: group.updatedAt.toISOString(),
+    image: group.imageName && group.imageMimeType && group.imageSize !== null && group.imageUploadedAt
+      ? { name: group.imageName, mimeType: group.imageMimeType, size: group.imageSize, uploadedAt: group.imageUploadedAt.toISOString() }
+      : null,
     players: [
       { ...group.owner, joinedAt: group.createdAt.toISOString(), isOwner: true },
       ...group.members.map((member) => ({
@@ -3918,13 +3930,14 @@ async function acceptedFriendIds(userId: string, requestedIds: readonly string[]
   return new Set(friendships.map((friendship) => friendship.requesterId === userId ? friendship.addresseeId : friendship.requesterId))
 }
 
-function parseFriendGroupBody(body: unknown): { name: string; memberIds: string[] } {
+function parseFriendGroupBody(body: unknown): { name: string; description: string | null; memberIds: string[] } {
   const record = isRecord(body) ? body : {}
   const name = parseFriendGroupName(record.name)
+  const description = parseFriendGroupDescription(record.description)
   const memberIds = parseFriendGroupMemberIds(record.memberIds)
   if (memberIds.length === 0) throw new FriendGroupValidationError('Choose at least one accepted friend')
   if (memberIds.some((id) => !UUID_PATTERN.test(id))) throw new FriendGroupValidationError('Choose valid friends for this group')
-  return { name, memberIds }
+  return { name, description, memberIds }
 }
 
 app.get('/api/users/me/friend-groups', async (_request, response) => {
@@ -3952,7 +3965,7 @@ app.post('/api/users/me/friend-groups', async (request, response) => {
   const acceptedIds = await acceptedFriendIds(user.id, input.memberIds)
   if (acceptedIds.size !== input.memberIds.length) return response.status(400).json({ error: 'Groups can include only your accepted friends' })
   const group = await prisma.friendGroup.create({
-    data: { name: input.name, ownerId: user.id, members: { create: input.memberIds.map((userId) => ({ userId })) } },
+    data: { name: input.name, description: input.description, ownerId: user.id, members: { create: input.memberIds.map((userId) => ({ userId })) } },
     select: FRIEND_GROUP_SELECT,
   })
   response.status(201).json(serializeFriendGroup(group, user.id))
@@ -3975,7 +3988,7 @@ app.put('/api/users/me/friend-groups/:groupId', async (request, response) => {
   const acceptedIds = await acceptedFriendIds(user.id, input.memberIds)
   if (acceptedIds.size !== input.memberIds.length) return response.status(400).json({ error: 'Groups can include only your accepted friends' })
   await prisma.$transaction([
-    prisma.friendGroup.update({ where: { id: groupId }, data: { name: input.name } }),
+    prisma.friendGroup.update({ where: { id: groupId }, data: { name: input.name, description: input.description } }),
     prisma.friendGroupMember.deleteMany({ where: { groupId } }),
     prisma.friendGroupMember.createMany({ data: input.memberIds.map((userId) => ({ groupId, userId })) }),
   ])
@@ -3989,9 +4002,103 @@ app.delete('/api/users/me/friend-groups/:groupId', async (request, response) => 
   if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
   const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
   if (!user) return response.status(404).json({ error: 'User not found' })
-  const deletion = await prisma.friendGroup.deleteMany({ where: { id: groupId, ownerId: user.id } })
-  if (deletion.count === 0) return response.status(404).json({ error: 'Owned group not found' })
+  const group = await prisma.friendGroup.findFirst({ where: { id: groupId, ownerId: user.id }, select: { id: true, imagePath: true } })
+  if (!group) return response.status(404).json({ error: 'Owned group not found' })
+  await prisma.friendGroup.delete({ where: { id: group.id } })
+  if (group.imagePath) await deleteScorecardPhotos([group.imagePath]).catch(() => undefined)
   response.status(204).send()
+})
+
+app.post('/api/users/me/friend-groups/:groupId/image/upload', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  try {
+    const input = parseScorecardPhotoInput(request.body)
+    const group = await prisma.friendGroup.findFirst({
+      where: { id: groupId, owner: { authUserId: authenticatedUser.id } },
+      select: { id: true, ownerId: true },
+    })
+    if (!group) return response.status(404).json({ error: 'Owned group not found' })
+    const upload = await createScorecardPhotoUpload({ userId: group.ownerId, roundId: group.id, mimeType: input.mimeType })
+    response.status(200).json({ ...upload, expiresInSeconds: 7200 })
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message.replaceAll('scorecard photo', 'group image') })
+    throw error
+  }
+})
+
+app.post('/api/users/me/friend-groups/:groupId/image', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  const path = isRecord(request.body) && typeof request.body.path === 'string' ? request.body.path : ''
+  let ownedPath = false
+  try {
+    const input = parseScorecardPhotoInput(request.body)
+    const group = await prisma.friendGroup.findFirst({
+      where: { id: groupId, owner: { authUserId: authenticatedUser.id } },
+      select: { id: true, ownerId: true, imagePath: true },
+    })
+    if (!group) return response.status(404).json({ error: 'Owned group not found' })
+    ownedPath = isOwnedScorecardPhotoPath(path, group.ownerId, group.id)
+    if (!ownedPath) return response.status(400).json({ error: 'Invalid group image upload' })
+    await verifyScorecardPhotoUpload({ path, expectedMimeType: input.mimeType, expectedSize: input.size })
+    const uploadedAt = new Date()
+    await prisma.friendGroup.update({
+      where: { id: group.id },
+      data: { imagePath: path, imageName: input.fileName, imageMimeType: input.mimeType, imageSize: input.size, imageUploadedAt: uploadedAt },
+    })
+    if (group.imagePath && group.imagePath !== path) await deleteScorecardPhotos([group.imagePath]).catch(() => undefined)
+    ownedPath = false
+    response.status(200).json({ image: { name: input.fileName, mimeType: input.mimeType, size: input.size, uploadedAt: uploadedAt.toISOString() } })
+  } catch (error: unknown) {
+    if (ownedPath) await deleteScorecardPhotos([path]).catch(() => undefined)
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message.replaceAll('scorecard photo', 'group image') })
+    throw error
+  }
+})
+
+app.get('/api/users/me/friend-groups/:groupId/image', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const group = await prisma.friendGroup.findFirst({
+    where: { id: groupId, OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
+    select: { imagePath: true },
+  })
+  if (!group) return response.status(404).json({ error: 'Friend group not found' })
+  if (!group.imagePath) return response.status(404).json({ error: 'This group has no image' })
+  try {
+    const url = await createScorecardPhotoViewUrl(group.imagePath)
+    response.status(200).json({ url, expiresInSeconds: 300 })
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message.replaceAll('scorecard photo', 'group image') })
+    throw error
+  }
+})
+
+app.delete('/api/users/me/friend-groups/:groupId/image', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  const group = await prisma.friendGroup.findFirst({ where: { id: groupId, owner: { authUserId: authenticatedUser.id } }, select: { id: true, imagePath: true } })
+  if (!group) return response.status(404).json({ error: 'Owned group not found' })
+  if (!group.imagePath) return response.status(204).send()
+  try {
+    await deleteScorecardPhotos([group.imagePath])
+    await prisma.friendGroup.update({ where: { id: group.id }, data: { imagePath: null, imageName: null, imageMimeType: null, imageSize: null, imageUploadedAt: null } })
+    response.status(204).send()
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message.replaceAll('scorecard photo', 'group image') })
+    throw error
+  }
 })
 
 app.post('/api/users/me/friend-groups/:groupId/leave', async (request, response) => {
@@ -5185,15 +5292,16 @@ app.delete('/api/users/me/settings/account', async (request, response) => {
     return
   }
 
-  const photoRounds = await prisma.round.findMany({
-    where: { userId: user.id },
-    select: { scorecardPhotoPath: true },
-  })
+  const [photoRounds, ownedGroupImages] = await Promise.all([
+    prisma.round.findMany({ where: { userId: user.id }, select: { scorecardPhotoPath: true } }),
+    prisma.friendGroup.findMany({ where: { ownerId: user.id }, select: { imagePath: true } }),
+  ])
   try {
-    await deleteScorecardPhotos(
-      photoRounds.flatMap((round) =>
+    await deleteScorecardPhotos([
+      ...photoRounds.flatMap((round) =>
         round.scorecardPhotoPath ? [round.scorecardPhotoPath] : []),
-    )
+      ...ownedGroupImages.flatMap((group) => group.imagePath ? [group.imagePath] : []),
+    ])
   } catch (error: unknown) {
     const storageError = getScorecardPhotoErrorResponse(error)
     if (storageError) {

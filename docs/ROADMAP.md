@@ -46,9 +46,9 @@ The order may change as product needs become clearer, but security and data owne
 
 ## Friends groups and advanced leaderboards — completed in 0.38.0
 
-Players can create private groups containing up to 20 accepted friends. The creator owns the group and can rename it, change membership, moderate messages, or delete it; other members can leave. Ending a friendship also removes the former friend from groups owned by either player.
+Players can create named private groups or leagues containing up to 20 accepted friends. The creator owns the group and can edit its description, add or replace a private group image, rename it, change membership, moderate messages, or delete it; other members can leave. Ending a friendship also removes the former friend from groups owned by either player.
 
-Each group has live 30-day, 90-day, 12-month, and all-time rankings for verified individual rounds played, Stableford points, lowest average 18-hole gross, best 18-hole gross, and Handicap Index improvement. A private message board supports general leaderboard discussion and comments attached to recent verified group rounds. Only current members can read or post, and no private notes, support information, or full scorecards are copied into the group.
+Each group has live 30-day, 90-day, 12-month, and all-time rankings for verified individual rounds played, Stableford points, lowest average 18-hole gross, best 18-hole gross, and Handicap Index improvement. Every row shows its numbered position and selected ranking value. A private message board supports general leaderboard discussion and comments attached to recent verified group rounds. Only current members can read or post, and no private notes, support information, or full scorecards are copied into the group.
 
 ## Match-play scoring — completed in 0.37.0
 

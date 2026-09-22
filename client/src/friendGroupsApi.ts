@@ -9,10 +9,12 @@ export type FriendGroupPlayer = {
 export type FriendGroup = {
   id: string
   name: string
+  description: string | null
   ownerId: string
   isOwner: boolean
   createdAt: string
   updatedAt: string
+  image: { name: string; mimeType: string; size: number; uploadedAt: string } | null
   players: FriendGroupPlayer[]
 }
 
@@ -74,8 +76,10 @@ function isBasePlayer(value: unknown): boolean {
 
 export function isFriendGroup(value: unknown): value is FriendGroup {
   return isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string' &&
+    (value.description === null || typeof value.description === 'string') &&
     typeof value.ownerId === 'string' && typeof value.isOwner === 'boolean' &&
     typeof value.createdAt === 'string' && typeof value.updatedAt === 'string' &&
+    (value.image === null || isRecord(value.image) && typeof value.image.name === 'string' && typeof value.image.mimeType === 'string' && Number.isInteger(value.image.size) && typeof value.image.uploadedAt === 'string') &&
     Array.isArray(value.players) && value.players.every((player) => isBasePlayer(player) && typeof player.joinedAt === 'string' && typeof player.isOwner === 'boolean')
 }
 

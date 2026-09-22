@@ -6,6 +6,7 @@ import {
   parseFriendGroupName,
   parseFriendGroupPeriod,
   parseFriendGroupMessage,
+  parseFriendGroupDescription,
 } from '../src/friendGroups.js'
 
 const players = [
@@ -20,6 +21,8 @@ describe('friend groups', () => {
     expect(() => parseFriendGroupName('x')).toThrow('between 2 and 80')
     expect(parseFriendGroupMessage('  Great round! ')).toBe('Great round!')
     expect(() => parseFriendGroupMessage('')).toThrow('between 1 and 500')
+    expect(parseFriendGroupDescription('  Weekend league ')).toBe('Weekend league')
+    expect(parseFriendGroupDescription('   ')).toBeNull()
   })
 
   it('parses supported periods and calculates inclusive period starts', () => {

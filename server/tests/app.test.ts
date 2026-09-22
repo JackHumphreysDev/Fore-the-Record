@@ -76,6 +76,7 @@ const {
   friendshipUpdateMock,
   friendshipDeleteMock,
   friendshipDeleteManyMock,
+  friendGroupFindManyMock,
   roundPlayingPartnerFindManyMock,
   roundPlayingPartnerUpdateManyMock,
   roundGuestPlayerFindManyMock,
@@ -161,6 +162,7 @@ const {
   friendshipUpdateMock: vi.fn(),
   friendshipDeleteMock: vi.fn(),
   friendshipDeleteManyMock: vi.fn(),
+  friendGroupFindManyMock: vi.fn(),
   roundPlayingPartnerFindManyMock: vi.fn(),
   roundPlayingPartnerUpdateManyMock: vi.fn(),
   roundGuestPlayerFindManyMock: vi.fn(),
@@ -230,6 +232,9 @@ vi.mock('../src/database.js', () => ({
       update: friendshipUpdateMock,
       delete: friendshipDeleteMock,
       deleteMany: friendshipDeleteManyMock,
+    },
+    friendGroup: {
+      findMany: friendGroupFindManyMock,
     },
     roundPlayingPartner: {
       findMany: roundPlayingPartnerFindManyMock,
@@ -460,6 +465,8 @@ beforeEach(() => {
   friendshipDeleteMock.mockReset()
   friendshipDeleteManyMock.mockReset()
   friendshipDeleteManyMock.mockResolvedValue({ count: 0 })
+  friendGroupFindManyMock.mockReset()
+  friendGroupFindManyMock.mockResolvedValue([])
   playerGoalFindManyMock.mockReset()
   playerGoalFindManyMock.mockResolvedValue([])
   playerGoalUpsertMock.mockReset()

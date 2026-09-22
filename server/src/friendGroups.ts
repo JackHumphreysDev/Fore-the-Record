@@ -69,6 +69,16 @@ export function parseFriendGroupMessage(value: unknown): string {
   return message
 }
 
+export function parseFriendGroupDescription(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') throw new FriendGroupValidationError('Enter a valid group description')
+  const description = value.trim()
+  if (description.length > 500) {
+    throw new FriendGroupValidationError('Group descriptions must be 500 characters or fewer')
+  }
+  return description || null
+}
+
 export function friendGroupPeriodStart(period: FriendGroupPeriod, now = new Date()): Date | null {
   if (period === 'ALL_TIME') return null
   const start = new Date(now)

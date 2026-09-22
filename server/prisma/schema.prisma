@@ -202,6 +202,12 @@ model FriendGroup {
   id        String              @id @default(uuid()) @db.Uuid
   ownerId   String              @db.Uuid
   name      String              @db.VarChar(80)
+  description String?           @db.VarChar(500)
+  imagePath String?             @db.VarChar(500)
+  imageName String?             @db.VarChar(255)
+  imageMimeType String?         @db.VarChar(50)
+  imageSize Int?
+  imageUploadedAt DateTime?     @db.Timestamptz(3)
   createdAt DateTime            @default(now()) @db.Timestamptz(3)
   updatedAt DateTime            @updatedAt @db.Timestamptz(3)
   owner     User                @relation("FriendGroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)

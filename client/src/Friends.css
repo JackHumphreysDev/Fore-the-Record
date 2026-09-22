@@ -10,7 +10,7 @@
 .friend-group-editor summary { color: var(--forest-deep); font-weight: 800; cursor: pointer; }
 .friend-group-editor form { margin-top: 16px; display: grid; gap: 14px; }
 .friend-group-editor form > label, .friend-group-controls label { display: grid; gap: 6px; color: var(--forest-deep); font-size: 11px; font-weight: 800; text-transform: uppercase; }
-.friend-group-editor input, .friend-group-controls select { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: var(--paper); font: inherit; text-transform: none; }
+.friend-group-editor input, .friend-group-editor textarea, .friend-group-controls select { min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: var(--paper); font: inherit; text-transform: none; }
 .friend-group-members { margin: 0; padding: 0; border: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
 .friend-group-members legend { margin-bottom: 8px; color: var(--forest-deep); font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .friend-group-members label { padding: 10px; display: flex; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 9px; }
@@ -21,6 +21,13 @@
 .friend-group-tabs button.is-active { color: white; background: var(--forest); }
 .friend-group-tabs small { opacity: .75; }
 .friend-group-board { margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--paper) 95%, var(--forest-soft)); }
+.friend-group-profile { margin-bottom: 18px; display: flex; align-items: center; gap: 14px; }
+.friend-group-profile h3 { margin: 0; color: var(--forest-deep); font-family: Georgia, "Times New Roman", serif; font-size: 28px; font-weight: 400; }
+.friend-group-profile p { margin: 5px 0 0; color: var(--ink-muted); line-height: 1.45; }
+.friend-group-image { width: 68px; height: 68px; flex: 0 0 68px; display: grid; place-items: center; overflow: hidden; border-radius: 16px; color: white; background: var(--forest); font-family: Georgia, "Times New Roman", serif; font-size: 28px; }
+.friend-group-image img { width: 100%; height: 100%; object-fit: cover; }
+.friend-group-image-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.friend-group-image-controls small { color: var(--ink-muted); }
 .friend-group-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .friend-group-ranking { margin: 16px 0; padding: 0; display: grid; gap: 8px; list-style: none; }
 .friend-group-ranking li { padding: 12px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
