@@ -71,6 +71,15 @@ import {
 } from './playerGoals.js'
 import { buildHandicapProgression } from './handicapProgression.js'
 import {
+  buildFriendGroupStandings,
+  friendGroupPeriodStart,
+  FriendGroupValidationError,
+  parseFriendGroupMemberIds,
+  parseFriendGroupMessage,
+  parseFriendGroupName,
+  parseFriendGroupPeriod,
+} from './friendGroups.js'
+import {
   SubmissionStatus,
   type SubmissionStatus as SubmissionStatusValue,
   SubmissionType,
@@ -3850,6 +3859,287 @@ app.delete(
   },
 )
 
+const FRIEND_GROUP_PLAYER_SELECT = {
+  id: true,
+  name: true,
+  homeClub: { select: { id: true, name: true } },
+} satisfies Prisma.UserSelect
+
+const FRIEND_GROUP_SELECT = {
+  id: true,
+  name: true,
+  ownerId: true,
+  createdAt: true,
+  updatedAt: true,
+  owner: { select: FRIEND_GROUP_PLAYER_SELECT },
+  members: {
+    where: { user: { status: UserStatus.ACTIVE } },
+    orderBy: { joinedAt: 'asc' as const },
+    select: {
+      joinedAt: true,
+      user: { select: FRIEND_GROUP_PLAYER_SELECT },
+    },
+  },
+} satisfies Prisma.FriendGroupSelect
+
+function serializeFriendGroup(group: Prisma.FriendGroupGetPayload<{ select: typeof FRIEND_GROUP_SELECT }>, viewerId: string) {
+  return {
+    id: group.id,
+    name: group.name,
+    ownerId: group.ownerId,
+    isOwner: group.ownerId === viewerId,
+    createdAt: group.createdAt.toISOString(),
+    updatedAt: group.updatedAt.toISOString(),
+    players: [
+      { ...group.owner, joinedAt: group.createdAt.toISOString(), isOwner: true },
+      ...group.members.map((member) => ({
+        ...member.user,
+        joinedAt: member.joinedAt.toISOString(),
+        isOwner: false,
+      })),
+    ],
+  }
+}
+
+async function acceptedFriendIds(userId: string, requestedIds: readonly string[]): Promise<Set<string>> {
+  if (requestedIds.length === 0) return new Set()
+  const friendships = await prisma.friendship.findMany({
+    where: {
+      status: FriendshipStatus.ACCEPTED,
+      OR: [
+        { requesterId: userId, addresseeId: { in: [...requestedIds] } },
+        { addresseeId: userId, requesterId: { in: [...requestedIds] } },
+      ],
+      requester: { status: UserStatus.ACTIVE },
+      addressee: { status: UserStatus.ACTIVE },
+    },
+    select: { requesterId: true, addresseeId: true },
+  })
+  return new Set(friendships.map((friendship) => friendship.requesterId === userId ? friendship.addresseeId : friendship.requesterId))
+}
+
+function parseFriendGroupBody(body: unknown): { name: string; memberIds: string[] } {
+  const record = isRecord(body) ? body : {}
+  const name = parseFriendGroupName(record.name)
+  const memberIds = parseFriendGroupMemberIds(record.memberIds)
+  if (memberIds.length === 0) throw new FriendGroupValidationError('Choose at least one accepted friend')
+  if (memberIds.some((id) => !UUID_PATTERN.test(id))) throw new FriendGroupValidationError('Choose valid friends for this group')
+  return { name, memberIds }
+}
+
+app.get('/api/users/me/friend-groups', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const groups = await prisma.friendGroup.findMany({
+    where: { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
+    orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    select: FRIEND_GROUP_SELECT,
+  })
+  response.status(200).json({ groups: groups.map((group) => serializeFriendGroup(group, user.id)) })
+})
+
+app.post('/api/users/me/friend-groups', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  let input: ReturnType<typeof parseFriendGroupBody>
+  try { input = parseFriendGroupBody(request.body) } catch (error: unknown) {
+    if (error instanceof FriendGroupValidationError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  if (input.memberIds.includes(user.id)) return response.status(400).json({ error: 'You are already the group owner' })
+  const acceptedIds = await acceptedFriendIds(user.id, input.memberIds)
+  if (acceptedIds.size !== input.memberIds.length) return response.status(400).json({ error: 'Groups can include only your accepted friends' })
+  const group = await prisma.friendGroup.create({
+    data: { name: input.name, ownerId: user.id, members: { create: input.memberIds.map((userId) => ({ userId })) } },
+    select: FRIEND_GROUP_SELECT,
+  })
+  response.status(201).json(serializeFriendGroup(group, user.id))
+})
+
+app.put('/api/users/me/friend-groups/:groupId', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  let input: ReturnType<typeof parseFriendGroupBody>
+  try { input = parseFriendGroupBody(request.body) } catch (error: unknown) {
+    if (error instanceof FriendGroupValidationError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  const owned = await prisma.friendGroup.findFirst({ where: { id: groupId, ownerId: user.id }, select: { id: true } })
+  if (!owned) return response.status(404).json({ error: 'Owned group not found' })
+  if (input.memberIds.includes(user.id)) return response.status(400).json({ error: 'You are already the group owner' })
+  const acceptedIds = await acceptedFriendIds(user.id, input.memberIds)
+  if (acceptedIds.size !== input.memberIds.length) return response.status(400).json({ error: 'Groups can include only your accepted friends' })
+  await prisma.$transaction([
+    prisma.friendGroup.update({ where: { id: groupId }, data: { name: input.name } }),
+    prisma.friendGroupMember.deleteMany({ where: { groupId } }),
+    prisma.friendGroupMember.createMany({ data: input.memberIds.map((userId) => ({ groupId, userId })) }),
+  ])
+  const group = await prisma.friendGroup.findUniqueOrThrow({ where: { id: groupId }, select: FRIEND_GROUP_SELECT })
+  response.status(200).json(serializeFriendGroup(group, user.id))
+})
+
+app.delete('/api/users/me/friend-groups/:groupId', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const deletion = await prisma.friendGroup.deleteMany({ where: { id: groupId, ownerId: user.id } })
+  if (deletion.count === 0) return response.status(404).json({ error: 'Owned group not found' })
+  response.status(204).send()
+})
+
+app.post('/api/users/me/friend-groups/:groupId/leave', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const group = await prisma.friendGroup.findUnique({ where: { id: groupId }, select: { ownerId: true } })
+  if (group?.ownerId === user.id) return response.status(400).json({ error: 'Group owners must delete the group instead' })
+  const deletion = await prisma.friendGroupMember.deleteMany({ where: { groupId, userId: user.id } })
+  if (deletion.count === 0) return response.status(404).json({ error: 'Group membership not found' })
+  response.status(204).send()
+})
+
+const FRIEND_GROUP_MESSAGE_SELECT = {
+  id: true,
+  groupId: true,
+  authorId: true,
+  body: true,
+  createdAt: true,
+  author: { select: FRIEND_GROUP_PLAYER_SELECT },
+  round: {
+    select: {
+      id: true,
+      datePlayed: true,
+      grossScore: true,
+      stablefordPoints: true,
+      user: { select: FRIEND_GROUP_PLAYER_SELECT },
+      tee: { select: { teeName: true, course: { select: { name: true, club: { select: { name: true } } } } } },
+    },
+  },
+} satisfies Prisma.FriendGroupMessageSelect
+
+function serializeFriendGroupMessage(message: Prisma.FriendGroupMessageGetPayload<{ select: typeof FRIEND_GROUP_MESSAGE_SELECT }>, viewerId: string, ownerId: string, currentPlayerIds?: ReadonlySet<string>) {
+  return {
+    ...message,
+    createdAt: message.createdAt.toISOString(),
+    canDelete: message.authorId === viewerId || ownerId === viewerId,
+    round: message.round && (!currentPlayerIds || currentPlayerIds.has(message.round.user.id))
+      ? { ...message.round, datePlayed: message.round.datePlayed.toISOString().slice(0, 10) }
+      : null,
+  }
+}
+
+app.get('/api/users/me/friend-groups/:groupId/messages', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const group = await prisma.friendGroup.findFirst({ where: { id: groupId, OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] }, select: { ownerId: true, members: { select: { userId: true } } } })
+  if (!group) return response.status(404).json({ error: 'Friend group not found' })
+  const messages = await prisma.friendGroupMessage.findMany({ where: { groupId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 100, select: FRIEND_GROUP_MESSAGE_SELECT })
+  const currentPlayerIds = new Set([group.ownerId, ...group.members.map((member) => member.userId)])
+  response.status(200).json({ messages: messages.map((message) => serializeFriendGroupMessage(message, user.id, group.ownerId, currentPlayerIds)) })
+})
+
+app.post('/api/users/me/friend-groups/:groupId/messages', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const group = await prisma.friendGroup.findFirst({
+    where: { id: groupId, OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
+    select: { ownerId: true, members: { select: { userId: true } } },
+  })
+  if (!group) return response.status(404).json({ error: 'Friend group not found' })
+  let body: string
+  try { body = parseFriendGroupMessage(isRecord(request.body) ? request.body.body : undefined) } catch (error: unknown) {
+    if (error instanceof FriendGroupValidationError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  const requestedRoundId = isRecord(request.body) ? request.body.roundId : null
+  if (requestedRoundId !== null && (typeof requestedRoundId !== 'string' || !UUID_PATTERN.test(requestedRoundId))) {
+    return response.status(400).json({ error: 'Choose a valid group round' })
+  }
+  const playerIds = [group.ownerId, ...group.members.map((member) => member.userId)]
+  if (typeof requestedRoundId === 'string') {
+    const round = await prisma.round.findFirst({ where: { id: requestedRoundId, userId: { in: playerIds }, participation: RoundParticipation.INDIVIDUAL, scorecardStatus: RoundScorecardStatus.VERIFIED }, select: { id: true } })
+    if (!round) return response.status(400).json({ error: 'Comments can be attached only to a verified round from this group' })
+  }
+  const message = await prisma.friendGroupMessage.create({ data: { groupId, authorId: user.id, roundId: typeof requestedRoundId === 'string' ? requestedRoundId : null, body }, select: FRIEND_GROUP_MESSAGE_SELECT })
+  response.status(201).json(serializeFriendGroupMessage(message, user.id, group.ownerId))
+})
+
+app.delete('/api/users/me/friend-groups/:groupId/messages/:messageId', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const { groupId, messageId } = request.params
+  if (!UUID_PATTERN.test(groupId) || !UUID_PATTERN.test(messageId)) return response.status(400).json({ error: 'Invalid message reference' })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const group = await prisma.friendGroup.findFirst({ where: { id: groupId, OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] }, select: { ownerId: true } })
+  if (!group) return response.status(404).json({ error: 'Friend group not found' })
+  const deletion = await prisma.friendGroupMessage.deleteMany({ where: { id: messageId, groupId, ...(group.ownerId === user.id ? {} : { authorId: user.id }) } })
+  if (deletion.count === 0) return response.status(404).json({ error: 'Message not found or cannot be deleted' })
+  response.status(204).send()
+})
+
+app.get('/api/users/me/friend-groups/:groupId/leaderboard', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const groupId = request.params.groupId
+  const period = parseFriendGroupPeriod(request.query.period ?? '90_DAYS')
+  if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
+  if (!period) return response.status(400).json({ error: 'Choose a supported leaderboard period' })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const group = await prisma.friendGroup.findFirst({
+    where: { id: groupId, OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
+    select: FRIEND_GROUP_SELECT,
+  })
+  if (!group) return response.status(404).json({ error: 'Friend group not found' })
+  const players = [group.owner, ...group.members.map((member) => member.user)]
+  const rounds = await prisma.round.findMany({
+    where: {
+      userId: { in: players.map((player) => player.id) },
+      participation: RoundParticipation.INDIVIDUAL,
+      scorecardStatus: RoundScorecardStatus.VERIFIED,
+    },
+    orderBy: [{ datePlayed: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+    select: {
+      id: true, userId: true, datePlayed: true, createdAt: true, grossScore: true, stablefordPoints: true, holeCount: true, scoreDifferential: true, isAcceptable: true,
+      user: { select: FRIEND_GROUP_PLAYER_SELECT },
+      tee: { select: { teeName: true, course: { select: { name: true, club: { select: { name: true } } } } } },
+    },
+  })
+  const start = friendGroupPeriodStart(period)
+  const standings = buildFriendGroupStandings(players, rounds.map((round) => ({
+    ...round,
+    scoreDifferential: round.scoreDifferential === null ? null : Number(round.scoreDifferential),
+  })), start)
+  response.status(200).json({
+    group: serializeFriendGroup(group, user.id),
+    period,
+    startsOn: start?.toISOString().slice(0, 10) ?? null,
+    standings,
+    recentRounds: rounds.filter((round) => !start || round.datePlayed >= start).slice(-20).reverse().map((round) => ({
+      id: round.id,
+      datePlayed: round.datePlayed.toISOString().slice(0, 10),
+      grossScore: round.grossScore,
+      stablefordPoints: round.stablefordPoints,
+      player: round.user,
+      tee: round.tee,
+    })),
+  })
+})
+
 app.get('/api/users/me/friends', async (_request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const user = await prisma.user.findUnique({
@@ -4715,17 +5005,30 @@ app.delete('/api/users/me/friends/:id', async (request, response) => {
     return
   }
 
-  const deletion = await prisma.friendship.deleteMany({
+  const friendship = await prisma.friendship.findFirst({
     where: {
       id: friendshipId,
       status: FriendshipStatus.ACCEPTED,
       OR: [{ requesterId: user.id }, { addresseeId: user.id }],
     },
+    select: { requesterId: true, addresseeId: true },
   })
-  if (deletion.count === 0) {
+  if (!friendship) {
     response.status(404).json({ error: 'Friendship not found' })
     return
   }
+  const otherUserId = friendship.requesterId === user.id ? friendship.addresseeId : friendship.requesterId
+  await prisma.$transaction([
+    prisma.friendship.delete({ where: { id: friendshipId } }),
+    prisma.friendGroupMember.deleteMany({
+      where: {
+        OR: [
+          { userId: otherUserId, group: { ownerId: user.id } },
+          { userId: user.id, group: { ownerId: otherUserId } },
+        ],
+      },
+    }),
+  ])
   response.status(204).send()
 })
 

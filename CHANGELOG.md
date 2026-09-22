@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.38.0 - 2026-09-22
+
+### User-facing changes
+
+- Added private groups made from accepted friends, with owner-managed membership and member leave controls.
+- Added date-filtered leaderboards for rounds played, Stableford points, lowest average gross, best gross score, and Handicap Index improvement.
+- Added a private group message board for general leaderboard discussion and comments attached to recent verified group rounds.
+
+### Developer and admin changes
+
+- Added group-scoped authorization, accepted-friend membership validation, owner moderation, and automatic membership removal when a friendship ends.
+- Derived standings from verified individual rounds on demand; gross rankings use completed 18-hole scores and do not expose private round notes or scorecard details.
+- Added persistent group, membership, and message records with cascading account and group cleanup.
+
 ## 0.37.0 - 2026-09-22
 
 ### User-facing changes
