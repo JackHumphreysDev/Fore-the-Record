@@ -1,0 +1,28 @@
+.course-personal-bests { margin: 0 auto 2rem; max-width: 1180px; padding: clamp(1.25rem, 3vw, 2.5rem); border: 1px solid rgba(188, 166, 93, .18); border-radius: 28px; background: linear-gradient(135deg, rgba(22, 58, 45, .96), rgba(50, 42, 3, .96)); color: #eee9dd; }
+.course-bests-heading { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(240px, .7fr); gap: 2rem; align-items: end; margin-bottom: 1.75rem; }
+.course-bests-heading h2 { margin: .25rem 0 0; font-family: Georgia, serif; font-size: clamp(2.2rem, 5vw, 4rem); font-weight: 400; line-height: .95; }
+.course-bests-heading > p, .course-bests-note, .course-hole-bests header p { color: rgba(238, 233, 221, .68); }
+.course-bests-picker { display: flex; justify-content: space-between; align-items: end; gap: 1.25rem; padding: 1.1rem; background: rgba(12, 20, 18, .62); border-radius: 16px; }
+.course-bests-picker label { flex: 1; display: grid; gap: .5rem; color: #a9d8c2; font-size: .72rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.course-bests-picker select { width: 100%; padding: .9rem 1rem; border: 1px solid rgba(238, 233, 221, .16); border-radius: 10px; background: #171b19; color: #eee9dd; font: inherit; text-transform: none; letter-spacing: 0; }
+.course-bests-picker p { margin: 0 0 .7rem; color: rgba(238, 233, 221, .68); white-space: nowrap; }
+.course-bests-picker p strong { color: #eee9dd; }
+.course-bests-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin: 1rem 0; }
+.course-best-card { min-height: 150px; padding: 1.1rem; border: 1px solid rgba(238, 233, 221, .12); border-radius: 14px; background: rgba(20, 23, 21, .78); display: flex; flex-direction: column; }
+.course-best-card span { min-height: 2.2em; color: #a9d8c2; font-size: .72rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.course-best-card strong { margin-top: .45rem; font-family: Georgia, serif; font-size: 2.4rem; font-weight: 400; }
+.course-best-card em { color: #bfdc77; font-style: normal; }
+.course-best-card small { margin-top: auto; color: rgba(238, 233, 221, .58); }
+.course-hole-bests { margin-top: 1.4rem; }
+.course-hole-bests header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.course-hole-bests h3 { margin: 0; font-family: Georgia, serif; font-size: 1.7rem; font-weight: 400; }
+.course-hole-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: .5rem; }
+.course-hole-grid article { padding: .85rem .55rem; border-radius: 10px; background: rgba(10, 18, 15, .62); text-align: center; display: grid; gap: .2rem; }
+.course-hole-grid span { color: #a9d8c2; font-size: .68rem; font-weight: 800; text-transform: uppercase; }
+.course-hole-grid strong { font-family: Georgia, serif; font-size: 1.8rem; font-weight: 400; }
+.course-hole-grid em, .course-hole-grid small { color: rgba(238, 233, 221, .62); font-size: .7rem; font-style: normal; }
+.course-bests-note { margin: 1.25rem 0 0; font-size: .8rem; }
+.course-bests-state { padding: 2rem; border-radius: 14px; background: rgba(10, 18, 15, .5); text-align: center; }
+.course-bests-state button { padding: .75rem 1.2rem; border: 0; border-radius: 8px; background: #748e00; color: #fff; font-weight: 700; }
+@media (max-width: 900px) { .course-bests-summary { grid-template-columns: repeat(2, 1fr); } .course-hole-grid { grid-template-columns: repeat(6, 1fr); } }
+@media (max-width: 620px) { .course-bests-heading { grid-template-columns: 1fr; gap: .75rem; } .course-bests-picker { align-items: stretch; flex-direction: column; } .course-bests-picker p { margin: 0; } .course-bests-summary { grid-template-columns: 1fr 1fr; } .course-hole-grid { grid-template-columns: repeat(3, 1fr); } }

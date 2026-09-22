@@ -14,6 +14,19 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.36.0 - 2026-09-22
+
+### User-facing changes
+
+- Added a course personal-bests panel to Rounds, separated by exact course and tee.
+- Added dated records for lowest 18-hole gross, highest 18-hole Stableford points, best Front 9, best Back 9, and lowest completed score on each hole.
+- Allowed verified nine-hole cards to set the matching nine-hole and individual-hole records while keeping 18-hole records limited to complete rounds.
+
+### Developer and admin changes
+
+- Added authenticated server-side personal-best aggregation and response validation.
+- Excluded team rounds, unverified scorecards, and pickup-affected stroke records, with deterministic earliest-date tie handling.
+
 ## 0.35.0 - 2026-09-22
 
 ### User-facing changes

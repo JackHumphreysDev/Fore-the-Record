@@ -3232,6 +3232,61 @@ describe('GET /api/users/me/performance-analysis', () => {
   })
 })
 
+describe('GET /api/users/me/course-personal-bests', () => {
+  it('returns personal records from the authenticated player\'s verified rounds', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [{
+        id: '33333333-3333-4333-8333-333333333333',
+        datePlayed: new Date('2026-09-10T00:00:00.000Z'),
+        participation: 'INDIVIDUAL',
+        scoringFormat: 'STROKE_PLAY',
+        scorecardStatus: 'VERIFIED',
+        holeCount: 18,
+        nineHoleSegment: null,
+        grossScore: 72,
+        stablefordPoints: null,
+        tee: {
+          id: '22222222-2222-4222-8222-222222222222',
+          teeName: 'White',
+          course: {
+            id: '11111111-1111-4111-8111-111111111111',
+            name: 'Main Course',
+            club: { name: 'Example Golf Club' },
+          },
+        },
+        holeScores: Array.from({ length: 18 }, (_, index) => ({
+          holeNumber: index + 1,
+          par: 4,
+          strokesTaken: 4,
+          pickedUp: false,
+        })),
+      }],
+    })
+
+    const response = await request(app).get('/api/users/me/course-personal-bests')
+
+    expect(response.status).toBe(200)
+    expect(response.body.courses[0]).toMatchObject({
+      clubName: 'Example Golf Club',
+      courseName: 'Main Course',
+      teeName: 'White',
+      rounds: 1,
+      lowestGross: { score: 72, toPar: 0, datePlayed: '2026-09-10' },
+      frontNine: { score: 36, toPar: 0 },
+      backNine: { score: 36, toPar: 0 },
+    })
+  })
+
+  it('returns 404 when the profile does not exist', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+
+    const response = await request(app).get('/api/users/me/course-personal-bests')
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({ error: 'User not found' })
+  })
+})
+
 describe('PATCH /api/users/me', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
   const homeClubId = '22222222-2222-4222-8222-222222222222'
