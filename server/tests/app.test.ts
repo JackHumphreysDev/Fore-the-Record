@@ -2423,6 +2423,58 @@ describe('friend connections API', () => {
     })
   })
 
+  it('automatically returns every round for an accepted friend without the activity-feed setting', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    friendshipFindFirstMock.mockResolvedValueOnce({ id: friendshipId })
+    userFindFirstMock.mockResolvedValueOnce({
+      id: otherUserId,
+      name: 'Tiger Woods',
+      handicapIndex: '1.4',
+      showHandicapToFriends: true,
+      homeClub: otherPlayer.homeClub,
+    })
+    roundFindManyMock.mockResolvedValueOnce([{
+      id: '55555555-5555-4555-8555-555555555555',
+      datePlayed: new Date('2026-09-20T00:00:00.000Z'),
+      category: 'CASUAL',
+      participation: 'INDIVIDUAL',
+      scoringFormat: 'STROKE_PLAY',
+      holeCount: 18,
+      nineHoleSegment: null,
+      grossScore: 72,
+      stablefordPoints: null,
+      scoreDifferential: '1.2',
+      gameFormat: null,
+      competitionName: null,
+      competitionFormat: null,
+      scorecardPhotoName: 'card.jpg',
+      user: { id: otherUserId, name: 'Tiger Woods', homeClub: otherPlayer.homeClub },
+      tee: { teeName: 'White', par: 72, course: { name: 'Main Course', club: { name: 'Medinah' } } },
+      holeScores: [],
+    }])
+
+    const response = await request(app).get(`/api/users/me/friends/${otherUserId}/profile-rounds`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.player).toEqual({
+      id: otherUserId,
+      name: 'Tiger Woods',
+      homeClub: otherPlayer.homeClub,
+      handicapIndex: 1.4,
+      handicapVisible: true,
+    })
+    expect(response.body.rounds).toEqual([
+      expect.objectContaining({
+        id: '55555555-5555-4555-8555-555555555555',
+        datePlayed: '2026-09-20',
+        hasScorecardPhoto: true,
+      }),
+    ])
+    expect(userFindFirstMock).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.not.objectContaining({ shareRoundActivity: true }),
+    }))
+  })
+
   it('returns only limited verified activity from accepted sharing friends', async () => {
     userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
     friendshipFindManyMock.mockResolvedValueOnce([

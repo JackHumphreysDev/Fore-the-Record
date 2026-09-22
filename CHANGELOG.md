@@ -19,12 +19,12 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 ### User-facing changes
 
 - Added explicit round sharing between accepted friends.
-- Added private incoming and outgoing shared-round lists with score summaries and hole-by-hole cards.
-- Added controls to revoke a share or remove a received share without exposing notes or scorecard photos.
+- Added friend profiles where accepted friends automatically see every round, score summary, hole-by-hole card, and attached scorecard photo.
+- Added private incoming and outgoing one-round sharing, with controls to revoke or remove access.
 
 ### Developer and admin changes
 
-- Added recipient-scoped round-share records, ownership checks, friendship enforcement, and duplicate protection.
+- Added recipient-scoped round-share records, automatic accepted-friend profile access, short-lived authorised photo links, ownership checks, and duplicate protection. The separate activity-sharing preference continues to control only the Friends Activity feed.
 
 ## 0.32.0 - 2026-09-18
 

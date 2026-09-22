@@ -3893,16 +3893,19 @@ const sharedRoundSelect = {
   gameFormat: true,
   competitionName: true,
   competitionFormat: true,
+  scorecardPhotoName: true,
   user: { select: { id: true, name: true, homeClub: { select: { id: true, name: true } } } },
   tee: { select: { teeName: true, par: true, course: { select: { name: true, club: { select: { name: true } } } } } },
   holeScores: { orderBy: { holeNumber: 'asc' as const }, select: { holeNumber: true, par: true, strokeIndex: true, strokesTaken: true, pickedUp: true } },
 } satisfies Prisma.RoundSelect
 
 function serializeSharedRound(round: Prisma.RoundGetPayload<{ select: typeof sharedRoundSelect }>) {
+  const { scorecardPhotoName, ...details } = round
   return {
-    ...round,
+    ...details,
     datePlayed: round.datePlayed.toISOString().slice(0, 10),
     scoreDifferential: round.scoreDifferential === null ? null : Number(round.scoreDifferential),
+    hasScorecardPhoto: scorecardPhotoName !== null,
   }
 }
 
@@ -3964,6 +3967,86 @@ app.delete('/api/users/me/round-shares/:id', async (request, response) => {
   const result = await prisma.roundShare.deleteMany({ where: { id: request.params.id, OR: [{ recipientId: user.id }, { round: { userId: user.id } }] } })
   if (result.count === 0) return response.status(404).json({ error: 'Round share not found' })
   response.status(204).send()
+})
+
+app.get('/api/users/me/round-shares/:id/photo', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const share = await prisma.roundShare.findFirst({
+    where: {
+      id: request.params.id,
+      OR: [
+        { recipient: { authUserId: authenticatedUser.id } },
+        { round: { user: { authUserId: authenticatedUser.id } } },
+      ],
+    },
+    select: { round: { select: { scorecardPhotoPath: true } } },
+  })
+  if (!share) return response.status(404).json({ error: 'Round share not found' })
+  if (!share.round.scorecardPhotoPath) return response.status(404).json({ error: 'This round has no scorecard photo' })
+  try {
+    const url = await createScorecardPhotoViewUrl(share.round.scorecardPhotoPath)
+    response.status(200).json({ url, expiresInSeconds: 300 })
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message })
+    throw error
+  }
+})
+
+async function getVisibleFriendProfile(authUserId: string, friendId: string) {
+  const currentUser = await prisma.user.findUnique({ where: { authUserId }, select: { id: true } })
+  if (!currentUser) return null
+  const friendship = await prisma.friendship.findFirst({
+    where: { status: FriendshipStatus.ACCEPTED, OR: [
+      { requesterId: currentUser.id, addresseeId: friendId },
+      { requesterId: friendId, addresseeId: currentUser.id },
+    ] }, select: { id: true },
+  })
+  if (!friendship) return null
+  return prisma.user.findFirst({
+    where: { id: friendId, status: UserStatus.ACTIVE },
+    select: {
+      id: true, name: true, handicapIndex: true, showHandicapToFriends: true,
+      homeClub: { select: { id: true, name: true } },
+    },
+  })
+}
+
+app.get('/api/users/me/friends/:friendId/profile-rounds', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const friend = await getVisibleFriendProfile(authenticatedUser.id, request.params.friendId)
+  if (!friend) return response.status(404).json({ error: 'Friend profile not found' })
+  const rounds = await prisma.round.findMany({
+    where: { userId: friend.id }, orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+    select: sharedRoundSelect,
+  })
+  response.status(200).json({
+    player: {
+      id: friend.id, name: friend.name, homeClub: friend.homeClub,
+      handicapIndex: friend.showHandicapToFriends && friend.handicapIndex !== null ? Number(friend.handicapIndex) : null,
+      handicapVisible: friend.showHandicapToFriends,
+    },
+    rounds: rounds.map(serializeSharedRound),
+  })
+})
+
+app.get('/api/users/me/friends/:friendId/rounds/:roundId/photo', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const friend = await getVisibleFriendProfile(authenticatedUser.id, request.params.friendId)
+  if (!friend) return response.status(404).json({ error: 'Friend profile not found' })
+  const round = await prisma.round.findFirst({
+    where: { id: request.params.roundId, userId: friend.id }, select: { scorecardPhotoPath: true },
+  })
+  if (!round) return response.status(404).json({ error: 'Round not found' })
+  if (!round.scorecardPhotoPath) return response.status(404).json({ error: 'This round has no scorecard photo' })
+  try {
+    const url = await createScorecardPhotoViewUrl(round.scorecardPhotoPath)
+    response.status(200).json({ url, expiresInSeconds: 300 })
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message })
+    throw error
+  }
 })
 
 app.get('/api/users/me/friends/activity', async (request, response) => {

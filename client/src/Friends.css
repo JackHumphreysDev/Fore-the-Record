@@ -407,6 +407,11 @@
 .shared-round-card summary { cursor: pointer; display: flex; justify-content: space-between; gap: 1rem; }
 .shared-round-card summary span { display: grid; gap: .2rem; }
 .shared-round-detail { padding-top: 1rem; }
+.friend-profile-picker { display: grid; gap: .35rem; max-width: 28rem; margin: 1rem 0; }
+.friend-profile-picker select { min-height: 2.75rem; border: 1px solid rgba(214, 205, 181, .2); border-radius: .5rem; padding: .6rem; background: #161b19; color: inherit; }
+.friend-profile-rounds { display: grid; gap: .75rem; margin-bottom: 1.5rem; }
+.friend-profile-rounds > header { display: flex; justify-content: space-between; gap: 1rem; }
+.shared-scorecard-photo { display: block; width: min(100%, 42rem); max-height: 38rem; object-fit: contain; border-radius: .6rem; margin: 1rem 0; }
 .shared-hole-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-bottom: 1rem; }
 .shared-hole-grid span { display: grid; gap: .2rem; padding: .55rem; background: rgba(255,255,255,.04); border-radius: .4rem; }
 
