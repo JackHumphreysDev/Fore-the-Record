@@ -83,6 +83,8 @@ export async function updateRoundAsAdmin(input: {
         user: { select: { handicapIndex: true } },
         tee: { select: { courseRating: true, slopeRating: true, par: true } },
         holeScores: { orderBy: { holeNumber: 'asc' } },
+        playingPartners: { select: { userId: true, result: true } },
+        guestPlayers: { select: { name: true, result: true } },
       },
     })
     if (!existing) {
@@ -118,6 +120,13 @@ export async function updateRoundAsAdmin(input: {
       userId: existing.userId,
       teeId: existing.teeId,
       participation: existing.participation,
+      ...(existing.category !== 'CASUAL' ? {
+        playingPartnerIds: (existing.playingPartners ?? []).map((partner) => partner.userId),
+        playingPartnerResults: Object.fromEntries((existing.playingPartners ?? []).map((partner) => [partner.userId, partner.result])),
+        guestPlayerNames: (existing.guestPlayers ?? []).map((guest) => guest.name),
+        guestPlayerResults: Object.fromEntries((existing.guestPlayers ?? []).map((guest) => [guest.name, guest.result])),
+      } : {}),
+      ...(existing.matchPlayOpponentName ? { gameResult: undefined } : {}),
       holeCount: existingHoleCount,
       ...(existing.nineHoleSegment
         ? { nineHoleSegment: existing.nineHoleSegment }
@@ -126,6 +135,12 @@ export async function updateRoundAsAdmin(input: {
         ? {
             holeScores,
             scoringFormat: existing.scoringFormat,
+            ...(existing.matchPlayOpponentName && existing.matchPlayHoles
+              ? {
+                  matchPlayOpponentName: existing.matchPlayOpponentName,
+                  matchPlayHoles: existing.matchPlayHoles,
+                }
+              : {}),
             playingHandicap:
               existing.scoringFormat === RoundScoringFormat.STABLEFORD
                 ? body.playingHandicap
@@ -148,6 +163,10 @@ export async function updateRoundAsAdmin(input: {
       competitionFormat: existing.competitionFormat,
       gameFormat: existing.gameFormat,
       gameResult: existing.gameResult,
+      ...(existing.matchPlayOpponentName ? {
+        matchPlayOpponentName: existing.matchPlayOpponentName,
+        matchPlayFinalScore: existing.matchPlayFinalScore,
+      } : {}),
       scoringFormat: existing.scoringFormat,
       playingHandicap: existing.playingHandicap,
       stablefordPoints: existing.stablefordPoints,
@@ -236,6 +255,9 @@ export async function updateRoundAsAdmin(input: {
         competitionFormat: parsed.competitionFormat,
         gameFormat: parsed.gameFormat,
         gameResult: parsed.gameResult,
+        matchPlayOpponentName: parsed.matchPlay?.opponentName ?? null,
+        matchPlayFinalScore: parsed.matchPlay?.finalScore ?? null,
+        ...(parsed.matchPlay ? { matchPlayHoles: parsed.matchPlay.holes } : {}),
         scoringFormat: parsed.scoringFormat,
         playingHandicap: parsed.playingHandicap,
         stablefordPoints,

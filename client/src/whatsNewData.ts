@@ -8,6 +8,17 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'match-play-scoring',
+    publishedAt: '2026-09-22',
+    title: 'Keep the full story of a Match Play round',
+    summary: 'Record each hole against one friend or guest and let Fore the Record calculate how the match finished.',
+    highlights: [
+      'Enter both scores for an automatic hole result, or record a concession or net decision directly.',
+      'See running results and familiar final scores such as 3 & 2, 1 up, or All square.',
+      'Review the opponent, every played hole, and the final result later in Round History.',
+    ],
+  },
+  {
     id: 'course-personal-bests',
     publishedAt: '2026-09-22',
     title: 'See your best at every course',

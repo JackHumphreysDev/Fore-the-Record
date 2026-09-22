@@ -25,6 +25,7 @@ import {
 } from './handicap.js'
 import { parseRoundNotes, RoundNotesValidationError } from './roundNotes.js'
 import { calculateStablefordRound } from './stableford.js'
+import { parseMatchPlay, type MatchPlaySummary } from './matchPlay.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -86,6 +87,7 @@ type LogRoundBase = {
   competitionFormat: string | null
   gameFormat: string | null
   gameResult: RoundGameResultValue | null
+  matchPlay: (MatchPlaySummary & { opponentName: string }) | null
   playingPartnerIds: string[]
   guestPlayerNames: string[]
   playingPartnerResults: Record<string, RoundGameResultValue | null>
@@ -455,6 +457,8 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     ? getRequiredText(value.gameFormat, GAME_FORMAT_MAX_LENGTH)
     : null
   const numberOfPlayers = isCompetition || isSocialGame ? value.numberOfPlayers : null
+  const isMatchPlay = participation === RoundParticipation.INDIVIDUAL &&
+    (competitionFormat === 'Match Play' || gameFormat === 'Match Play')
 
   if (
     (category === RoundCategory.CASUAL &&
@@ -465,7 +469,9 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
         value.gameResult !== undefined ||
         value.numberOfPlayers !== undefined ||
         value.playingPartnerIds !== undefined ||
-        value.guestPlayerNames !== undefined)) ||
+        value.guestPlayerNames !== undefined ||
+        value.matchPlayOpponentName !== undefined ||
+        value.matchPlayHoles !== undefined)) ||
     (isCompetition &&
       (!competitionName ||
         !competitionFormat ||
@@ -512,7 +518,9 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       (value.holeScores !== undefined && value.holeScores !== null) ||
       (value.pccAdjustment !== undefined && value.pccAdjustment !== 0) ||
       scoringFormat !== RoundScoringFormat.STROKE_PLAY ||
-      value.playingHandicap !== undefined
+      value.playingHandicap !== undefined ||
+      value.matchPlayOpponentName !== undefined ||
+      value.matchPlayHoles !== undefined
       || holeCount !== 18
     ) {
       return null
@@ -529,6 +537,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
       competitionFormat,
       gameFormat: null,
       gameResult: null,
+      matchPlay: null,
       playingPartnerIds,
       guestPlayerNames,
       playingPartnerResults,
@@ -559,6 +568,18 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   const playingHandicap = isStableford ? value.playingHandicap : null
   const hasPickedUpHole = holeScores?.some((hole) => hole.pickedUp) ?? false
   const grossScore = value.grossScore
+  const expectedHoleNumbers = holeCount === 18
+    ? Array.from({ length: 18 }, (_, index) => index + 1)
+    : Array.from(
+        { length: 9 },
+        (_, index) => index + (nineHoleSegment === NineHoleSegment.BACK_NINE ? 10 : 1),
+      )
+  const matchPlayOpponentName = isMatchPlay
+    ? getRequiredText(value.matchPlayOpponentName, PLAYER_NAME_MAX_LENGTH)
+    : null
+  const matchPlay = isMatchPlay
+    ? parseMatchPlay(value.matchPlayHoles, expectedHoleNumbers, holeScores ?? [])
+    : null
 
   if (
     (hasPickedUpHole
@@ -572,6 +593,13 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     pccAdjustment < -9.9 ||
     pccAdjustment > 9.9 ||
     holeScores === null ||
+    (isMatchPlay && (!matchPlayOpponentName || !matchPlay)) ||
+    (isMatchPlay && value.gameResult !== undefined) ||
+    (isMatchPlay && playingPartnerIds.length + guestPlayerNames.length !== 1) ||
+    (isMatchPlay && guestPlayerNames.length === 1 && guestPlayerNames[0] !== matchPlayOpponentName) ||
+    (!isMatchPlay &&
+      (value.matchPlayOpponentName !== undefined || value.matchPlayHoles !== undefined)) ||
+    (isSocialGame && isMatchPlay && numberOfPlayers !== 2) ||
     (isStableford
       ? typeof playingHandicap !== 'number' ||
         !Number.isInteger(playingHandicap) ||
@@ -600,7 +628,10 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     competitionName,
     competitionFormat,
     gameFormat,
-    gameResult,
+    gameResult: matchPlay?.result ?? gameResult,
+    matchPlay: matchPlay && matchPlayOpponentName
+      ? { ...matchPlay, opponentName: matchPlayOpponentName }
+      : null,
     playingPartnerIds,
     guestPlayerNames,
     playingPartnerResults,
@@ -899,6 +930,11 @@ export async function logRound(input: LogRoundInput) {
         competitionFormat: input.competitionFormat,
         gameFormat: input.gameFormat,
         gameResult: input.gameResult,
+        ...(input.matchPlay ? {
+          matchPlayOpponentName: input.matchPlay.opponentName,
+          matchPlayFinalScore: input.matchPlay.finalScore,
+          matchPlayHoles: input.matchPlay.holes,
+        } : {}),
         guestPlayerNames: input.guestPlayerNames,
         numberOfPlayers: input.numberOfPlayers,
         notes: input.notes,

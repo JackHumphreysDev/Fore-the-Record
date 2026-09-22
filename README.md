@@ -62,13 +62,15 @@ The application features are still under development. Core profile, authenticati
 
 Round Entry supports casual rounds, individual competitions, record-only team competitions, and games with friends. Structured competition and social-game formats can include optional accepted-friend links, guest names, and a Won/Lost/Tied result. A linked friend can remove their tag, but the round is never copied to their record and never affects their handicap. Individual cards can use Stroke play or Stableford scoring. Stableford stores the Playing Handicap used, allocates strokes by the approved hole indexes, calculates every hole's net score and points, and supports explicit picked-up holes. A pickup records zero points and no invented gross score; Net Double Bogey is used only for handicap processing. Manually supplied course definitions remain provisional until administrator approval.
 
+Individual Match Play competitions and games now include a separate head-to-head card. Players can enter the opponent's score for an automatic hole result or record a concession, and Fore the Record calculates the running outcome and final result such as **3 & 2**, **1 up**, or **All square**. The player's complete stroke card remains separate and continues through the normal handicap rules.
+
 Individual rounds can now be recorded over 18 holes or a selected Front 9 or Back 9. Nine-hole cards retain their gross, adjusted, and Stableford totals, appear clearly in History, contribute their actual holes, shots, and recorded yardage to lifetime totals, and can be corrected by the administrator. They remain outside the Handicap Index until Fore the Record can apply the official WHS expected-differential process; the application never estimates a nine-hole rating by halving an 18-hole value.
 
 The production application is deployed on Vercel. The current RapidAPI allowance cannot support a full catalogue import, so catalogue searches use saved data first and make bounded provider checks only after a miss.
 
 ## Roadmap and releases
 
-The current application version is `0.36.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.37.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)

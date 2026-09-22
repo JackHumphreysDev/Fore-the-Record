@@ -14,6 +14,21 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.37.0 - 2026-09-22
+
+### User-facing changes
+
+- Added calculated hole-by-hole Match Play scoring for individual competitions and games with friends.
+- Added one-opponent selection from linked friends or named guests, automatic score comparisons, concessions, and Won/Lost/Halved hole results.
+- Added conventional final margins including early finishes such as 3 & 2, completed results such as 1 up, and All square.
+- Added Match Play summaries and opponent scores to round confirmation and expandable Round History cards.
+
+### Developer and admin changes
+
+- Added server-owned Match Play validation and final-result calculation rather than trusting a submitted overall result.
+- Added persistent JSON hole results with opponent and final-score metadata, including administrator score-correction recalculation.
+- Kept the Match Play card separate from the existing stroke card and Handicap Index calculation.
+
 ## 0.36.0 - 2026-09-22
 
 ### User-facing changes

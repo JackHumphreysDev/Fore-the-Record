@@ -1174,3 +1174,24 @@
     animation: none;
   }
 }
+.round-match-play-setup,
+.round-match-play-card {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(174, 203, 120, .22);
+  border-radius: 18px;
+  background: rgba(10, 38, 30, .45);
+}
+
+.round-match-play-setup h3,
+.round-match-play-card h3 { margin: .2rem 0 .8rem; font-family: Georgia, serif; font-size: 1.7rem; font-weight: 400; }
+.round-match-play-setup label { display: grid; gap: .45rem; margin: .8rem 0; font-weight: 700; }
+.round-match-play-setup select,
+.round-match-play-card input,
+.round-match-play-card select { padding: .65rem; border: 1px solid rgba(236, 232, 218, .2); border-radius: 8px; background: #171b19; color: #f0ecdf; }
+.round-match-play-card header { display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
+.round-match-play-card header > strong { color: #c8dc85; font-size: 1.15rem; }
+.round-match-play-card table { width: 100%; margin-top: 1rem; border-collapse: collapse; }
+.round-match-play-card th,
+.round-match-play-card td { padding: .65rem; border-bottom: 1px solid rgba(236, 232, 218, .1); text-align: left; }
+.round-derived-result { min-height: 2.75rem; display: flex; align-items: center; color: rgba(236, 232, 218, .7); }
