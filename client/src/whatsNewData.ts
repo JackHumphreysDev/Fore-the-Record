@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'friend-groups-leaderboards',
+    publishedAt: '2026-09-22',
+    title: 'Bring your golf group together',
+    summary: 'Create a named private group or league with accepted friends, compare verified play, and keep the conversation in one place.',
+    highlights: [
+      'Add a description and group image, then compare numbered positions and results over a chosen period.',
+      'Rank rounds played, Stableford points, 18-hole gross scoring, or Handicap Index improvement.',
+      'Post a general leaderboard message or attach a comment to a recent verified group round.',
+      'Group owners manage membership and moderation, while private notes and full scorecards stay out of the group.',
+    ],
+  },
+  {
     id: 'match-play-scoring',
     publishedAt: '2026-09-22',
     title: 'Keep the full story of a Match Play round',

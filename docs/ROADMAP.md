@@ -37,12 +37,18 @@ This roadmap records agreed future work. Items are planned requirements, not com
 31. Account security centre. Completed in `0.35.0`.
 32. Course personal bests. Completed in `0.36.0`.
 33. Match-play scoring. Completed in `0.37.0`.
-34. Friends groups and advanced leaderboards.
+34. Friends groups and advanced leaderboards. Completed in `0.38.0`.
 35. Performance insights.
 36. Full team-game scoring.
 37. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Friends groups and advanced leaderboards — completed in 0.38.0
+
+Players can create named private groups or leagues containing up to 20 accepted friends. The creator owns the group and can edit its description, add or replace a private group image, rename it, change membership, moderate messages, or delete it; other members can leave. Ending a friendship also removes the former friend from groups owned by either player.
+
+Each group has live 30-day, 90-day, 12-month, and all-time rankings for verified individual rounds played, Stableford points, lowest average 18-hole gross, best 18-hole gross, and Handicap Index improvement. Every row shows its numbered position and selected ranking value. A private message board supports general leaderboard discussion and comments attached to recent verified group rounds. Only current members can read or post, and no private notes, support information, or full scorecards are copied into the group.
 
 ## Match-play scoring — completed in 0.37.0
 

@@ -1,0 +1,7 @@
+ALTER TABLE "FriendGroup"
+ADD COLUMN "description" VARCHAR(500),
+ADD COLUMN "imagePath" VARCHAR(500),
+ADD COLUMN "imageName" VARCHAR(255),
+ADD COLUMN "imageMimeType" VARCHAR(50),
+ADD COLUMN "imageSize" INTEGER,
+ADD COLUMN "imageUploadedAt" TIMESTAMPTZ(3);

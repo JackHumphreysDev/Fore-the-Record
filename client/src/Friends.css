@@ -2,6 +2,53 @@
   padding: clamp(48px, 7vw, 92px) 0 72px;
 }
 
+.friend-groups { margin-bottom: 30px; }
+.friend-group-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.friend-group-heading h2 { margin: 3px 0 0; }
+.friend-group-heading > span { color: var(--ink-muted); font-size: 10px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; }
+.friend-group-editor { margin: 18px 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.friend-group-editor summary { color: var(--forest-deep); font-weight: 800; cursor: pointer; }
+.friend-group-editor form { margin-top: 16px; display: grid; gap: 14px; }
+.friend-group-editor form > label, .friend-group-controls label { display: grid; gap: 6px; color: var(--forest-deep); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.friend-group-editor input, .friend-group-editor textarea, .friend-group-controls select { min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: var(--paper); font: inherit; text-transform: none; }
+.friend-group-members { margin: 0; padding: 0; border: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.friend-group-members legend { margin-bottom: 8px; color: var(--forest-deep); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.friend-group-members label { padding: 10px; display: flex; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 9px; }
+.friend-group-members label span { display: grid; gap: 2px; }
+.friend-group-members small { color: var(--ink-muted); }
+.friend-group-tabs { margin-top: 18px; display: flex; gap: 8px; overflow-x: auto; }
+.friend-group-tabs button { min-width: 150px; display: grid; justify-items: start; gap: 3px; background: var(--paper); color: var(--forest-deep); border: 1px solid var(--line); }
+.friend-group-tabs button.is-active { color: white; background: var(--forest); }
+.friend-group-tabs small { opacity: .75; }
+.friend-group-board { margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--paper) 95%, var(--forest-soft)); }
+.friend-group-profile { margin-bottom: 18px; display: flex; align-items: center; gap: 14px; }
+.friend-group-profile h3 { margin: 0; color: var(--forest-deep); font-family: Georgia, "Times New Roman", serif; font-size: 28px; font-weight: 400; }
+.friend-group-profile p { margin: 5px 0 0; color: var(--ink-muted); line-height: 1.45; }
+.friend-group-image { width: 68px; height: 68px; flex: 0 0 68px; display: grid; place-items: center; overflow: hidden; border-radius: 16px; color: white; background: var(--forest); font-family: Georgia, "Times New Roman", serif; font-size: 28px; }
+.friend-group-image img { width: 100%; height: 100%; object-fit: cover; }
+.friend-group-image-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.friend-group-image-controls small { color: var(--ink-muted); }
+.friend-group-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.friend-group-ranking { margin: 16px 0; padding: 0; display: grid; gap: 8px; list-style: none; }
+.friend-group-ranking li { padding: 12px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.friend-group-ranking li > span:nth-child(2) { display: grid; gap: 3px; }
+.friend-group-ranking small { color: var(--ink-muted); }
+.friend-group-position { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--forest); font-weight: 800; }
+.friend-group-messages { margin: 24px 0; padding-top: 20px; border-top: 1px solid var(--line); }
+.friend-group-messages h3 { margin: 0 0 4px; color: var(--forest-deep); font-family: Georgia, "Times New Roman", serif; font-size: 25px; font-weight: 400; }
+.friend-group-messages > div > small { color: var(--ink-muted); }
+.friend-group-messages form { margin: 16px 0; display: grid; grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr) auto; align-items: end; gap: 10px; }
+.friend-group-messages label { display: grid; gap: 6px; color: var(--forest-deep); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.friend-group-messages textarea, .friend-group-messages select { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: var(--paper); font: inherit; text-transform: none; }
+.friend-group-message-list { display: grid; gap: 9px; }
+.friend-group-message-list article { padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.friend-group-message-list article > div { display: flex; justify-content: space-between; gap: 12px; }
+.friend-group-message-list time, .friend-group-message-round { color: var(--ink-muted); font-size: 10px; }
+.friend-group-message-list p { margin: 9px 0; white-space: pre-wrap; line-height: 1.5; }
+.friend-group-message-list button { padding: 7px 10px; }
+@media (max-width: 640px) { .friend-group-heading { align-items: start; flex-direction: column; } .friend-group-controls { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .friend-group-messages form { grid-template-columns: 1fr; } }
+
 .round-tags { margin-bottom: 30px; }
 .round-tags-intro { color: var(--ink-muted); line-height: 1.55; }
 .round-tag-card > div { min-width: 0; display: grid; gap: 5px; }

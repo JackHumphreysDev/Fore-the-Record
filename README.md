@@ -64,13 +64,15 @@ Round Entry supports casual rounds, individual competitions, record-only team co
 
 Individual Match Play competitions and games now include a separate head-to-head card. Players can enter the opponent's score for an automatic hole result or record a concession, and Fore the Record calculates the running outcome and final result such as **3 & 2**, **1 up**, or **All square**. The player's complete stroke card remains separate and continues through the normal handicap rules.
 
+Accepted friends can now form named private player groups or leagues with an optional description and owner-managed image. Live leaderboards compare verified round activity, Stableford points, 18-hole gross scoring, and Handicap Index improvement, showing every player's position and selected result. Each group also includes a private message board for general discussion or comments attached to a recent group round, while notes and full scorecard details remain outside the group.
+
 Individual rounds can now be recorded over 18 holes or a selected Front 9 or Back 9. Nine-hole cards retain their gross, adjusted, and Stableford totals, appear clearly in History, contribute their actual holes, shots, and recorded yardage to lifetime totals, and can be corrected by the administrator. They remain outside the Handicap Index until Fore the Record can apply the official WHS expected-differential process; the application never estimates a nine-hole rating by halving an 18-hole value.
 
 The production application is deployed on Vercel. The current RapidAPI allowance cannot support a full catalogue import, so catalogue searches use saved data first and make bounded provider checks only after a miss.
 
 ## Roadmap and releases
 
-The current application version is `0.37.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.38.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)
