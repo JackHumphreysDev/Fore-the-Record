@@ -131,6 +131,7 @@ model User {
   roundPlayingPartners   RoundPlayingPartner[]
   createdChallenges      PlayerChallenge[]      @relation("ChallengeCreator")
   receivedChallenges     PlayerChallenge[]      @relation("ChallengeOpponent")
+  receivedRoundShares    RoundShare[]           @relation("RoundShareRecipient")
 
   @@index([status, createdAt])
 }
@@ -375,8 +376,21 @@ model Round {
   correctionRequests Submission[]
   playingPartners    RoundPlayingPartner[]
   guestPlayers       RoundGuestPlayer[]
+  shares             RoundShare[]
 
   @@index([userId, datePlayed, createdAt])
+}
+
+model RoundShare {
+  id          String   @id @default(uuid()) @db.Uuid
+  roundId     String   @db.Uuid
+  recipientId String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  round       Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  recipient   User     @relation("RoundShareRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, recipientId])
+  @@index([recipientId, createdAt])
 }
 
 model RoundPlayingPartner {

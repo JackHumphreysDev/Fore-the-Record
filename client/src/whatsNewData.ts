@@ -8,6 +8,17 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'shared-rounds',
+    publishedAt: '2026-09-22',
+    title: 'Share a round with a friend',
+    summary: 'Choose an accepted friend and privately share one completed round with them.',
+    highlights: [
+      'Recipients can see the course, score summary, and recorded hole-by-hole card.',
+      'Notes, scorecard photos, email addresses, and account details remain private.',
+      'The owner can revoke access and the recipient can remove the share at any time.',
+    ],
+  },
+  {
     id: 'challenges-and-leaderboards',
     publishedAt: '2026-09-18',
     title: 'Challenge a friend',

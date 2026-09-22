@@ -3879,6 +3879,93 @@ app.patch('/api/users/me/challenges/:id', async (request, response) => {
   response.status(200).json({ id: request.params.id, status })
 })
 
+const sharedRoundSelect = {
+  id: true,
+  datePlayed: true,
+  category: true,
+  participation: true,
+  scoringFormat: true,
+  holeCount: true,
+  nineHoleSegment: true,
+  grossScore: true,
+  stablefordPoints: true,
+  scoreDifferential: true,
+  gameFormat: true,
+  competitionName: true,
+  competitionFormat: true,
+  user: { select: { id: true, name: true, homeClub: { select: { id: true, name: true } } } },
+  tee: { select: { teeName: true, par: true, course: { select: { name: true, club: { select: { name: true } } } } } },
+  holeScores: { orderBy: { holeNumber: 'asc' as const }, select: { holeNumber: true, par: true, strokeIndex: true, strokesTaken: true, pickedUp: true } },
+} satisfies Prisma.RoundSelect
+
+function serializeSharedRound(round: Prisma.RoundGetPayload<{ select: typeof sharedRoundSelect }>) {
+  return {
+    ...round,
+    datePlayed: round.datePlayed.toISOString().slice(0, 10),
+    scoreDifferential: round.scoreDifferential === null ? null : Number(round.scoreDifferential),
+  }
+}
+
+app.get('/api/users/me/round-shares', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const [availableRounds, shares] = await Promise.all([
+    prisma.round.findMany({
+      where: { userId: user.id }, orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }], take: 50,
+      select: { id: true, datePlayed: true, tee: { select: { course: { select: { name: true, club: { select: { name: true } } } } } } },
+    }),
+    prisma.roundShare.findMany({
+      where: { OR: [{ round: { userId: user.id } }, { recipientId: user.id }] },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, recipientId: true, createdAt: true, recipient: { select: challengePlayerSelect }, round: { select: sharedRoundSelect } },
+    }),
+  ])
+  response.status(200).json({
+    availableRounds: availableRounds.map((round) => ({ ...round, datePlayed: round.datePlayed.toISOString().slice(0, 10) })),
+    shares: shares.map((share) => ({
+      id: share.id,
+      direction: share.round.user.id === user.id ? 'OUTGOING' : 'INCOMING',
+      createdAt: share.createdAt.toISOString(),
+      recipient: share.recipient,
+      round: serializeSharedRound(share.round),
+    })),
+  })
+})
+
+app.post('/api/users/me/round-shares', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const roundId = typeof request.body?.roundId === 'string' ? request.body.roundId : ''
+  const recipientId = typeof request.body?.recipientId === 'string' ? request.body.recipientId : ''
+  if (!roundId || !recipientId || recipientId === user.id) return response.status(400).json({ error: 'Invalid round share' })
+  const [round, friendship] = await Promise.all([
+    prisma.round.findFirst({ where: { id: roundId, userId: user.id }, select: { id: true } }),
+    prisma.friendship.findFirst({ where: { status: FriendshipStatus.ACCEPTED, OR: [
+      { requesterId: user.id, addresseeId: recipientId }, { requesterId: recipientId, addresseeId: user.id },
+    ] }, select: { id: true } }),
+  ])
+  if (!round) return response.status(404).json({ error: 'Round not found' })
+  if (!friendship) return response.status(400).json({ error: 'Rounds can only be shared with accepted friends' })
+  try {
+    const share = await prisma.roundShare.create({ data: { roundId, recipientId }, select: { id: true } })
+    response.status(201).json(share)
+  } catch (error: unknown) {
+    if (isRecord(error) && error.code === 'P2002') return response.status(409).json({ error: 'This round is already shared with that friend' })
+    throw error
+  }
+})
+
+app.delete('/api/users/me/round-shares/:id', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const result = await prisma.roundShare.deleteMany({ where: { id: request.params.id, OR: [{ recipientId: user.id }, { round: { userId: user.id } }] } })
+  if (result.count === 0) return response.status(404).json({ error: 'Round share not found' })
+  response.status(204).send()
+})
+
 app.get('/api/users/me/friends/activity', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const page = parsePaginationValue(request.query.page, 1)
