@@ -21,6 +21,8 @@ import {
 } from './roundNotesApi.ts'
 import { calculateStablefordTotals } from './stableford.ts'
 import ScorecardPhoto from './ScorecardPhoto.tsx'
+import TeamCompetitionCard from './TeamCompetitionCard.tsx'
+import { teamPositionLabel } from './teamCompetition.ts'
 
 type RoundHistoryProfile = {
   id: string
@@ -657,12 +659,12 @@ function RoundHistory({
                             <dd>{round.numberOfPlayers}</dd>
                           </div>
                           <div className="history-differential">
-                            <dt>Score</dt>
-                            <dd>Record only</dd>
+                            <dt>Team total</dt>
+                            <dd>{round.teamCompetition ? `${round.teamCompetition.teams.find((team) => team.isPlayerTeam)?.total ?? '—'} ${round.teamCompetition.scoring === 'GROSS_STROKES' ? 'strokes' : 'points'}` : 'Record only'}</dd>
                           </div>
                           <div>
-                            <dt>Handicap</dt>
-                            <dd>No effect</dd>
+                            <dt>Finish</dt>
+                            <dd>{round.teamCompetition ? teamPositionLabel(round.teamCompetition.teams.find((team) => team.isPlayerTeam)?.position ?? 0) : 'Not recorded'}</dd>
                           </div>
                         </>
                       ) : (
@@ -696,6 +698,8 @@ function RoundHistory({
                         ? 'Course and tee retained for your playing record. No score differential was created.'
                         : `${round.holeCount === 9 ? `${round.nineHoleSegment === 'FRONT_NINE' ? 'Front 9' : 'Back 9'} · ` : ''}Course rating ${round.holeCount === 9 ? ((round.nineHoleSegment === 'FRONT_NINE' ? round.tee.frontNineCourseRating : round.tee.backNineCourseRating)?.toFixed(1) ?? 'unavailable') : round.tee.courseRating.toFixed(1)} · Slope ${round.holeCount === 9 ? ((round.nineHoleSegment === 'FRONT_NINE' ? round.tee.frontNineSlopeRating : round.tee.backNineSlopeRating) ?? 'unavailable') : round.tee.slopeRating} · ${round.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'} · PCC ${round.pccAdjustment.toFixed(1)}${round.competitionFormat ? ` · ${round.competitionFormat} · ${round.numberOfPlayers} players` : ''}${round.gameFormat ? ` · ${round.gameFormat} · ${round.numberOfPlayers} players` : ''}${round.holeCount === 9 ? ' · Not included in Handicap Index: official expected differential unavailable' : ''}`}
                     </p>
+
+                    {round.teamCompetition ? <TeamCompetitionCard competition={round.teamCompetition} /> : null}
 
                     <section className="history-round-notes" aria-label="Private round note">
                       <header>

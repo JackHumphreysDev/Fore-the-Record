@@ -39,10 +39,16 @@ This roadmap records agreed future work. Items are planned requirements, not com
 33. Match-play scoring. Completed in `0.37.0`.
 34. Friends groups and advanced leaderboards. Completed in `0.38.0`.
 35. Performance insights. Completed in `0.39.0`.
-36. Full team-game scoring.
+36. Full team-game scoring. Completed in `0.40.0`.
 37. Live Round mode.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Full team-game scoring — completed in 0.40.0
+
+Team competitions now record a complete field rather than a scoreless history marker. Players choose Gross Strokes or Stableford Points, name their own team, link accepted friends or add guests to it, and enter every opposing team's names and 18-hole scores. Fore the Record calculates each team's Front 9, Back 9, total, and tie-aware position on the server.
+
+The resulting leaderboard and complete hole card appear after submission, in Round History, in accepted friends' profile round views, and in the protected administrator round editor. Team records remain outside the Handicap Index and cannot create a score differential. Existing scoreless team records remain readable as legacy record-only entries.
 
 ## Performance insights — completed in 0.39.0
 

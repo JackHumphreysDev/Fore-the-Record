@@ -400,6 +400,7 @@ model Round {
   matchPlayOpponentName String?           @db.VarChar(80)
   matchPlayFinalScore String?              @db.VarChar(20)
   matchPlayHoles     Json?
+  teamCompetition    Json?
   guestPlayerNames   String[]              @default([])
   numberOfPlayers    Int?
   notes              String?              @db.VarChar(2000)

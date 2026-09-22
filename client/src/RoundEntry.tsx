@@ -31,6 +31,13 @@ import {
   calculateStablefordTotals,
 } from './stableford.ts'
 import { buildMatchPlayPreview, type MatchPlayDraft } from './matchPlay.ts'
+import TeamCompetitionEntry from './TeamCompetitionEntry.tsx'
+import {
+  emptyTeamCompetitionDraft,
+  parseTeamCompetitionDraft,
+  type TeamCompetitionDraft,
+} from './teamCompetitionDraft.ts'
+import TeamCompetitionCard from './TeamCompetitionCard.tsx'
 
 type RoundEntryProfile = {
   id: string
@@ -86,6 +93,7 @@ type RoundFormErrors = Partial<
     | 'grossScore'
     | 'playingHandicap'
     | 'scorecard'
+    | 'teamCompetition'
     | 'notes',
     string
   >
@@ -362,6 +370,7 @@ function RoundEntry({
   const [friends, setFriends] = useState<FriendshipItem[]>([])
   const [friendsError, setFriendsError] = useState('')
   const [matchPlayDraft, setMatchPlayDraft] = useState<MatchPlayDraft>({})
+  const [teamCompetitionDraft, setTeamCompetitionDraft] = useState<TeamCompetitionDraft>(emptyTeamCompetitionDraft)
 
   const teeOptions = getTeeOptions(catalogueResponse, favourites)
   const selectedTee = teeOptions.find((option) => option.id === form.teeId)
@@ -679,6 +688,7 @@ function RoundEntry({
     }))
     setSubmitError('')
     setMatchPlayDraft({})
+    setTeamCompetitionDraft(emptyTeamCompetitionDraft())
   }
 
   function updateCategory(category: RoundCategory) {
@@ -719,6 +729,7 @@ function RoundEntry({
   }
 
   function updateParticipation(participation: RoundParticipation) {
+    setTeamCompetitionDraft(emptyTeamCompetitionDraft())
     setForm((current) => ({
       ...current,
       participation,
@@ -904,6 +915,9 @@ function RoundEntry({
     const gameFormat = form.gameFormat === 'OTHER'
       ? `Other — ${form.gameFormatOther.trim()}`
       : form.gameFormat
+    const parsedTeamCompetition = isTeamRound
+      ? parseTeamCompetitionDraft(teamCompetitionDraft)
+      : null
 
     if (isCompetition) {
       if (
@@ -955,6 +969,17 @@ function RoundEntry({
       }
       if (form.playingPartnerIds.length + guestPlayerNames.length > Math.max(numberOfPlayers - 1, 0)) {
         nextErrors.playingPartners = 'The named playing partners exceed the number of other players in this round'
+      }
+    }
+
+    if (isTeamRound) {
+      if (!parsedTeamCompetition || 'error' in parsedTeamCompetition) {
+        nextErrors.teamCompetition = parsedTeamCompetition?.error ?? 'Complete the team competition card.'
+      } else {
+        const recordedPlayers = 1 + form.playingPartnerIds.length + guestPlayerNames.length + parsedTeamCompetition.opponentPlayers
+        if (numberOfPlayers !== recordedPlayers) {
+          nextErrors.numberOfPlayers = `The team lists contain ${recordedPlayers} players. Update the player total to match.`
+        }
       }
     }
 
@@ -1082,6 +1107,9 @@ function RoundEntry({
                 matchPlayOpponentName: form.matchPlayOpponentName,
                 matchPlayHoles: matchPlayPreview.holes,
               }
+            : {}),
+          ...(isTeamRound && parsedTeamCompetition && 'input' in parsedTeamCompetition
+            ? { teamCompetition: parsedTeamCompetition.input }
             : {}),
           ...(!isTeamRound
             ? {
@@ -1224,7 +1252,7 @@ function RoundEntry({
                 </div>
                 <div>
                   <small>Entry</small>
-                  <strong>Team record</strong>
+                  <strong>Full leaderboard</strong>
                 </div>
               </>
             ) : confirmation.round.category === 'SOCIAL_GAME' ? (
@@ -1290,6 +1318,10 @@ function RoundEntry({
               : 'The submitted hole-by-hole card was used to calculate the adjusted gross score.'}
           </p>
 
+          {confirmation.round.teamCompetition ? (
+            <TeamCompetitionCard competition={confirmation.round.teamCompetition} compact />
+          ) : null}
+
           <div className="round-confirmation-actions">
             <button
               className="round-secondary-button"
@@ -1334,6 +1366,7 @@ function RoundEntry({
                     pickedUp: false,
                   })),
                 )
+                setTeamCompetitionDraft(emptyTeamCompetitionDraft())
               }}
             >
               Log another round
@@ -1610,8 +1643,8 @@ function RoundEntry({
                         onChange={() => updateParticipation('TEAM')}
                       />
                       <span>
-                        <strong>Team / record only</strong>
-                        <small>No gross score or handicap effect</small>
+                        <strong>Team competition</strong>
+                        <small>Full team card, leaderboard and no handicap effect</small>
                       </span>
                     </label>
                   </div>
@@ -1726,13 +1759,13 @@ function RoundEntry({
 
             {isOrganisedRound ? (
               <fieldset className="round-partners-fieldset">
-                <legend>Who played with you? <small>Optional</small></legend>
+                <legend>{isTeamRound ? 'Who is on your team?' : 'Who played with you?'} <small>Optional</small></legend>
                 {friends.length > 0 ? <div className="round-partner-options">{friends.map((item) => {
                   const selected = form.playingPartnerIds.includes(item.player.id)
-                  return <div className="round-partner-option" key={item.player.id}><label><input type="checkbox" checked={selected} onChange={() => togglePlayingPartner(item.player.id)} /><span><strong>{item.player.name}</strong><small>{item.player.homeClub?.name ?? 'Home club not set'}</small></span></label>{selected ? <select aria-label={`Result against ${item.player.name}`} value={form.playingPartnerResults[item.player.id] ?? ''} onChange={(event) => setForm((current) => ({ ...current, playingPartnerResults: { ...current.playingPartnerResults, [item.player.id]: event.target.value as RoundGameResult | '' } }))}><option value="">No result</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="TIED">Tied</option></select> : null}</div>
+                  return <div className="round-partner-option" key={item.player.id}><label><input type="checkbox" checked={selected} onChange={() => togglePlayingPartner(item.player.id)} /><span><strong>{item.player.name}</strong><small>{item.player.homeClub?.name ?? 'Home club not set'}</small></span></label>{selected && !isTeamRound ? <select aria-label={`Result against ${item.player.name}`} value={form.playingPartnerResults[item.player.id] ?? ''} onChange={(event) => setForm((current) => ({ ...current, playingPartnerResults: { ...current.playingPartnerResults, [item.player.id]: event.target.value as RoundGameResult | '' } }))}><option value="">No result</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="TIED">Tied</option></select> : null}</div>
                 })}</div> : <p className="round-partners-help">{friendsError || 'Add accepted friends from the Friends screen to link their profiles.'}</p>}
                 <div className="round-field"><label htmlFor="round-guests">Guests without an account</label><textarea id="round-guests" rows={2} placeholder="One name per line, or separate names with commas" value={form.guestPlayerNames} onChange={(event) => updateField('guestPlayerNames', event.target.value)} /></div>
-                {form.guestPlayerNames.split(/[,\n]/).map((name) => name.trim()).filter(Boolean).map((name) => <label className="round-guest-result" key={name}>Result against {name}<select value={form.guestPlayerResults[name] ?? ''} onChange={(event) => setForm((current) => ({ ...current, guestPlayerResults: { ...current.guestPlayerResults, [name]: event.target.value as RoundGameResult | '' } }))}><option value="">No result</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="TIED">Tied</option></select></label>)}
+                {!isTeamRound ? form.guestPlayerNames.split(/[,\n]/).map((name) => name.trim()).filter(Boolean).map((name) => <label className="round-guest-result" key={name}>Result against {name}<select value={form.guestPlayerResults[name] ?? ''} onChange={(event) => setForm((current) => ({ ...current, guestPlayerResults: { ...current.guestPlayerResults, [name]: event.target.value as RoundGameResult | '' } }))}><option value="">No result</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="TIED">Tied</option></select></label>) : null}
                 <p className="round-partners-help">Linked friends can see this tag and remove themselves. They cannot see your private card, note, or photo.</p>
                 {errors.playingPartners ? <span className="round-field-error">{errors.playingPartners}</span> : null}
               </fieldset>
@@ -2133,14 +2166,14 @@ function RoundEntry({
             </fieldset>
               </>
             ) : (
-              <div className="round-team-record-notice">
-                <strong>No scorecard is required.</strong>
-                <p>
-                  This team competition will appear in your history with its
-                  course, date, time and competition details. It will not
-                  change your Handicap Index.
-                </p>
-              </div>
+              <TeamCompetitionEntry
+                value={teamCompetitionDraft}
+                onChange={(value) => {
+                  setTeamCompetitionDraft(value)
+                  setErrors((current) => ({ ...current, teamCompetition: undefined }))
+                }}
+                error={errors.teamCompetition}
+              />
             )}
 
             <div className="round-field round-notes-field">
@@ -2178,7 +2211,7 @@ function RoundEntry({
                 {isSubmitting
                   ? 'Saving round…'
                   : isTeamRound
-                    ? 'Add team round to history'
+                    ? 'Save team competition'
                     : 'Record this round'}
               </span>
               <svg viewBox="0 0 24 24" aria-hidden="true">

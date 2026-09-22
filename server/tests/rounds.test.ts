@@ -10,6 +10,7 @@ const {
   teeFindUniqueMock,
   transactionMock,
   userFindUniqueMock,
+  userFindManyMock,
   userUpdateMock,
 } = vi.hoisted(() => ({
   getAuthenticatedUserMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   teeFindUniqueMock: vi.fn(),
   transactionMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
+  userFindManyMock: vi.fn(),
   userUpdateMock: vi.fn(),
 }))
 
@@ -34,6 +36,7 @@ const transactionClient = {
   },
   user: {
     findUnique: userFindUniqueMock,
+    findMany: userFindManyMock,
     update: userUpdateMock,
   },
 }
@@ -78,6 +81,8 @@ beforeEach(() => {
   teeFindUniqueMock.mockReset()
   transactionMock.mockReset()
   userFindUniqueMock.mockReset()
+  userFindManyMock.mockReset()
+  userFindManyMock.mockResolvedValue([])
   userUpdateMock.mockReset()
 
   transactionMock.mockImplementation(
@@ -305,7 +310,7 @@ describe('POST /api/rounds', () => {
     const existingCountingRoundId =
       '44444444-4444-4444-8444-444444444444'
 
-    userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: 11.7 })
+    userFindUniqueMock.mockResolvedValueOnce({ name: 'Jack Player', handicapIndex: 11.7 })
     teeFindUniqueMock.mockResolvedValueOnce({
       teeName: 'White',
       courseRating: 72,
@@ -317,6 +322,13 @@ describe('POST /api/rounds', () => {
         club: { name: 'Example Golf Club' },
       },
     })
+    const teamCompetition = {
+      scoring: 'GROSS_STROKES',
+      teams: [
+        { name: 'Home Team', members: ['Jack Player'], isPlayerTeam: true, holeScores: Array(18).fill(4), frontNine: 36, backNine: 36, total: 72, position: 1 },
+        { name: 'Visitors', members: ['Alex Guest', 'Sam Guest'], isPlayerTeam: false, holeScores: Array(18).fill(5), frontNine: 45, backNine: 45, total: 90, position: 2 },
+      ],
+    }
     const createdRound = {
       id: roundId,
       userId,
@@ -327,7 +339,8 @@ describe('POST /api/rounds', () => {
       participation: 'TEAM',
       competitionName: 'Invitation Day',
       competitionFormat: 'Texas Scramble',
-      numberOfPlayers: 64,
+      numberOfPlayers: 3,
+      teamCompetition,
       grossScore: null,
       adjustedGrossScore: null,
       isCapped: false,
@@ -354,7 +367,12 @@ describe('POST /api/rounds', () => {
       participation: 'TEAM',
       competitionName: '  Invitation Day  ',
       competitionFormat: ' Texas Scramble ',
-      numberOfPlayers: 64,
+      numberOfPlayers: 3,
+      teamCompetition: {
+        scoring: 'GROSS_STROKES',
+        playerTeam: { name: 'Home Team', holeScores: Array(18).fill(4) },
+        opponents: [{ name: 'Visitors', members: ['Alex Guest', 'Sam Guest'], holeScores: Array(18).fill(5) }],
+      },
     })
 
     expect(response.status).toBe(201)
@@ -385,7 +403,8 @@ describe('POST /api/rounds', () => {
         gameFormat: null,
         gameResult: null,
         guestPlayerNames: [],
-        numberOfPlayers: 64,
+        numberOfPlayers: 3,
+        teamCompetition,
         notes: null,
         grossScore: null,
         adjustedGrossScore: null,

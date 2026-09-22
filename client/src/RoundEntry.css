@@ -1195,3 +1195,21 @@
 .round-match-play-card th,
 .round-match-play-card td { padding: .65rem; border-bottom: 1px solid rgba(236, 232, 218, .1); text-align: left; }
 .round-derived-result { min-height: 2.75rem; display: flex; align-items: center; color: rgba(236, 232, 218, .7); }
+
+.round-team-scoring { margin-top:1.5rem; padding:1.25rem; border:1px solid rgba(174,203,120,.22); border-radius:18px; background:rgba(10,38,30,.45); }
+.round-team-scoring>header { display:grid; grid-template-columns:1fr 1fr; align-items:end; gap:1rem; }
+.round-team-scoring h3 { margin:.2rem 0; font-family:Georgia,serif; font-size:1.8rem; font-weight:400; }
+.round-team-scoring>header>p { margin:0; color:rgba(236,232,218,.65); font-size:.75rem; line-height:1.5; }
+.round-opponent-teams { display:grid; gap:.75rem; margin:1.2rem 0; }
+.round-opponent-teams>header { display:flex; align-items:center; justify-content:space-between; }
+.round-opponent-teams button { padding:.55rem .8rem; border:1px solid rgba(236,232,218,.2); border-radius:8px; color:#f0ecdf; background:#24352d; }
+.round-opponent-teams article { display:grid; grid-template-columns:1fr 1.4fr auto; align-items:end; gap:.75rem; padding:.8rem; border-radius:10px; background:rgba(255,255,255,.04); }
+.round-opponent-teams label { display:grid; gap:.35rem; font-size:.72rem; font-weight:700; }
+.round-opponent-teams input,.round-opponent-teams textarea { padding:.65rem; border:1px solid rgba(236,232,218,.2); border-radius:8px; color:#f0ecdf; background:#171b19; }
+.round-team-scorecard-scroll { overflow-x:auto; }
+.round-team-scorecard-scroll table { min-width:580px; width:100%; border-collapse:collapse; }
+.round-team-scorecard-scroll th,.round-team-scorecard-scroll td { padding:.5rem; border-bottom:1px solid rgba(236,232,218,.1); text-align:center; }
+.round-team-scorecard-scroll th:first-child { position:sticky; left:0; z-index:1; background:#173427; }
+.round-team-scorecard-scroll input { width:4.5rem; padding:.55rem; border:1px solid rgba(236,232,218,.2); border-radius:7px; color:#f0ecdf; background:#171b19; text-align:center; }
+.round-team-scorecard-scroll tfoot { color:#c8dc85; }
+@media(max-width:700px){.round-team-scoring>header,.round-opponent-teams article{grid-template-columns:1fr}.round-opponent-teams article>button{justify-self:start}}

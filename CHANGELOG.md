@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.40.0 - 2026-09-23
+
+### User-facing changes
+
+- Added complete 18-hole team competition cards for formats such as Fourball, Foursomes, Greensomes, and Scramble.
+- Added named player and opposing teams, Gross Strokes or Stableford Points scoring, automatic Front 9 and Back 9 totals, and tie-aware finishing positions.
+- Added full team leaderboards to confirmation, Round History, and accepted friends' profile round views.
+
+### Developer and admin changes
+
+- Added server-owned team-card validation, total calculation, and leaderboard ranking; submitted totals and positions are never trusted.
+- Added administrator correction support that recalculates the complete team leaderboard while preserving team rounds as record-only and outside the Handicap Index.
+- Added persistent JSON team competition cards with validation and a database migration, while retaining read support for legacy scoreless team records.
+
 ## 0.39.0 - 2026-09-22
 
 ### User-facing changes
