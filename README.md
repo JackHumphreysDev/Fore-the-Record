@@ -60,7 +60,7 @@ Signed-in players can open Account Settings from Profile to change their display
 
 The Account Security Centre shows the verified sign-in status, sign-in method, account creation date, and latest successful sign-in that Supabase makes available. Players can revoke other-device sessions or use exact confirmation to sign out everywhere. Fore the Record never receives a complete device list, failed-login history, password, or authentication token.
 
-The Friends screen lets signed-in players find active profiles by first or last name, distinguish matching names by home club, and exchange friend requests. Accepted friends can see a newest-first feed of limited verified round summaries when the player has enabled activity sharing. Handicap visibility remains a separate privacy choice, while email addresses, notes, full hole scores, pending scorecards, and account details stay private.
+The Friends screen lets signed-in players find active profiles by first or last name, distinguish matching names by home club, and exchange friend requests. Accepted friends can see a newest-first feed of limited verified round summaries when the player has enabled activity sharing. A private Playing Partners History groups linked friends and named guests across verified rounds, with shared courses, formats, dates, and player-perspective results; it never exposes another player's private scorecard. Handicap visibility remains a separate privacy choice, while email addresses, notes, full hole scores, pending scorecards, and account details stay private.
 
 The Profile screen includes private Player Goals for Handicap Index, lowest gross score, rounds played, lifetime birdies, and lifetime pars. Players can optionally choose a target date, replace an existing target, or remove it. Progress is calculated automatically from verified playing records and the current Handicap Index rather than stored as an editable counter.
 
@@ -80,7 +80,7 @@ The production application is deployed on Vercel. The current RapidAPI allowance
 
 ## Roadmap and releases
 
-The current application version is `0.44.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.45.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)

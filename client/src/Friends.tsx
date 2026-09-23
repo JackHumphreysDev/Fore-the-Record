@@ -16,12 +16,12 @@ import {
 } from './friendActivityApi.ts'
 import './Friends.css'
 import { buildRoundTagPath, isRoundTagsResponse, type RoundTag } from './roundTagsApi.ts'
-import { isOpponentRecordsResponse, type OpponentRecordsResponse } from './opponentRecordsApi.ts'
 import ChallengesBoard from './ChallengesBoard.tsx'
 import SharedRounds from './SharedRounds.tsx'
 import FriendGroups from './FriendGroups.tsx'
+import PlayingPartnersHistory from './PlayingPartnersHistory.tsx'
 
-type FriendsProps = { profileId: string }
+type FriendsProps = { profileId: string; onOpenRound: (roundId: string) => void }
 
 async function readError(response: Response, fallback: string) {
   const body: unknown = await response.json().catch(() => null)
@@ -82,7 +82,7 @@ function activityScoreLabel(
   return grossScore === null ? 'Score unavailable' : `Gross ${grossScore}`
 }
 
-function Friends({ profileId }: FriendsProps) {
+function Friends({ profileId, onOpenRound }: FriendsProps) {
   const [data, setData] = useState<FriendsResponse | null>(null)
   const [search, setSearch] = useState('')
   const [results, setResults] = useState<FriendSearchPlayer[]>([])
@@ -99,7 +99,6 @@ function Friends({ profileId }: FriendsProps) {
   const [roundTags, setRoundTags] = useState<RoundTag[]>([])
   const [tagError, setTagError] = useState('')
   const [tagBusyId, setTagBusyId] = useState('')
-  const [opponentRecords, setOpponentRecords] = useState<OpponentRecordsResponse | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -131,23 +130,6 @@ function Friends({ profileId }: FriendsProps) {
       }
     }
     void loadFriends()
-    return () => controller.abort()
-  }, [profileId, refresh])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    async function loadOpponentRecords() {
-      try {
-        const response = await authenticatedFetch('/api/users/me/opponent-records', { signal: controller.signal })
-        if (!response.ok) throw new Error(await readError(response, 'We could not load your opponent records.'))
-        const body: unknown = await response.json()
-        if (!isOpponentRecordsResponse(body)) throw new Error('The opponent records returned were incomplete.')
-        if (!controller.signal.aborted) setOpponentRecords(body)
-      } catch (loadError: unknown) {
-        if (!controller.signal.aborted) setTagError(loadError instanceof Error ? loadError.message : 'We could not load your opponent records.')
-      }
-    }
-    void loadOpponentRecords()
     return () => controller.abort()
   }, [profileId, refresh])
 
@@ -397,13 +379,7 @@ function Friends({ profileId }: FriendsProps) {
         )}
       </section>
 
-      {opponentRecords && (opponentRecords.friends.length > 0 || opponentRecords.guests.length > 0) ? <section className="friend-section opponent-records" aria-labelledby="opponent-records-title">
-        <h2 id="opponent-records-title">Head-to-head records</h2>
-        <p className="round-tags-intro">Only rounds with an individual opponent result are included.</p>
-        <div className="opponent-record-grid">
-          {[...opponentRecords.friends.map((record) => ({ ...record, detail: record.homeClub?.name ?? 'Home club not set' })), ...opponentRecords.guests.map((record) => ({ ...record, id: `guest:${record.name}`, detail: 'Guest player' }))].map((record) => <article key={record.id}><div><strong>{record.name}</strong><small>{record.detail}</small></div><dl><div><dt>Played</dt><dd>{record.played}</dd></div><div><dt>Won</dt><dd>{record.wins}</dd></div><div><dt>Lost</dt><dd>{record.losses}</dd></div><div><dt>Tied</dt><dd>{record.ties}</dd></div></dl></article>)}
-        </div>
-      </section> : null}
+      <PlayingPartnersHistory profileId={profileId} onOpenRound={onOpenRound} />
 
       <ChallengesBoard profileId={profileId} friends={data?.friends ?? []} />
       <FriendGroups profileId={profileId} friends={data?.friends ?? []} />

@@ -2861,6 +2861,70 @@ describe('friend connections API', () => {
     })
   })
 
+  it('returns a private playing-partner timeline without scorecard details', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
+    roundPlayingPartnerFindManyMock.mockResolvedValueOnce([{
+      userId: otherUserId,
+      result: 'WON',
+      tagRemovedAt: null,
+      user: { id: otherUserId, name: 'Tiger Woods', homeClub: otherPlayer.homeClub },
+      round: {
+        id: '55555555-5555-4555-8555-555555555555',
+        userId: currentUserId,
+        datePlayed: new Date('2026-09-20T00:00:00.000Z'),
+        createdAt: new Date('2026-09-20T12:00:00.000Z'),
+        category: 'SOCIAL_GAME',
+        participation: 'INDIVIDUAL',
+        scoringFormat: 'STROKE_PLAY',
+        holeCount: 18,
+        nineHoleSegment: null,
+        competitionName: null,
+        competitionFormat: null,
+        gameFormat: 'Wolf',
+        user: { id: currentUserId, name: 'Jack Humphreys', homeClub: null },
+        tee: {
+          teeName: 'White',
+          course: {
+            id: '66666666-6666-4666-8666-666666666666',
+            name: 'Main Course',
+            club: { id: '77777777-7777-4777-8777-777777777777', name: 'Example Club' },
+          },
+        },
+      },
+    }])
+    roundGuestPlayerFindManyMock.mockResolvedValueOnce([])
+
+    const response = await request(app).get('/api/users/me/playing-partners-history')
+
+    expect(response.status).toBe(200)
+    expect(response.body.summary).toEqual({
+      partners: 1,
+      friends: 1,
+      guests: 0,
+      partnerAppearances: 1,
+    })
+    expect(response.body.partners[0]).toMatchObject({
+      kind: 'FRIEND',
+      playerId: otherUserId,
+      name: 'Tiger Woods',
+      roundsPlayed: 1,
+      wins: 1,
+      losses: 0,
+      firstPlayed: '2026-09-20',
+      lastPlayed: '2026-09-20',
+      rounds: [expect.objectContaining({
+        roundId: '55555555-5555-4555-8555-555555555555',
+        ownedByPlayer: true,
+        courseName: 'Main Course',
+        format: 'Wolf',
+        result: 'WON',
+      })],
+    })
+    expect(response.body.partners[0].rounds[0]).not.toHaveProperty('notes')
+    expect(response.body.partners[0].rounds[0]).not.toHaveProperty('holeScores')
+    expect(response.body.partners[0].rounds[0]).not.toHaveProperty('grossScore')
+  })
+
   it('creates one direction-independent friend request', async () => {
     userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
     userFindFirstMock.mockResolvedValueOnce(otherPlayer)

@@ -1,0 +1,42 @@
+.playing-partners { display: grid; gap: 1.5rem; }
+.playing-partners-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; }
+.playing-partners-heading h2 { margin-bottom: .4rem; }
+.playing-partners-heading p { margin: 0; max-width: 46rem; }
+.playing-partners-kicker { color: var(--mint, #a8d5c0); font-size: .72rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+.playing-partners-overview { display: grid; grid-template-columns: repeat(4, minmax(5rem, 1fr)); margin: 0; min-width: min(100%, 30rem); }
+.playing-partners-overview div { border-left: 1px solid rgba(255,255,255,.12); padding: .25rem .8rem; }
+.playing-partners-overview dt { color: var(--text-muted, #aaa698); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; }
+.playing-partners-overview dd { font-family: Georgia, serif; font-size: 1.65rem; margin: .2rem 0 0; }
+.playing-partners-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(12rem, 1fr); gap: 1rem; }
+.playing-partners-filters label { display: grid; gap: .45rem; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.playing-partners-filters input, .playing-partners-filters select { background: #171b1b; border: 1px solid rgba(255,255,255,.14); border-radius: .7rem; color: inherit; min-height: 3rem; padding: .75rem 1rem; }
+.playing-partners-list { display: grid; gap: .8rem; }
+.playing-partner-card { background: rgba(17,22,21,.72); border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; overflow: hidden; }
+.playing-partner-card > summary { align-items: center; cursor: pointer; display: grid; gap: 1rem; grid-template-columns: minmax(12rem, 1fr) minmax(20rem, 2fr); list-style: none; padding: 1.2rem 1.35rem; }
+.playing-partner-card > summary::-webkit-details-marker { display: none; }
+.playing-partner-card > summary div:first-child { display: grid; gap: .2rem; }
+.playing-partner-card > summary strong { font-size: 1.05rem; }
+.playing-partner-card > summary span, .playing-partner-rounds span, .playing-partner-rounds small { color: var(--text-muted, #aaa698); }
+.playing-partner-summary { display: grid; gap: .65rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.playing-partner-detail { border-top: 1px solid rgba(255,255,255,.09); display: grid; gap: 1.25rem; padding: 1.25rem 1.35rem; }
+.playing-partner-facts { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); margin: 0; }
+.playing-partner-facts div { border-right: 1px solid rgba(255,255,255,.09); }
+.playing-partner-facts div:last-child { border: 0; }
+.playing-partner-facts dt { color: var(--text-muted, #aaa698); font-size: .7rem; text-transform: uppercase; }
+.playing-partner-facts dd { margin: .25rem 0 0; }
+.playing-partner-breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.playing-partner-breakdown h3, .playing-partner-rounds h3 { font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; }
+.playing-partner-breakdown ul { list-style: none; margin: 0; padding: 0; }
+.playing-partner-breakdown li { border-bottom: 1px solid rgba(255,255,255,.08); display: flex; justify-content: space-between; gap: 1rem; padding: .55rem 0; }
+.playing-partner-rounds { display: grid; gap: .65rem; }
+.playing-partner-rounds article { align-items: center; border: 1px solid rgba(255,255,255,.09); border-radius: .75rem; display: flex; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; }
+.playing-partner-rounds article div { display: grid; gap: .2rem; }
+
+@media (max-width: 760px) {
+  .playing-partners-heading { display: grid; }
+  .playing-partners-overview { grid-template-columns: repeat(2, 1fr); }
+  .playing-partners-filters, .playing-partner-card > summary, .playing-partner-breakdown { grid-template-columns: 1fr; }
+  .playing-partner-summary, .playing-partner-facts { grid-template-columns: 1fr; }
+  .playing-partner-facts div { border-right: 0; border-bottom: 1px solid rgba(255,255,255,.09); padding: .5rem 0; }
+  .playing-partner-rounds article { align-items: flex-start; flex-direction: column; }
+}

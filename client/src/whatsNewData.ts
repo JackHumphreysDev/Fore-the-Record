@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'playing-partners-history',
+    publishedAt: '2026-09-23',
+    title: 'Remember every playing partner',
+    summary: 'Revisit the friends and guests you have shared a round with, together with when and where you played.',
+    highlights: [
+      'See rounds played, wins, losses, ties, first and latest dates, shared courses, and formats for each partner.',
+      'Search by partner, club, or course and switch between linked friends and named guests.',
+      'Open rounds you recorded directly in your private Round History.',
+      'Incoming friend rounds show only limited context; private scores, notes, photos, and hole details stay private.',
+    ],
+  },
+  {
     id: 'round-comparison',
     publishedAt: '2026-09-23',
     title: 'Put two rounds side by side',
