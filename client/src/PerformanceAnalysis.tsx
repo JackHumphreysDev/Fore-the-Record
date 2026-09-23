@@ -3,6 +3,8 @@ import { authenticatedFetch } from './api.ts'
 import {
   buildPerformanceAnalysisPath,
   isPerformanceAnalysisData,
+  type AdvancedStatisticMetric,
+  type AdvancedStatisticTrend,
   type AnalysisAverage,
   type PerformanceAnalysisData,
   type PerformanceAnalysisFilters,
@@ -42,6 +44,17 @@ function formatPercentage(value: number | null): string {
   return value === null ? '—' : `${value.toFixed(1)}%`
 }
 
+function formatStatistic(value: number | null, unit: 'NUMBER' | 'PERCENTAGE'): string {
+  return unit === 'PERCENTAGE' ? formatPercentage(value) : formatAverage(value)
+}
+
+function trendLabel(direction: AdvancedStatisticTrend['direction']): string {
+  if (direction === 'IMPROVING') return 'Improving'
+  if (direction === 'DECLINING') return 'Moving the other way'
+  if (direction === 'STEADY') return 'Holding steady'
+  return 'More rounds needed'
+}
+
 function sampleLabel(value: AnalysisAverage): string {
   return `${value.scoredRounds} scored of ${value.rounds} qualifying ${value.rounds === 1 ? 'round' : 'rounds'}`
 }
@@ -63,6 +76,7 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
   const [teeId, setTeeId] = useState('')
   const [category, setCategory] = useState<'' | 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'>('')
   const [holeCount, setHoleCount] = useState<'' | 9 | 18>('')
+  const [venueMetric, setVenueMetric] = useState<AdvancedStatisticMetric>('PUTTS_PER_HOLE')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
 
@@ -98,6 +112,9 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
   }, [attempt, filters, profileId])
 
   const availableTees = analysis?.options.tees.filter((tee) => !courseId || tee.courseId === courseId) ?? []
+  const selectedVenue = analysis?.advancedInsights.venues.find(({ metric }) => metric === venueMetric)
+  const biggestGain = analysis?.advancedInsights.trends.find(({ metric }) => metric === analysis.advancedInsights.biggestGain)
+  const focusArea = analysis?.advancedInsights.trends.find(({ metric }) => metric === analysis.advancedInsights.focusArea)
 
   return (
     <section className="performance-analysis" aria-labelledby="analysis-title">
@@ -160,6 +177,60 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
           </div>
         </section>
 
+        <section className="advanced-statistics" aria-labelledby="advanced-statistics-title">
+          <header className="advanced-statistics-heading">
+            <div><p className="form-kicker">Your recent direction</p><h3 id="advanced-statistics-title">Advanced statistics insights</h3></div>
+            <p>For each statistic, the latest five rounds containing that detail are compared with the five before them. Every figure respects the filters above.</p>
+          </header>
+
+          <div className="advanced-statistics-highlights">
+            <article>
+              <span>Biggest recent gain</span>
+              <strong>{biggestGain?.label ?? 'More history needed'}</strong>
+              <small>{biggestGain ? `${formatStatistic(biggestGain.previousAverage, biggestGain.unit)} to ${formatStatistic(biggestGain.recentAverage, biggestGain.unit)}` : 'Record ten rounds with the same statistic to compare two five-round samples.'}</small>
+            </article>
+            <article>
+              <span>Area to watch</span>
+              <strong>{focusArea?.label ?? 'No decline detected'}</strong>
+              <small>{focusArea ? `${formatStatistic(focusArea.previousAverage, focusArea.unit)} to ${formatStatistic(focusArea.recentAverage, focusArea.unit)}` : 'Your available comparisons are improving, steady, or still building a sample.'}</small>
+            </article>
+          </div>
+
+          <div className="advanced-trend-grid">
+            {analysis.advancedInsights.trends.map((trend) => <article key={trend.metric}>
+              <div className="advanced-trend-title"><span>{trend.label}</span><em className={`trend-${trend.direction.toLowerCase()}`}>{trendLabel(trend.direction)}</em></div>
+              <div className="advanced-trend-values">
+                <div><small>Previous five</small><strong>{formatStatistic(trend.previousAverage, trend.unit)}</strong></div>
+                <b aria-hidden="true">→</b>
+                <div><small>Latest five</small><strong>{formatStatistic(trend.recentAverage, trend.unit)}</strong></div>
+              </div>
+              <small>{trend.previousRounds} previous rounds · {trend.previousObservations} observations<br />{trend.recentRounds} recent rounds · {trend.recentObservations} observations</small>
+            </article>)}
+          </div>
+
+          <div className="advanced-statistics-split">
+            <section className="gir-by-par" aria-labelledby="gir-by-par-title">
+              <header><h4 id="gir-by-par-title">Greens in regulation by par</h4><p>Only holes where GIR was recorded.</p></header>
+              <div>
+                {analysis.advancedInsights.greensByPar.map((item) => <article key={item.par}>
+                  <span>Par {item.par}</span><strong>{formatPercentage(item.percentage)}</strong><small>{item.hits} of {item.holes} holes</small>
+                </article>)}
+              </div>
+            </section>
+
+            <section className="venue-comparison" aria-labelledby="venue-comparison-title">
+              <header><div><h4 id="venue-comparison-title">Course and tee comparison</h4><p>Best-to-worst results with at least two recorded rounds on the same tee.</p></div>
+                <label>Statistic<select value={venueMetric} onChange={(event) => setVenueMetric(event.target.value as AdvancedStatisticMetric)}>
+                  {analysis.advancedInsights.venues.map((venue) => <option key={venue.metric} value={venue.metric}>{venue.label}</option>)}
+                </select></label>
+              </header>
+              {selectedVenue && selectedVenue.results.length > 0 ? <div className="analysis-table-scroll"><table><thead><tr><th>Course and tee</th><th>Average</th><th>Sample</th></tr></thead><tbody>
+                {selectedVenue.results.map((result, index) => <tr key={result.teeId}><th><strong>{result.clubName}</strong><small>{result.courseName} · {result.teeName}{index === 0 ? ' · Best' : ''}</small></th><td>{formatStatistic(result.value, selectedVenue.unit)}</td><td>{result.rounds} rounds<small>{result.observations} observations</small></td></tr>)}
+              </tbody></table></div> : <p className="venue-comparison-empty">Play at least two rounds from the same tee with this statistic recorded to compare venues.</p>}
+            </section>
+          </div>
+        </section>
+
         <div className="performance-analysis-grid">
           <section><header><h3>By par type</h3><p>Picked-up holes are excluded.</p></header><div className="analysis-card-row">
             {analysis.byParType.map((item) => <article key={item.par}><span>Par {item.par}</span><strong>{formatAverage(item.averageStrokes)}</strong><em>{formatToPar(item.averageToPar)} average</em><small>{item.holes} scored holes</small></article>)}
@@ -180,7 +251,7 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
             {analysis.byTee.map((item) => <tr key={item.teeId}><th><strong>{item.teeName}</strong><small>{item.clubName} · {item.courseName}</small></th><td>{item.rounds}</td><td>{formatAverage(item.averageGrossScore)}<small>{item.scoredRounds} scored</small></td><td>{formatToPar(item.averageToPar)}<small>{item.relativeToParRounds} with par</small></td></tr>)}
           </tbody></table></div></section>
         </div>
-        <p className="performance-analysis-note">Team and record-only rounds are excluded. A picked-up hole never contributes an invented stroke score.</p>
+        <p className="performance-analysis-note">These figures are factual summaries of your private record, not playing advice. Team, record-only, pending and rejected rounds are excluded. A picked-up hole never contributes an invented stroke score.</p>
       </> : null}
     </section>
   )

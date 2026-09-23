@@ -1,3 +1,5 @@
+import { buildAdvancedStatistics } from './advancedStatistics.js'
+
 export type PerformanceAnalysisCategory = 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
 export type PerformanceAnalysisSegment = 'FRONT_NINE' | 'BACK_NINE'
 
@@ -297,5 +299,6 @@ export function buildPerformanceAnalysis(
       penalties: { completeRounds: completePenaltyRounds.length, total: completePenaltyRounds.reduce((total, round) => total + round.holeScores.reduce((sum, hole) => sum + (hole.penaltyStrokes ?? 0), 0), 0), averagePerRound: completePenaltyRounds.length === 0 ? null : roundOne(completePenaltyRounds.reduce((total, round) => total + round.holeScores.reduce((sum, hole) => sum + (hole.penaltyStrokes ?? 0), 0), 0) / completePenaltyRounds.length) },
       bunkers: { completeRounds: completeBunkerRounds.length, total: completeBunkerRounds.reduce((total, round) => total + round.holeScores.reduce((sum, hole) => sum + (hole.bunkerVisits ?? 0), 0), 0), averagePerRound: completeBunkerRounds.length === 0 ? null : roundOne(completeBunkerRounds.reduce((total, round) => total + round.holeScores.reduce((sum, hole) => sum + (hole.bunkerVisits ?? 0), 0), 0) / completeBunkerRounds.length) },
     },
+    advancedInsights: buildAdvancedStatistics(eligible),
   }
 }

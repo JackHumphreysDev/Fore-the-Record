@@ -32,6 +32,46 @@ const response = {
     penalties: { completeRounds: 2, total: 1, averagePerRound: 0.5 },
     bunkers: { completeRounds: 2, total: 4, averagePerRound: 2 },
   },
+  advancedInsights: {
+    trends: [
+      'PUTTS_PER_HOLE', 'PUTTS_PER_ROUND', 'THREE_PUTT_PERCENTAGE', 'FAIRWAYS_HIT_PERCENTAGE',
+      'MISSED_LEFT_PERCENTAGE', 'MISSED_RIGHT_PERCENTAGE',
+      'GIR_PERCENTAGE', 'SCRAMBLING_PERCENTAGE', 'PENALTIES_PER_ROUND',
+      'BUNKERS_PER_ROUND',
+    ].map((metric) => ({
+      metric,
+      label: metric,
+      unit: metric.includes('PERCENTAGE') ? 'PERCENTAGE' : 'NUMBER',
+      lowerIsBetter: true,
+      direction: 'INSUFFICIENT_DATA',
+      recentAverage: 2,
+      previousAverage: null,
+      change: null,
+      recentRounds: 2,
+      previousRounds: 0,
+      recentObservations: 36,
+      previousObservations: 0,
+    })),
+    biggestGain: null,
+    focusArea: null,
+    greensByPar: [
+      { par: 3, holes: 8, hits: 4, percentage: 50 },
+      { par: 4, holes: 20, hits: 10, percentage: 50 },
+      { par: 5, holes: 8, hits: 4, percentage: 50 },
+    ],
+    venues: [
+      'PUTTS_PER_HOLE', 'PUTTS_PER_ROUND', 'THREE_PUTT_PERCENTAGE', 'FAIRWAYS_HIT_PERCENTAGE',
+      'MISSED_LEFT_PERCENTAGE', 'MISSED_RIGHT_PERCENTAGE',
+      'GIR_PERCENTAGE', 'SCRAMBLING_PERCENTAGE', 'PENALTIES_PER_ROUND',
+      'BUNKERS_PER_ROUND',
+    ].map((metric) => ({
+      metric,
+      label: metric,
+      unit: metric.includes('PERCENTAGE') ? 'PERCENTAGE' : 'NUMBER',
+      lowerIsBetter: true,
+      results: [{ teeId: 'tee-1', teeName: 'White', courseName: 'Old Course', clubName: 'Example Club', value: 2, rounds: 2, observations: 36 }],
+    })),
+  },
 }
 
 describe('performance analysis API helpers', () => {
@@ -39,6 +79,7 @@ describe('performance analysis API helpers', () => {
     expect(isPerformanceAnalysisData(response)).toBe(true)
     expect(isPerformanceAnalysisData({ ...response, overall: { ...average, rounds: -1 } })).toBe(false)
     expect(isPerformanceAnalysisData({ ...response, byParType: [{ par: 6, holes: 1, averageStrokes: 4, averageToPar: -2 }] })).toBe(false)
+    expect(isPerformanceAnalysisData({ ...response, advancedInsights: { ...response.advancedInsights, trends: [] } })).toBe(false)
   })
 
   it('builds an encoded filtered path', () => {
