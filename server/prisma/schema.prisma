@@ -120,6 +120,7 @@ model User {
   updatedAt              DateTime               @default(now()) @updatedAt @db.Timestamptz(3)
   homeClub               Club?                  @relation(fields: [homeClubId], references: [id], onDelete: SetNull)
   rounds                 Round[]
+  liveRoundDraft         LiveRoundDraft?
   submissions            Submission[]
   sentSubmissionMessages SubmissionMessage[]    @relation("SubmissionMessageSender")
   adminAuditLogs         AdminAuditLog[]        @relation("AdminAuditActor")
@@ -356,6 +357,7 @@ model Tee {
   source                TeeSource
   course                Course                 @relation(fields: [courseId], references: [id])
   rounds                Round[]
+  liveRoundDrafts       LiveRoundDraft[]
   holes                 TeeHole[]
   scorecardReviews      ScorecardReview[]
   defaultForPreferences UserCoursePreference[]
@@ -433,6 +435,19 @@ model Round {
   friendGroupMessages FriendGroupMessage[]
 
   @@index([userId, datePlayed, createdAt])
+}
+
+model LiveRoundDraft {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  teeId     String   @db.Uuid
+  state     Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tee       Tee      @relation(fields: [teeId], references: [id], onDelete: Cascade)
+
+  @@index([teeId])
 }
 
 model RoundShare {

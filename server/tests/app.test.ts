@@ -45,6 +45,9 @@ const {
   roundUpdateMock,
   roundUpdateManyMock,
   roundDeleteManyMock,
+  liveRoundDraftFindUniqueMock,
+  liveRoundDraftUpsertMock,
+  liveRoundDraftDeleteManyMock,
   submissionCountMock,
   submissionCreateMock,
   submissionFindFirstMock,
@@ -131,6 +134,9 @@ const {
   roundUpdateMock: vi.fn(),
   roundUpdateManyMock: vi.fn(),
   roundDeleteManyMock: vi.fn(),
+  liveRoundDraftFindUniqueMock: vi.fn(),
+  liveRoundDraftUpsertMock: vi.fn(),
+  liveRoundDraftDeleteManyMock: vi.fn(),
   submissionCountMock: vi.fn(),
   submissionCreateMock: vi.fn(),
   submissionFindFirstMock: vi.fn(),
@@ -256,6 +262,11 @@ vi.mock('../src/database.js', () => ({
       update: roundUpdateMock,
       updateMany: roundUpdateManyMock,
       deleteMany: roundDeleteManyMock,
+    },
+    liveRoundDraft: {
+      findUnique: liveRoundDraftFindUniqueMock,
+      upsert: liveRoundDraftUpsertMock,
+      deleteMany: liveRoundDraftDeleteManyMock,
     },
     submission: {
       count: submissionCountMock,
@@ -424,6 +435,10 @@ beforeEach(() => {
   roundUpdateManyMock.mockReset()
   roundDeleteManyMock.mockReset()
   roundDeleteManyMock.mockResolvedValue({ count: 0 })
+  liveRoundDraftFindUniqueMock.mockReset()
+  liveRoundDraftUpsertMock.mockReset()
+  liveRoundDraftDeleteManyMock.mockReset()
+  liveRoundDraftDeleteManyMock.mockResolvedValue({ count: 0 })
   submissionCountMock.mockReset()
   submissionCountMock.mockResolvedValue(0)
   submissionCreateMock.mockReset()
@@ -485,6 +500,59 @@ describe('GET /api/health', () => {
     const response = await request(app).get('/api/health')
     expect(response.status).toBe(200)
     expect(response.body).toEqual({ status: 'ok' })
+  })
+})
+
+describe('live round drafts', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const teeId = '22222222-2222-4222-8222-222222222222'
+  const state = {
+    version: 1,
+    currentHoleIndex: 0,
+    tee: { id: teeId, teeName: 'White' },
+    form: { teeId, participation: 'INDIVIDUAL', holeCount: 9 },
+    scorecardStatus: 'available',
+    scorecardSource: 'saved',
+    holeEntries: Array.from({ length: 9 }, (_, index) => ({ holeNumber: index + 1, par: '4', strokeIndex: String(index + 1), yardage: '400', strokesTaken: '', pickedUp: false })),
+    matchPlayDraft: {},
+  }
+
+  it('loads the signed-in player draft', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    liveRoundDraftFindUniqueMock.mockResolvedValueOnce(null)
+    const response = await request(app).get('/api/users/me/live-round')
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ draft: null })
+    expect(liveRoundDraftFindUniqueMock).toHaveBeenCalledWith({
+      where: { userId },
+      select: { id: true, teeId: true, state: true, createdAt: true, updatedAt: true },
+    })
+  })
+
+  it('upserts one validated draft for the signed-in player', async () => {
+    const now = new Date('2026-09-23T10:00:00.000Z')
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    teeFindUniqueMock.mockResolvedValueOnce({ id: teeId })
+    liveRoundDraftUpsertMock.mockResolvedValueOnce({ id: 'draft', teeId, state, createdAt: now, updatedAt: now })
+    const response = await request(app).put('/api/users/me/live-round').send({ state })
+    expect(response.status).toBe(200)
+    expect(response.body.draft.id).toBe('draft')
+    expect(liveRoundDraftUpsertMock).toHaveBeenCalledWith({
+      where: { userId },
+      create: { userId, teeId, state },
+      update: { teeId, state },
+      select: { id: true, teeId: true, state: true, createdAt: true, updatedAt: true },
+    })
+  })
+
+  it('rejects an invalid draft and deletes only the current player draft', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    const invalid = await request(app).put('/api/users/me/live-round').send({ state: { ...state, currentHoleIndex: 99 } })
+    expect(invalid.status).toBe(400)
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    const removed = await request(app).delete('/api/users/me/live-round')
+    expect(removed.status).toBe(204)
+    expect(liveRoundDraftDeleteManyMock).toHaveBeenCalledWith({ where: { userId } })
   })
 })
 

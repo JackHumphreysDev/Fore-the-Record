@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'live-round-mode',
+    publishedAt: '2026-09-23',
+    title: 'Take your scorecard onto the course',
+    summary: 'Record an individual round one hole at a time and safely return to an unfinished card whenever you need to.',
+    highlights: [
+      'See par, stroke index, yardage, running totals, score to par, and Stableford points while you play.',
+      'Refresh, sign in again, or move to another device and resume the one live round saved to your account.',
+      'Review the complete card before it enters History and your usual Handicap Index calculation.',
+      'Abandon an unfinished card with confirmation when the round will not be completed.',
+    ],
+  },
+  {
     id: 'team-game-scoring',
     publishedAt: '2026-09-23',
     title: 'Keep the complete team competition',

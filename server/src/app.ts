@@ -107,6 +107,7 @@ import {
   RoundPlayingPartnersError,
   RoundReferenceNotFoundError,
 } from './rounds.js'
+import { asLiveRoundJson, parseLiveRoundDraftState } from './liveRounds.js'
 import {
   parseRoundNotes,
   RoundNotesValidationError,
@@ -6398,6 +6399,56 @@ app.post('/api/users', async (request, response) => {
   }
 })
 
+app.get('/api/users/me/live-round', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const profile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!profile) return response.status(404).json({ error: 'Profile not found' })
+
+  const draft = await prisma.liveRoundDraft.findUnique({
+    where: { userId: profile.id },
+    select: { id: true, teeId: true, state: true, createdAt: true, updatedAt: true },
+  })
+  response.status(200).json({ draft })
+})
+
+app.put('/api/users/me/live-round', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const profile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!profile) return response.status(404).json({ error: 'Profile not found' })
+
+  const state = parseLiveRoundDraftState(isRecord(request.body) ? request.body.state : null)
+  if (!state) return response.status(400).json({ error: 'Invalid live round data' })
+
+  const tee = await prisma.tee.findUnique({ where: { id: state.tee.id }, select: { id: true } })
+  if (!tee) return response.status(404).json({ error: 'Tee not found' })
+
+  const draft = await prisma.liveRoundDraft.upsert({
+    where: { userId: profile.id },
+    create: { userId: profile.id, teeId: tee.id, state: asLiveRoundJson(state) },
+    update: { teeId: tee.id, state: asLiveRoundJson(state) },
+    select: { id: true, teeId: true, state: true, createdAt: true, updatedAt: true },
+  })
+  response.status(200).json({ draft })
+})
+
+app.delete('/api/users/me/live-round', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const profile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!profile) return response.status(404).json({ error: 'Profile not found' })
+
+  await prisma.liveRoundDraft.deleteMany({ where: { userId: profile.id } })
+  response.status(204).send()
+})
+
 app.post('/api/rounds', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const profile = await prisma.user.findUnique({
@@ -6428,7 +6479,7 @@ app.post('/api/rounds', async (request, response) => {
   } catch (error: unknown) {
     if (error instanceof RoundReferenceNotFoundError) {
       const referenceName =
-        error.reference === 'user' ? 'User' : 'Tee'
+        error.reference === 'user' ? 'User' : error.reference === 'tee' ? 'Tee' : 'Live round'
 
       response.status(404).json({ error: `${referenceName} not found` })
       return
