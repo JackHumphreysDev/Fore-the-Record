@@ -42,8 +42,15 @@ This roadmap records agreed future work. Items are planned requirements, not com
 36. Full team-game scoring. Completed in `0.40.0`.
 37. Live Round mode. Completed in `0.41.0`.
 38. Detailed round statistics. Completed in `0.42.0`.
+39. Advanced statistics insights. Completed in `0.43.0`.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Advanced statistics insights — completed in 0.43.0
+
+The private Performance Analysis panel now compares the latest five metric-bearing rounds with the previous five for putts per hole and round, three-putt frequency, fairways hit, left and right misses, GIR, scrambling, penalties, and bunker visits. It labels improving, steady, declining, and insufficient samples factually, highlights the largest available gain and decline, and reports GIR separately for par 3, par 4, and par 5 holes.
+
+Course-and-tee comparisons rank each statistic from best to worst only after at least two matching recorded rounds. All insights inherit the selected date, course, tee, category, and round-length filters and display their exact round and observation samples. Missing optional fields are never treated as zero. Only verified individual rounds qualify; team, pending, and rejected rounds remain excluded, and the feature does not alter saved scores or Handicap Index calculations.
 
 ## Detailed round statistics — completed in 0.42.0
 

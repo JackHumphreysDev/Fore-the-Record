@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'advanced-statistics-insights',
+    publishedAt: '2026-09-23',
+    title: 'See where your game is moving',
+    summary: 'Compare recent playing statistics with your earlier rounds and see how those figures change across courses and tees.',
+    highlights: [
+      'Compare your latest five recorded rounds with the five before them across putting, driving, approach, short-game, and discipline figures.',
+      'See your clearest recent gain, an area to watch, and greens in regulation split across par 3, par 4, and par 5 holes.',
+      'Compare course-and-tee results once you have two matching rounds with the chosen statistic recorded.',
+      'Use the existing date, course, tee, round-type, and round-length filters, with exact sample sizes and clear more-data-needed states.',
+    ],
+  },
+  {
     id: 'detailed-round-statistics',
     publishedAt: '2026-09-23',
     title: 'See more than the final score',

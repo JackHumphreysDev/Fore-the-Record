@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.43.0 - 2026-09-23
+
+### User-facing changes
+
+- Added private recent-form comparisons for putting, tee-shot accuracy, greens in regulation, scrambling, penalties, and bunker visits.
+- Added strongest recent gain and area-to-watch summaries, GIR by par, and best-to-worst course-and-tee comparisons.
+- Added exact round and observation samples plus clear insufficient-data states; all existing performance filters apply to every insight.
+
+### Developer and admin changes
+
+- Added server-derived advanced statistics over verified individual rounds without changing stored round data or Handicap Index calculations.
+- Required five recent and five previous metric-bearing rounds for a directional trend, and at least two matching rounds for a course-and-tee comparison.
+- Kept advanced statistics private and excluded team, pending, rejected, missing, and invented pickup data from calculations.
+
 ## 0.42.0 - 2026-09-23
 
 ### User-facing changes

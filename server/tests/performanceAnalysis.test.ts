@@ -83,6 +83,12 @@ describe('buildPerformanceAnalysis', () => {
     expect(result.detailedStatistics.putts).toMatchObject({ holes: 36, completeRounds: 2, averagePerHole: 2, averagePerRound: 36, threePutts: 0 })
     expect(result.detailedStatistics.fairways).toMatchObject({ holes: 24, hits: 24, hitPercentage: 100 })
     expect(result.detailedStatistics.greens).toMatchObject({ holes: 36, hits: 36, percentage: 100 })
+    expect(result.advancedInsights.trends).toHaveLength(10)
+    expect(result.advancedInsights.greensByPar).toEqual([
+      { par: 3, holes: 12, hits: 12, percentage: 100 },
+      { par: 4, holes: 12, hits: 12, percentage: 100 },
+      { par: 5, holes: 12, hits: 12, percentage: 100 },
+    ])
   })
 
   it('filters by date, course, tee and category while retaining filter options', () => {
