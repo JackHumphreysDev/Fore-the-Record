@@ -77,6 +77,10 @@ import {
 } from './roundComparison.js'
 import { buildPlayingPartnersHistory } from './playingPartnersHistory.js'
 import {
+  buildSeasonYearReviews,
+  type ReviewSeason,
+} from './seasonYearReviews.js'
+import {
   buildFriendGroupStandings,
   friendGroupPeriodStart,
   FriendGroupValidationError,
@@ -3451,6 +3455,57 @@ app.get('/api/users/me/performance-summary', async (_request, response) => {
       })),
     ),
   )
+})
+
+app.get('/api/users/me/season-year-reviews', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const yearText = typeof request.query.year === 'string' ? request.query.year : undefined
+  const year = yearText === undefined ? undefined : Number(yearText)
+  const seasonText = typeof request.query.season === 'string' ? request.query.season : 'ALL'
+  const seasons: ReviewSeason[] = ['ALL', 'WINTER', 'SPRING', 'SUMMER', 'AUTUMN']
+  if ((year !== undefined && (!Number.isInteger(year) || year < 1900 || year > 2200)) ||
+    !seasons.includes(seasonText as ReviewSeason)) {
+    response.status(400).json({ error: 'Invalid season or year filter' })
+    return
+  }
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      rounds: {
+        orderBy: [{ datePlayed: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          datePlayed: true,
+          createdAt: true,
+          participation: true,
+          scorecardStatus: true,
+          scoringFormat: true,
+          holeCount: true,
+          grossScore: true,
+          stablefordPoints: true,
+          scoreDifferential: true,
+          isAcceptable: true,
+          tee: {
+            select: {
+              id: true,
+              teeName: true,
+              course: { select: { id: true, name: true, club: { select: { name: true } } } },
+              holes: { select: { holeNumber: true, yardage: true } },
+            },
+          },
+          holeScores: { select: { holeNumber: true, par: true, strokesTaken: true, pickedUp: true } },
+        },
+      },
+    },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+  response.status(200).json(buildSeasonYearReviews(user.rounds.map((round) => ({
+    ...round,
+    scoreDifferential: round.scoreDifferential === null ? null : Number(round.scoreDifferential),
+  })), year, seasonText as ReviewSeason))
 })
 
 app.get('/api/users/me/performance-insights', async (request, response) => {

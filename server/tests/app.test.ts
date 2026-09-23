@@ -3302,6 +3302,45 @@ describe('GET /api/users/me/performance-summary', () => {
   })
 })
 
+describe('GET /api/users/me/season-year-reviews', () => {
+  it('returns the selected year and season from the authenticated player record', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [{
+        id: '33333333-3333-4333-8333-333333333333',
+        datePlayed: new Date('2026-07-10T00:00:00.000Z'),
+        createdAt: new Date('2026-07-10T12:00:00.000Z'),
+        participation: 'INDIVIDUAL',
+        scorecardStatus: 'VERIFIED',
+        scoringFormat: 'STROKE_PLAY',
+        holeCount: 2,
+        grossScore: 8,
+        stablefordPoints: null,
+        scoreDifferential: '9.2',
+        isAcceptable: true,
+        tee: {
+          id: '22222222-2222-4222-8222-222222222222', teeName: 'White',
+          course: { id: '11111111-1111-4111-8111-111111111111', name: 'Main Course', club: { name: 'Example Golf Club' } },
+          holes: [{ holeNumber: 1, yardage: 400 }, { holeNumber: 2, yardage: 160 }],
+        },
+        holeScores: [{ holeNumber: 1, par: 4, strokesTaken: 4, pickedUp: false }, { holeNumber: 2, par: 3, strokesTaken: 4, pickedUp: false }],
+      }],
+    })
+    const response = await request(app).get('/api/users/me/season-year-reviews?year=2026&season=SUMMER')
+    expect(response.status).toBe(200)
+    expect(response.body.selected).toEqual({ year: 2026, season: 'SUMMER' })
+    expect(response.body.options.years).toEqual([2026])
+    expect(response.body.review).toMatchObject({ roundsPlayed: 1, holesPlayed: 2, totalShots: 8, yardsCovered: 560 })
+    expect(response.body.review.notableRounds.bestDifferential).toMatchObject({ roundId: '33333333-3333-4333-8333-333333333333', value: 9.2 })
+  })
+
+  it('rejects invalid season and year filters before reading the profile', async () => {
+    const response = await request(app).get('/api/users/me/season-year-reviews?year=1899&season=MONSOON')
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Invalid season or year filter' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /api/users/me/performance-analysis', () => {
   const courseId = '11111111-1111-4111-8111-111111111111'
   const teeId = '22222222-2222-4222-8222-222222222222'

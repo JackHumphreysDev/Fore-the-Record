@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'season-year-reviews',
+    publishedAt: '2026-09-23',
+    title: 'Revisit every season of your golf',
+    summary: 'Choose any year in your record and see the rounds, scores, courses, and moments that shaped it.',
+    highlights: [
+      'Review a full calendar year or filter it into Winter, Spring, Summer, and Autumn.',
+      'Compare rounds, holes, shots, yardage, eagles, birdies, pars, and bogeys with the same period a year earlier.',
+      'Follow your Handicap Index movement and see the course you played most often.',
+      'Open your lowest gross, highest Stableford, and best differential rounds directly in History.',
+    ],
+  },
+  {
     id: 'playing-partners-history',
     publishedAt: '2026-09-23',
     title: 'Remember every playing partner',

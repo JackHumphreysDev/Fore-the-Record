@@ -23,6 +23,7 @@ import PlayerGoals from './PlayerGoals.tsx'
 import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
 import RoundComparison from './RoundComparison.tsx'
+import SeasonYearReviews from './SeasonYearReviews.tsx'
 import Support from './Support.tsx'
 import type { SubmissionType } from './submissionApi.ts'
 import { isSubmissionUnreadCountResponse } from './submissionApi.ts'
@@ -745,6 +746,13 @@ function App() {
           />
         ) : activeView === 'rounds' ? (
           <>
+            <SeasonYearReviews
+              profileId={profile.id}
+              onOpenRound={(roundId) => {
+                setHistoryFocusRoundId(roundId)
+                setActiveView('history')
+              }}
+            />
             <PerformanceInsights
               profileId={profile.id}
               onOpenRound={(roundId) => {
