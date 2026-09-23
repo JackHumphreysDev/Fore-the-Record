@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.48.0 - 2026-09-23
+
+### User-facing changes
+
+- Added a private Notification Centre with one unread total in the main navigation and filters for social, support, round, group, and achievement updates.
+- Added durable notifications for friend requests, challenge activity, shared rounds, support replies and status changes, scorecard-review decisions, private group activity, and newly earned achievements.
+- Added individual and mark-all read controls, newest-first pagination, and direct actions to the relevant Friends, Support, History, Groups, or Profile screen.
+
+### Developer and admin changes
+
+- Added user-owned notification records with cascading account cleanup, idempotent event keys, category and read-state indexes, and authenticated ownership checks.
+- Added notification list, unread-count, individual-read, and read-all endpoints with validated filtering and pagination.
+- Added strict client response validation and server/client regression coverage for notification payloads and read-state actions.
+
 ## 0.47.0 - 2026-09-23
 
 ### User-facing changes

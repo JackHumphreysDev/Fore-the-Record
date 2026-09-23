@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'notification-centre',
+    publishedAt: '2026-09-23',
+    title: 'Keep every update in one place',
+    summary: 'Open your private notification centre to catch up on friends, support, scorecards, groups, challenges, shared rounds, and achievements.',
+    highlights: [
+      'See an unread total in the main navigation and filter updates by category or unread state.',
+      'Open an update to go directly to the relevant Friends, Support, History, Groups, or Profile area.',
+      'Mark individual updates as you open them or clear the full unread list together.',
+      'Your read state follows your signed-in account across devices.',
+    ],
+  },
+  {
     id: 'achievements-badges',
     publishedAt: '2026-09-23',
     title: 'Build your golfing honours board',

@@ -47,7 +47,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 41. Playing Partners History. Completed in `0.45.0`.
 42. Season and Year Reviews. Completed in `0.46.0`.
 43. Achievements and Badges. Completed in `0.47.0`.
-44. Notification Centre.
+44. Notification Centre. Completed in `0.48.0`.
 45. Profile Customisation.
 46. Custom Statistics Dashboard.
 47. Knockout Competitions.
@@ -58,6 +58,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Notification Centre — completed in 0.48.0
+
+The main navigation now shows a private unread notification total. The Notification Centre keeps newest-first updates for friend requests and responses, challenges, shared rounds, administrator support replies and status changes, scorecard-review decisions, private group additions and messages, and newly earned achievements. Players can filter the list by category or unread state, mark one item by opening it, or mark the complete inbox as read.
+
+Each notification belongs only to its recipient and links into the relevant Friends, Support, Round History, Groups, or Profile area. Read state is persistent across devices, event keys prevent the same achievement or lifecycle event from being inserted repeatedly, and deleting an account removes its notifications. The centre contains in-app activity only; production email delivery remains deferred until a custom domain and mail provider are available.
 
 ## Achievements and Badges — completed in 0.47.0
 

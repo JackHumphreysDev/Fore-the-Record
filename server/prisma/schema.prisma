@@ -116,6 +116,22 @@ enum SubmissionStatus {
   CLOSED
 }
 
+enum NotificationCategory {
+  SOCIAL
+  SUPPORT
+  ROUND
+  GROUP
+  ACHIEVEMENT
+}
+
+enum NotificationAction {
+  FRIENDS
+  SUPPORT
+  HISTORY
+  GROUPS
+  ACHIEVEMENTS
+}
+
 model User {
   id                     String                 @id @default(uuid()) @db.Uuid
   authUserId             String?                @unique @db.Uuid
@@ -149,8 +165,28 @@ model User {
   ownedFriendGroups      FriendGroup[]          @relation("FriendGroupOwner")
   friendGroupMemberships FriendGroupMember[]
   friendGroupMessages     FriendGroupMessage[]
+  notifications          Notification[]
 
   @@index([status, createdAt])
+}
+
+model Notification {
+  id             String               @id @default(uuid()) @db.Uuid
+  recipientId    String               @db.Uuid
+  category       NotificationCategory
+  eventType      String               @db.VarChar(80)
+  title          String               @db.VarChar(120)
+  message        String               @db.VarChar(500)
+  action         NotificationAction
+  actionTargetId String?              @db.VarChar(128)
+  dedupeKey      String?              @unique @db.VarChar(220)
+  readAt         DateTime?            @db.Timestamptz(3)
+  createdAt      DateTime             @default(now()) @db.Timestamptz(3)
+  recipient      User                 @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, createdAt])
+  @@index([recipientId, readAt, createdAt])
+  @@index([recipientId, category, createdAt])
 }
 
 enum ChallengeMetric {

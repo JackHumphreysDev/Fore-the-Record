@@ -20,6 +20,8 @@ import PerformanceAnalysis from './PerformanceAnalysis.tsx'
 import PerformanceInsights from './PerformanceInsights.tsx'
 import CoursePersonalBests from './CoursePersonalBests.tsx'
 import PersonalMilestones from './PersonalMilestones.tsx'
+import NotificationCentre from './NotificationCentre.tsx'
+import { isNotificationUnreadCount, type NotificationAction } from './notificationsApi.ts'
 import PlayerGoals from './PlayerGoals.tsx'
 import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
@@ -42,6 +44,7 @@ type ActiveView =
   | 'history'
   | 'settings'
   | 'support'
+  | 'notifications'
   | 'whats-new'
   | 'admin'
 
@@ -140,6 +143,7 @@ function App() {
     useState<AdminIdentity | null>(null)
   const [supportUnreadCount, setSupportUnreadCount] = useState(0)
   const [adminUnreadCount, setAdminUnreadCount] = useState(0)
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0)
   const [unreadRefresh, setUnreadRefresh] = useState(0)
   const [isAuthLoading, setIsAuthLoading] = useState(
     authSetup.client !== null,
@@ -280,6 +284,7 @@ function App() {
         }
         setSupportUnreadCount(0)
         setAdminUnreadCount(0)
+        setNotificationUnreadCount(0)
 
         if (!nextSession) {
           profileRequestNumber.current += 1
@@ -346,6 +351,17 @@ function App() {
     const controller = new AbortController()
 
     async function loadUnreadCounts() {
+      const notificationResponse = await fetchWithAccessToken(
+        session!.access_token,
+        '/api/users/me/notifications/unread-count',
+        { signal: controller.signal },
+      ).catch(() => null)
+
+      if (notificationResponse?.ok) {
+        const body: unknown = await notificationResponse.json().catch(() => null)
+        if (isNotificationUnreadCount(body)) setNotificationUnreadCount(body.count)
+      }
+
       const playerResponse = await fetchWithAccessToken(
         session!.access_token,
         '/api/submissions/unread-count',
@@ -394,6 +410,20 @@ function App() {
     setActiveView('profile')
     setSupportUnreadCount(0)
     setAdminUnreadCount(0)
+    setNotificationUnreadCount(0)
+  }
+
+  function openNotificationDestination(action: NotificationAction, targetId: string | null) {
+    if (action === 'FRIENDS' || action === 'GROUPS') setActiveView('friends')
+    if (action === 'SUPPORT') {
+      setSupportInitialType('IDEA')
+      setActiveView('support')
+    }
+    if (action === 'HISTORY') {
+      setHistoryFocusRoundId(targetId ?? '')
+      setActiveView('history')
+    }
+    if (action === 'ACHIEVEMENTS') setActiveView('profile')
   }
 
   async function signOut() {
@@ -541,6 +571,18 @@ function App() {
               onClick={() => setActiveView('friends')}
             >
               Friends
+            </button>
+            <button
+              type="button"
+              aria-current={activeView === 'notifications' ? 'page' : undefined}
+              onClick={() => setActiveView('notifications')}
+            >
+              Notifications
+              {notificationUnreadCount > 0 ? (
+                <span className="nav-unread-count" aria-label={`${notificationUnreadCount} unread notifications`}>
+                  {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                </span>
+              ) : null}
             </button>
             <button
               type="button"
@@ -798,6 +840,12 @@ function App() {
         ) : activeView === 'support' ? (
           <Support
             initialType={supportInitialType}
+            onUnreadChanged={refreshUnreadCounts}
+          />
+        ) : activeView === 'notifications' ? (
+          <NotificationCentre
+            profileId={profile.id}
+            onNavigate={openNotificationDestination}
             onUnreadChanged={refreshUnreadCounts}
           />
         ) : activeView === 'whats-new' ? (
