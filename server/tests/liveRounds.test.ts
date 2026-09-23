@@ -16,6 +16,12 @@ const state = {
     yardage: '400',
     strokesTaken: '',
     pickedUp: false,
+    putts: '',
+    fairwayResult: '',
+    greenInRegulation: '',
+    penaltyStrokes: '',
+    bunkerVisits: '',
+    upAndDownResult: '',
   })),
   matchPlayDraft: {},
 }
@@ -23,6 +29,30 @@ const state = {
 describe('live round drafts', () => {
   it('accepts a bounded individual round draft', () => {
     expect(parseLiveRoundDraftState(state)).toEqual(state)
+  })
+
+  it('adds blank optional statistics to an existing draft', () => {
+    const legacyHoles = state.holeEntries.map((hole) => {
+      const {
+        putts: _putts,
+        fairwayResult: _fairwayResult,
+        greenInRegulation: _greenInRegulation,
+        penaltyStrokes: _penaltyStrokes,
+        bunkerVisits: _bunkerVisits,
+        upAndDownResult: _upAndDownResult,
+        ...existing
+      } = hole
+      return existing
+    })
+
+    expect(parseLiveRoundDraftState({ ...state, holeEntries: legacyHoles })?.holeEntries[0]).toMatchObject({
+      putts: '',
+      fairwayResult: '',
+      greenInRegulation: '',
+      penaltyStrokes: '',
+      bunkerVisits: '',
+      upAndDownResult: '',
+    })
   })
 
   it('rejects team, duplicate-hole, and out-of-range draft state', () => {

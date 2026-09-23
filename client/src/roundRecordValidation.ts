@@ -74,6 +74,12 @@ export type HistoryRound = ClassifiedRound & {
     strokeIndex: number
     strokesTaken: number
     pickedUp: boolean
+    putts: number | null
+    fairwayResult: 'HIT' | 'MISSED_LEFT' | 'MISSED_RIGHT' | 'NOT_APPLICABLE' | null
+    greenInRegulation: boolean | null
+    penaltyStrokes: number | null
+    bunkerVisits: number | null
+    upAndDownResult: 'NOT_ATTEMPTED' | 'SUCCESSFUL' | 'UNSUCCESSFUL' | null
   }>
   tee: {
     id: string
@@ -313,6 +319,12 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
         Number.isInteger(hole.par) &&
         Number.isInteger(hole.strokeIndex) &&
         typeof hole.pickedUp === 'boolean' &&
+        (hole.putts === null || Number.isInteger(hole.putts) && Number(hole.putts) >= 0 && Number(hole.putts) <= 9) &&
+        (hole.fairwayResult === null || hole.fairwayResult === 'HIT' || hole.fairwayResult === 'MISSED_LEFT' || hole.fairwayResult === 'MISSED_RIGHT' || hole.fairwayResult === 'NOT_APPLICABLE') &&
+        (hole.greenInRegulation === null || typeof hole.greenInRegulation === 'boolean') &&
+        (hole.penaltyStrokes === null || Number.isInteger(hole.penaltyStrokes) && Number(hole.penaltyStrokes) >= 0 && Number(hole.penaltyStrokes) <= 9) &&
+        (hole.bunkerVisits === null || Number.isInteger(hole.bunkerVisits) && Number(hole.bunkerVisits) >= 0 && Number(hole.bunkerVisits) <= 9) &&
+        (hole.upAndDownResult === null || hole.upAndDownResult === 'NOT_ATTEMPTED' || hole.upAndDownResult === 'SUCCESSFUL' || hole.upAndDownResult === 'UNSUCCESSFUL') &&
         Number.isInteger(hole.strokesTaken) &&
         (hole.pickedUp
           ? Number(hole.strokesTaken) === 0

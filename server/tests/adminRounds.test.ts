@@ -88,6 +88,13 @@ function scoredRound() {
       par: 4,
       strokeIndex: index + 1,
       strokesTaken: 5,
+      pickedUp: false,
+      putts: 2,
+      fairwayResult: index % 3 === 0 ? 'NOT_APPLICABLE' : 'HIT',
+      greenInRegulation: true,
+      penaltyStrokes: 0,
+      bunkerVisits: 0,
+      upAndDownResult: 'NOT_ATTEMPTED',
     })),
   }
 }
@@ -113,7 +120,20 @@ describe('updateRoundAsAdmin', () => {
 
     expect(result.handicapIndex).toBe(18)
     expect(holeDeleteManyMock).toHaveBeenCalledWith({ where: { roundId: existing.id } })
-    expect(holeCreateManyMock).toHaveBeenCalled()
+    expect(holeCreateManyMock).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          roundId: existing.id,
+          holeNumber: 2,
+          putts: 2,
+          fairwayResult: 'HIT',
+          greenInRegulation: true,
+          penaltyStrokes: 0,
+          bunkerVisits: 0,
+          upAndDownResult: 'NOT_ATTEMPTED',
+        }),
+      ]),
+    })
     expect(roundUpdateMock).toHaveBeenCalledWith({
       where: { id: existing.id },
       data: expect.objectContaining({ grossScore: 90, scoreDifferential: 18, isAcceptable: true }),

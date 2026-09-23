@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.42.0 - 2026-09-23
+
+### User-facing changes
+
+- Added optional per-hole putts, fairway result, green in regulation, penalty strokes, bunker visits, and up-and-down results to standard and Live Round scorecards.
+- Added private putting, driving, approach, scrambling, penalty, and bunker figures with course, tee, date, category, and round-length filters plus clear recorded sample sizes.
+- Added detailed hole statistics and round summaries to expanded Round History cards without changing scoring or Handicap Index calculations.
+
+### Developer and admin changes
+
+- Added nullable validated hole-statistic fields and database constraints while retaining compatibility with existing rounds.
+- Preserved recorded statistics through administrator score correction and excluded team, pending, and rejected rounds from aggregate analysis.
+- Kept the new statistics out of friend, group, activity, and shared-round payloads and added parser, API, aggregation, draft, history, and correction regression coverage.
+
 ## 0.41.0 - 2026-09-23
 
 ### User-facing changes

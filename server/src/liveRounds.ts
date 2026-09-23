@@ -22,6 +22,12 @@ export type LiveRoundDraftState = {
     yardage: string
     strokesTaken: string
     pickedUp: boolean
+    putts: string
+    fairwayResult: '' | 'HIT' | 'MISSED_LEFT' | 'MISSED_RIGHT' | 'NOT_APPLICABLE'
+    greenInRegulation: '' | 'YES' | 'NO'
+    penaltyStrokes: string
+    bunkerVisits: string
+    upAndDownResult: '' | 'NOT_ATTEMPTED' | 'SUCCESSFUL' | 'UNSUCCESSFUL'
   }>
   matchPlayDraft: Record<string, unknown>
 }
@@ -64,8 +70,21 @@ export function parseLiveRoundDraftState(value: unknown): LiveRoundDraftState | 
     !isRecord(value.matchPlayDraft)
   ) return null
 
+  const normalizedHoleEntries = value.holeEntries.map((hole) =>
+    isRecord(hole)
+      ? {
+          ...hole,
+          putts: hole.putts ?? '',
+          fairwayResult: hole.fairwayResult ?? '',
+          greenInRegulation: hole.greenInRegulation ?? '',
+          penaltyStrokes: hole.penaltyStrokes ?? '',
+          bunkerVisits: hole.bunkerVisits ?? '',
+          upAndDownResult: hole.upAndDownResult ?? '',
+        }
+      : hole,
+  )
   const numbers = new Set<number>()
-  for (const hole of value.holeEntries) {
+  for (const hole of normalizedHoleEntries) {
     if (
       !isRecord(hole) ||
       !Number.isInteger(hole.holeNumber) ||
@@ -76,12 +95,18 @@ export function parseLiveRoundDraftState(value: unknown): LiveRoundDraftState | 
       !isShortString(hole.strokeIndex, 2) ||
       !isShortString(hole.yardage, 5) ||
       !isShortString(hole.strokesTaken, 2) ||
-      typeof hole.pickedUp !== 'boolean'
+      typeof hole.pickedUp !== 'boolean' ||
+      !isShortString(hole.putts, 1) ||
+      (hole.fairwayResult !== '' && hole.fairwayResult !== 'HIT' && hole.fairwayResult !== 'MISSED_LEFT' && hole.fairwayResult !== 'MISSED_RIGHT' && hole.fairwayResult !== 'NOT_APPLICABLE') ||
+      (hole.greenInRegulation !== '' && hole.greenInRegulation !== 'YES' && hole.greenInRegulation !== 'NO') ||
+      !isShortString(hole.penaltyStrokes, 1) ||
+      !isShortString(hole.bunkerVisits, 1) ||
+      (hole.upAndDownResult !== '' && hole.upAndDownResult !== 'NOT_ATTEMPTED' && hole.upAndDownResult !== 'SUCCESSFUL' && hole.upAndDownResult !== 'UNSUCCESSFUL')
     ) return null
     numbers.add(Number(hole.holeNumber))
   }
 
-  return value as LiveRoundDraftState
+  return { ...value, holeEntries: normalizedHoleEntries } as LiveRoundDraftState
 }
 
 export function asLiveRoundJson(state: LiveRoundDraftState): Prisma.InputJsonValue {

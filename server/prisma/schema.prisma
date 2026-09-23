@@ -31,6 +31,19 @@ enum RoundScorecardStatus {
   NOT_REQUIRED
 }
 
+enum FairwayResult {
+  HIT
+  MISSED_LEFT
+  MISSED_RIGHT
+  NOT_APPLICABLE
+}
+
+enum UpAndDownResult {
+  NOT_ATTEMPTED
+  SUCCESSFUL
+  UNSUCCESSFUL
+}
+
 enum RoundCategory {
   CASUAL
   COMPETITION
@@ -537,14 +550,20 @@ model ScorecardReviewHole {
 }
 
 model HoleScore {
-  id           String @id @default(uuid()) @db.Uuid
-  roundId      String @db.Uuid
-  holeNumber   Int
-  par          Int
-  strokeIndex  Int
-  strokesTaken Int
-  pickedUp     Boolean @default(false)
-  round        Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  id                String           @id @default(uuid()) @db.Uuid
+  roundId           String           @db.Uuid
+  holeNumber        Int
+  par               Int
+  strokeIndex       Int
+  strokesTaken      Int
+  pickedUp          Boolean          @default(false)
+  putts             Int?
+  fairwayResult     FairwayResult?
+  greenInRegulation Boolean?
+  penaltyStrokes    Int?
+  bunkerVisits      Int?
+  upAndDownResult   UpAndDownResult?
+  round             Round            @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
   @@unique([roundId, holeNumber])
 }

@@ -203,6 +203,12 @@ function getEmptyManualCard(
     yardage: '',
     strokesTaken: '',
     pickedUp: false,
+    putts: '',
+    fairwayResult: '',
+    greenInRegulation: '',
+    penaltyStrokes: '',
+    bunkerVisits: '',
+    upAndDownResult: '',
   }))
 }
 
@@ -219,6 +225,12 @@ function getHoleEntries(
     yardage: hole.yardage === null ? '' : String(hole.yardage),
     strokesTaken: '',
     pickedUp: false,
+    putts: '',
+    fairwayResult: hole.par === 3 ? 'NOT_APPLICABLE' : '',
+    greenInRegulation: '',
+    penaltyStrokes: '',
+    bunkerVisits: '',
+    upAndDownResult: '',
   }))
 }
 
@@ -274,6 +286,24 @@ function formatRoundDate(datePlayed: string): string {
     year: 'numeric',
     timeZone: 'UTC',
   }).format(new Date(datePlayed))
+}
+
+function HolePerformanceFields({
+  hole,
+  onChange,
+}: {
+  hole: HoleEntry
+  onChange: (field: keyof Omit<HoleEntry, 'holeNumber'>, value: string) => void
+}) {
+  const parThree = Number(hole.par) === 3
+  return <div className="round-performance-fields">
+    <label>Putts<input type="number" min="0" max="9" inputMode="numeric" value={hole.putts} onChange={(event) => onChange('putts', event.target.value)} /></label>
+    <label>Fairway<select disabled={parThree} value={parThree ? 'NOT_APPLICABLE' : hole.fairwayResult} onChange={(event) => onChange('fairwayResult', event.target.value)}><option value="">Not recorded</option><option value="HIT">Hit</option><option value="MISSED_LEFT">Missed left</option><option value="MISSED_RIGHT">Missed right</option><option value="NOT_APPLICABLE">Not applicable</option></select></label>
+    <label>Green in regulation<select value={hole.greenInRegulation} onChange={(event) => onChange('greenInRegulation', event.target.value)}><option value="">Not recorded</option><option value="YES">Yes</option><option value="NO">No</option></select></label>
+    <label>Penalty strokes<input type="number" min="0" max="9" inputMode="numeric" value={hole.penaltyStrokes} onChange={(event) => onChange('penaltyStrokes', event.target.value)} /></label>
+    <label>Bunker visits<input type="number" min="0" max="9" inputMode="numeric" value={hole.bunkerVisits} onChange={(event) => onChange('bunkerVisits', event.target.value)} /></label>
+    <label>Up and down<select value={hole.upAndDownResult} onChange={(event) => onChange('upAndDownResult', event.target.value)}><option value="">Not recorded</option><option value="NOT_ATTEMPTED">Not attempted</option><option value="SUCCESSFUL">Successful</option><option value="UNSUCCESSFUL">Unsuccessful</option></select></label>
+  </div>
 }
 
 function RoundEntry({
@@ -878,11 +908,16 @@ function RoundEntry({
     field: keyof Omit<HoleEntry, 'holeNumber'>,
     value: string,
   ) {
-    setHoleEntries((current) =>
-      current.map((hole) =>
-        hole.holeNumber === holeNumber ? { ...hole, [field]: value } : hole,
-      ),
-    )
+    setHoleEntries((current) => current.map((hole) => {
+      if (hole.holeNumber !== holeNumber) return hole
+      const updated = { ...hole, [field]: value }
+      if (field === 'par') {
+        updated.fairwayResult = value === '3'
+          ? 'NOT_APPLICABLE'
+          : hole.fairwayResult === 'NOT_APPLICABLE' ? '' : hole.fairwayResult
+      }
+      return updated
+    }))
     setErrors((current) => ({ ...current, scorecard: undefined }))
     setSubmitError('')
   }
@@ -1189,6 +1224,15 @@ function RoundEntry({
         }
       }
 
+      const hasInvalidPerformanceDetail = holeEntries.some((hole) =>
+        [hole.putts, hole.penaltyStrokes, hole.bunkerVisits].some((value) =>
+          value.trim() !== '' && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 9),
+        ),
+      )
+      if (hasInvalidPerformanceDetail) {
+        nextErrors.scorecard = 'Optional putts, penalties, and bunker visits must be whole numbers from 0 to 9.'
+      }
+
       if (
         !nextErrors.grossScore &&
         completedStrokeCount === expectedHoleCount &&
@@ -1272,6 +1316,12 @@ function RoundEntry({
                   ...(hole.yardage.trim() === ''
                     ? {}
                     : { yardage: Number(hole.yardage) }),
+                  putts: hole.putts === '' ? null : Number(hole.putts),
+                  fairwayResult: hole.fairwayResult || null,
+                  greenInRegulation: hole.greenInRegulation === '' ? null : hole.greenInRegulation === 'YES',
+                  penaltyStrokes: hole.penaltyStrokes === '' ? null : Number(hole.penaltyStrokes),
+                  bunkerVisits: hole.bunkerVisits === '' ? null : Number(hole.bunkerVisits),
+                  upAndDownResult: hole.upAndDownResult || null,
                 })),
               }
             : {}),
@@ -1342,7 +1392,7 @@ function RoundEntry({
       <header className="live-round-header"><div><p className="eyebrow"><span aria-hidden="true" /> Live Round review</p><h1>Check your card.<span>{selectedTee.clubName} · {selectedTee.courseName} · {selectedTee.teeName}</span></h1></div><div className={`live-save-state live-save-${liveSaveState}`}><strong>{liveSaveState === 'saving' ? 'Saving…' : liveSaveState === 'error' ? 'Save failed' : 'Progress saved'}</strong><small>Nothing enters History until you confirm.</small></div></header>
       <form className="live-review-card" onSubmit={handleSubmit} noValidate>
         <div className="live-review-summary"><div><small>Holes</small><strong>{form.holeCount}</strong></div><div><small>Front 9</small><strong>{isStableford ? stablefordTotals.frontNine ?? '—' : scoreTotals.frontNine ?? '—'}</strong></div>{form.holeCount === 18 ? <div><small>Back 9</small><strong>{isStableford ? stablefordTotals.backNine ?? '—' : scoreTotals.backNine ?? '—'}</strong></div> : null}<div><small>{isStableford ? 'Points' : 'Gross total'}</small><strong>{isStableford ? stablefordTotals.total ?? '—' : scoreTotals.total ?? '—'}</strong></div></div>
-        <div className="round-scorecard-scroll"><table><thead><tr><th>Hole</th><th>Par</th><th>SI</th><th>Yards</th><th>Score</th>{isStableford ? <th>Points</th> : null}</tr></thead><tbody>{holeEntries.map((hole, index) => <tr key={hole.holeNumber}><th>{hole.holeNumber}</th><td>{hole.par}</td><td>{hole.strokeIndex}</td><td>{hole.yardage || '—'}</td><td>{hole.pickedUp ? 'Picked up' : hole.strokesTaken}</td>{isStableford ? <td>{stablefordTotals.points[index] ?? '—'}</td> : null}</tr>)}</tbody></table></div>
+        <div className="round-scorecard-scroll"><table><thead><tr><th>Hole</th><th>Par</th><th>SI</th><th>Yards</th><th>Score</th><th>Putts</th><th>Fairway</th><th>GIR</th><th>Pen.</th><th>Bunkers</th><th>Up & down</th>{isStableford ? <th>Points</th> : null}</tr></thead><tbody>{holeEntries.map((hole, index) => <tr key={hole.holeNumber}><th>{hole.holeNumber}</th><td>{hole.par}</td><td>{hole.strokeIndex}</td><td>{hole.yardage || '—'}</td><td>{hole.pickedUp ? 'Picked up' : hole.strokesTaken}</td><td>{hole.putts || '—'}</td><td>{hole.fairwayResult === 'HIT' ? 'Hit' : hole.fairwayResult === 'MISSED_LEFT' ? 'Left' : hole.fairwayResult === 'MISSED_RIGHT' ? 'Right' : hole.fairwayResult === 'NOT_APPLICABLE' ? 'N/A' : '—'}</td><td>{hole.greenInRegulation === 'YES' ? 'Yes' : hole.greenInRegulation === 'NO' ? 'No' : '—'}</td><td>{hole.penaltyStrokes || '—'}</td><td>{hole.bunkerVisits || '—'}</td><td>{hole.upAndDownResult === 'SUCCESSFUL' ? 'Yes' : hole.upAndDownResult === 'UNSUCCESSFUL' ? 'No' : hole.upAndDownResult === 'NOT_ATTEMPTED' ? 'N/A' : '—'}</td>{isStableford ? <td>{stablefordTotals.points[index] ?? '—'}</td> : null}</tr>)}</tbody></table></div>
         {isMatchPlay && matchPlayPreview ? <p className="live-review-match"><strong>Match result:</strong> {matchPlayPreview.result === 'WON' ? 'Won' : matchPlayPreview.result === 'LOST' ? 'Lost' : 'Tied'} · {matchPlayPreview.finalScore}</p> : null}
         {scorecardStatus === 'manual_required' ? <p className="live-round-review-note">This player-entered scorecard will be sent to the administrator for review after submission.</p> : null}
         {errors.scorecard || errors.grossScore || errors.matchPlay || errors.numberOfPlayers ? <p className="round-field-error" role="alert">{errors.scorecard ?? errors.grossScore ?? errors.matchPlay ?? errors.numberOfPlayers}</p> : null}
@@ -1381,6 +1431,7 @@ function RoundEntry({
         </dl>
         {scorecardStatus === 'manual_required' ? <p className="live-round-review-note">This tee has no approved scorecard. Add par and stroke index as you play; yardage is optional. The completed card will await administrator review.</p> : null}
         <label className="live-score-input">Your strokes<input autoFocus aria-label={`Hole ${hole.holeNumber} strokes`} type="number" min="1" inputMode="numeric" disabled={hole.pickedUp} value={hole.strokesTaken} onChange={(event) => updateHoleEntry(hole.holeNumber, 'strokesTaken', event.target.value)} /></label>
+        <details className="live-performance-details"><summary>Optional performance details</summary><HolePerformanceFields hole={hole} onChange={(field, value) => updateHoleEntry(hole.holeNumber, field, value)} /></details>
         {isStableford ? <label className="live-pickup"><input type="checkbox" checked={hole.pickedUp} onChange={(event) => updatePickedUp(hole.holeNumber, event.target.checked)} /><span><strong>Picked up / no score</strong><small>Records zero Stableford points without inventing a gross score.</small></span></label> : null}
         {isStableford ? <div className="live-hole-points"><small>This hole</small><strong>{stablefordTotals.points[liveCurrentHoleIndex] ?? '—'} pts</strong><span>Round total {stablefordTotals.total ?? 0}</span></div> : null}
         {isMatchPlay ? <section className="live-match-hole"><header><strong>Match Play</strong>{matchPlayPreview ? <span>{matchPlayPreview.finalScore}</span> : null}</header>{matchPlayPreview && !matchPlayPreview.holes.some((item) => item.holeNumber === hole.holeNumber) ? <p>The match is already complete. Continue recording your own scorecard.</p> : <div><label>Opponent strokes<input type="number" min="1" max="30" value={matchEntry.opponentStrokes} onChange={(event) => setMatchPlayDraft((current) => ({ ...current, [hole.holeNumber]: { ...matchEntry, opponentStrokes: event.target.value, result: '' } }))} /></label><label>Hole result<select disabled={Boolean(derivedMatchResult)} value={derivedMatchResult || matchEntry.result} onChange={(event) => setMatchPlayDraft((current) => ({ ...current, [hole.holeNumber]: { opponentStrokes: '', result: event.target.value as MatchPlayDraft[number]['result'] } }))}><option value="">Choose</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="HALVED">Halved</option></select></label></div>}</section> : null}
@@ -2280,6 +2331,14 @@ function RoundEntry({
                             </td>
                           ) : null}
                           {isStableford ? <td>{stablefordTotals.points[index] ?? '—'}</td> : null}
+                        </tr>
+                        <tr className="round-performance-row">
+                          <td colSpan={isStableford ? 8 : 5}>
+                            <details>
+                              <summary>Optional performance details</summary>
+                              <HolePerformanceFields hole={hole} onChange={(field, value) => updateHoleEntry(hole.holeNumber, field, value)} />
+                            </details>
+                          </td>
                         </tr>
                         {form.holeCount === 18 && hole.holeNumber === 9 ? (
                           <tr className="round-nine-total">

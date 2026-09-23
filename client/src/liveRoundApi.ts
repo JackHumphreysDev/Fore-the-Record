@@ -48,6 +48,12 @@ export type LiveRoundHole = {
   yardage: string
   strokesTaken: string
   pickedUp: boolean
+  putts: string
+  fairwayResult: '' | 'HIT' | 'MISSED_LEFT' | 'MISSED_RIGHT' | 'NOT_APPLICABLE'
+  greenInRegulation: '' | 'YES' | 'NO'
+  penaltyStrokes: string
+  bunkerVisits: string
+  upAndDownResult: '' | 'NOT_ATTEMPTED' | 'SUCCESSFUL' | 'UNSUCCESSFUL'
 }
 
 export type LiveRoundDraftState = {
@@ -113,7 +119,12 @@ export function isLiveRoundDraftState(value: unknown): value is LiveRoundDraftSt
     Number(value.currentHoleIndex) < 0 || Number(value.currentHoleIndex) >= value.holeEntries.length) return false
   return value.holeEntries.every((hole) => record(hole) && Number.isInteger(hole.holeNumber) &&
     typeof hole.par === 'string' && typeof hole.strokeIndex === 'string' && typeof hole.yardage === 'string' &&
-    typeof hole.strokesTaken === 'string' && typeof hole.pickedUp === 'boolean')
+    typeof hole.strokesTaken === 'string' && typeof hole.pickedUp === 'boolean' &&
+    typeof hole.putts === 'string' &&
+    (hole.fairwayResult === '' || hole.fairwayResult === 'HIT' || hole.fairwayResult === 'MISSED_LEFT' || hole.fairwayResult === 'MISSED_RIGHT' || hole.fairwayResult === 'NOT_APPLICABLE') &&
+    (hole.greenInRegulation === '' || hole.greenInRegulation === 'YES' || hole.greenInRegulation === 'NO') &&
+    typeof hole.penaltyStrokes === 'string' && typeof hole.bunkerVisits === 'string' &&
+    (hole.upAndDownResult === '' || hole.upAndDownResult === 'NOT_ATTEMPTED' || hole.upAndDownResult === 'SUCCESSFUL' || hole.upAndDownResult === 'UNSUCCESSFUL'))
 }
 
 export function isLiveRoundResponse(value: unknown): value is { draft: LiveRoundDraft | null } {

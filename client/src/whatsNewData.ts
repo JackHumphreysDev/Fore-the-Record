@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'detailed-round-statistics',
+    publishedAt: '2026-09-23',
+    title: 'See more than the final score',
+    summary: 'Optionally record the details behind every hole and turn them into a private picture of where your game gains and loses shots.',
+    highlights: [
+      'Add putts, fairway result, green in regulation, penalties, bunker visits, and up-and-down results in standard or Live Round entry.',
+      'Compare putting, driving, approach, scrambling, penalty, and bunker figures with filters and clear sample sizes.',
+      'Expand a saved round in History to revisit every statistic and its complete round summary.',
+      'Leave any detail blank when you do not have it; optional statistics never alter your score or Handicap Index.',
+    ],
+  },
+  {
     id: 'live-round-mode',
     publishedAt: '2026-09-23',
     title: 'Take your scorecard onto the course',

@@ -10,6 +10,12 @@ function holes(strokes = 5) {
     par: index % 3 === 0 ? 3 : index % 3 === 1 ? 4 : 5,
     strokesTaken: strokes,
     pickedUp: false,
+    putts: 2,
+    fairwayResult: index % 3 === 0 ? 'NOT_APPLICABLE' as const : 'HIT' as const,
+    greenInRegulation: true,
+    penaltyStrokes: 0,
+    bunkerVisits: 0,
+    upAndDownResult: 'NOT_ATTEMPTED' as const,
   }))
 }
 
@@ -74,6 +80,9 @@ describe('buildPerformanceAnalysis', () => {
       { category: 'COMPETITION', rounds: 1 },
       { category: 'SOCIAL_GAME', rounds: 0 },
     ])
+    expect(result.detailedStatistics.putts).toMatchObject({ holes: 36, completeRounds: 2, averagePerHole: 2, averagePerRound: 36, threePutts: 0 })
+    expect(result.detailedStatistics.fairways).toMatchObject({ holes: 24, hits: 24, hitPercentage: 100 })
+    expect(result.detailedStatistics.greens).toMatchObject({ holes: 36, hits: 36, percentage: 100 })
   })
 
   it('filters by date, course, tee and category while retaining filter options', () => {
@@ -98,6 +107,7 @@ describe('buildPerformanceAnalysis', () => {
       courseId: 'course-1',
       teeId: 'tee-1',
       category: 'CASUAL',
+      holeCount: 18,
     })
 
     expect(result.overall.rounds).toBe(1)

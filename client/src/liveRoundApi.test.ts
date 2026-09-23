@@ -9,7 +9,7 @@ const state = {
   form: { teeId, datePlayed: '2026-09-23', timePlayed: '10:00', category: 'CASUAL', participation: 'INDIVIDUAL', scoringFormat: 'STROKE_PLAY', playingHandicap: '', holeCount: 9, nineHoleSegment: 'FRONT_NINE', competitionName: '', competitionFormat: '', competitionFormatOther: '', gameFormat: '', gameFormatOther: '', gameResult: '', matchPlayOpponentName: '', playingPartnerIds: [], playingPartnerResults: {}, guestPlayerNames: '', guestPlayerResults: {}, numberOfPlayers: '', grossScore: '', weatherCondition: 'DRY', notes: '' },
   scorecardStatus: 'available',
   scorecardSource: 'saved',
-  holeEntries: Array.from({ length: 9 }, (_, index) => ({ holeNumber: index + 1, par: '4', strokeIndex: String(index + 1), yardage: '400', strokesTaken: '', pickedUp: false })),
+  holeEntries: Array.from({ length: 9 }, (_, index) => ({ holeNumber: index + 1, par: '4', strokeIndex: String(index + 1), yardage: '400', strokesTaken: '', pickedUp: false, putts: '', fairwayResult: '', greenInRegulation: '', penaltyStrokes: '', bunkerVisits: '', upAndDownResult: '' })),
   matchPlayDraft: {},
 } as const
 

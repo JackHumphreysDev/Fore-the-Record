@@ -74,6 +74,14 @@ const roundId = '33333333-3333-4333-8333-333333333333'
 const liveRoundDraftId = '44444444-4444-4444-8444-444444444444'
 const datePlayed = new Date('2026-08-30T00:00:00.000Z')
 const createdAt = new Date('2026-08-30T12:00:00.000Z')
+const emptyPerformanceStatistics = {
+  putts: null,
+  fairwayResult: null,
+  greenInRegulation: null,
+  penaltyStrokes: null,
+  bunkerVisits: null,
+  upAndDownResult: null,
+} as const
 
 beforeEach(() => {
   getAuthenticatedUserMock.mockReset()
@@ -113,6 +121,12 @@ describe('POST /api/rounds', () => {
       par: 4,
       strokeIndex: index + 1,
       strokesTaken: 5,
+      putts: 2,
+      fairwayResult: 'HIT',
+      greenInRegulation: true,
+      penaltyStrokes: 0,
+      bunkerVisits: 0,
+      upAndDownResult: 'NOT_ATTEMPTED',
     }))
     userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: 12.4 })
     liveRoundDraftFindFirstMock.mockResolvedValueOnce({ id: liveRoundDraftId })
@@ -211,7 +225,10 @@ describe('POST /api/rounds', () => {
         isAcceptable: true,
         scorecardStatus: 'VERIFIED',
         holeScores: {
-          create: holeScores.map((hole) => ({ ...hole, pickedUp: false })),
+          create: holeScores.map((hole) => ({
+            ...hole,
+            pickedUp: false,
+          })),
         },
         playingPartners: { create: [] },
         guestPlayers: { create: [] },
@@ -318,7 +335,11 @@ describe('POST /api/rounds', () => {
           isCapped: true,
           scoreDifferential: 3,
           holeScores: {
-            create: holeScores.map((hole) => ({ ...hole, pickedUp: false })),
+            create: holeScores.map((hole) => ({
+              ...hole,
+              pickedUp: false,
+              ...emptyPerformanceStatistics,
+            })),
           },
         }),
       }),
@@ -632,6 +653,27 @@ describe('POST /api/rounds', () => {
 
     expect(response.status).toBe(400)
     expect(response.body).toEqual({ error: 'Invalid round data' })
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects an out-of-range optional performance statistic', async () => {
+    const holeScores = Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1,
+      par: 4,
+      strokeIndex: index + 1,
+      strokesTaken: 5,
+      putts: index === 0 ? 10 : null,
+    }))
+
+    const response = await request(app).post('/api/rounds').send({
+      teeId,
+      datePlayed: '2026-08-30',
+      grossScore: 90,
+      weatherCondition: 'DRY',
+      holeScores,
+    })
+
+    expect(response.status).toBe(400)
     expect(transactionMock).not.toHaveBeenCalled()
   })
 

@@ -827,6 +827,20 @@
   }
 }
 
+.history-performance-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 16px 0 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.history-performance-summary > div { padding: 13px; background: rgba(12, 40, 29, 0.92); }
+.history-performance-summary dt,.history-performance-summary small { color: rgba(255,255,255,.62); font-size: 10px; }
+.history-performance-summary dd { margin: 5px 0; color: #d7ff4f; font-family: Georgia,serif; font-size: 22px; }
+
 @media (max-width: 540px) {
   .history-totals {
     grid-template-columns: 1fr;
@@ -893,6 +907,8 @@
     border-top: 1px solid rgba(255, 255, 255, 0.14);
     border-left: 0;
   }
+
+  .history-performance-summary { grid-template-columns: 1fr 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

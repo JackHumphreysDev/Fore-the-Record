@@ -13,7 +13,7 @@ const average = {
 }
 
 const response = {
-  appliedFilters: { from: null, to: null, courseId: null, teeId: null, category: null },
+  appliedFilters: { from: null, to: null, courseId: null, teeId: null, category: null, holeCount: null },
   options: {
     courses: [{ id: 'course-1', name: 'Old Course', clubName: 'Example Club' }],
     tees: [{ id: 'tee-1', name: 'White', courseId: 'course-1', courseName: 'Old Course', clubName: 'Example Club' }],
@@ -24,6 +24,14 @@ const response = {
   byParType: [{ par: 3, holes: 8, averageStrokes: 3.5, averageToPar: 0.5 }],
   byNine: [{ segment: 'FRONT_NINE', nines: 2, averageGrossScore: 40.5, averageToPar: 4.5 }],
   byCategory: [{ category: 'CASUAL', ...average }],
+  detailedStatistics: {
+    putts: { holes: 36, completeRounds: 2, total: 72, averagePerHole: 2, averagePerRound: 36, threePutts: 0, threePuttPercentage: 0 },
+    fairways: { holes: 24, hits: 20, missedLeft: 2, missedRight: 2, hitPercentage: 83.3, missedLeftPercentage: 8.3, missedRightPercentage: 8.3 },
+    greens: { holes: 36, hits: 20, percentage: 55.6 },
+    scrambling: { attempts: 10, successful: 5, percentage: 50 },
+    penalties: { completeRounds: 2, total: 1, averagePerRound: 0.5 },
+    bunkers: { completeRounds: 2, total: 4, averagePerRound: 2 },
+  },
 }
 
 describe('performance analysis API helpers', () => {
@@ -40,6 +48,7 @@ describe('performance analysis API helpers', () => {
       courseId: 'course id',
       teeId: 'tee/id',
       category: 'COMPETITION',
-    })).toBe('/api/users/me/performance-analysis?from=2026-01-01&to=2026-09-17&courseId=course+id&teeId=tee%2Fid&category=COMPETITION')
+      holeCount: 18,
+    })).toBe('/api/users/me/performance-analysis?from=2026-01-01&to=2026-09-17&courseId=course+id&teeId=tee%2Fid&category=COMPETITION&holeCount=18')
   })
 })
