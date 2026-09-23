@@ -1,6 +1,6 @@
 # Versioning and release notes
 
-Fore the Record uses one application version across the root, client, and server packages. The current version is `0.45.0`.
+Fore the Record uses one application version across the root, client, and server packages. The current version is `0.46.0`.
 
 ## Version format
 
@@ -55,6 +55,7 @@ Examples:
 - `0.42.0` → `0.43.0` for advanced recent-form and course-and-tee statistics insights.
 - `0.43.0` → `0.44.0` for private side-by-side round comparison.
 - `0.44.0` → `0.45.0` for private playing-partner history.
+- `0.45.0` → `0.46.0` for season and year reviews.
 - `0.x.x` → `1.0.0` when the product is ready for its first stable release.
 
 Do not increase the version for every commit. Increase it once for a coherent release.

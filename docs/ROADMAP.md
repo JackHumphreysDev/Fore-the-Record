@@ -45,7 +45,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 39. Advanced statistics insights. Completed in `0.43.0`.
 40. Round comparison. Completed in `0.44.0`.
 41. Playing Partners History. Completed in `0.45.0`.
-42. Season and Year Reviews.
+42. Season and Year Reviews. Completed in `0.46.0`.
 43. Achievements and Badges.
 44. Notification Centre.
 45. Profile Customisation.
@@ -58,6 +58,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Season and Year Reviews — completed in 0.46.0
+
+The Rounds screen now offers a filter for every calendar year represented in the player's verified individual record. Within a chosen year, the player can review the full year, Winter (January, February, and December), Spring (March–May), Summer (June–August), or Autumn (September–November). The same selection is compared directly with the previous calendar year.
+
+Each review reports rounds, holes, shots, recorded yardage, eagles, birdies, pars, bogeys, Handicap Index movement, and the most-played course. Lowest gross, highest Stableford total, and best score differential link back to their complete private History cards. Pickups do not receive invented strokes, missing yardage is not estimated, and team, pending, and rejected rounds remain excluded. The review does not change stored scores or Handicap Index calculations.
 
 ## Playing Partners History — completed in 0.45.0
 

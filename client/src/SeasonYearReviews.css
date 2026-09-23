@@ -1,0 +1,34 @@
+.season-reviews { background: linear-gradient(135deg, rgba(11,57,44,.96), rgba(47,40,4,.96)); border: 1px solid rgba(168,213,192,.18); border-radius: 1.5rem; display: grid; gap: 1.5rem; margin-bottom: 2rem; padding: clamp(1.25rem, 3vw, 2.4rem); }
+.season-reviews-heading { align-items: end; display: flex; justify-content: space-between; gap: 2rem; }
+.season-reviews-heading h2 { margin: 0; }
+.season-reviews-heading > p { margin: 0; max-width: 34rem; }
+.season-review-filters { align-items: end; display: grid; grid-template-columns: minmax(9rem, 1fr) minmax(12rem, 1fr) 2fr; gap: 1rem; }
+.season-review-filters label { display: grid; gap: .4rem; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.season-review-filters select { background: #171b1b; border: 1px solid rgba(255,255,255,.15); border-radius: .75rem; color: inherit; min-height: 3rem; padding: .7rem .9rem; }
+.season-review-filters p { color: var(--text-muted, #aaa698); margin: 0 0 .75rem; }
+.season-review-state { padding: 2rem; text-align: center; }
+.season-review-title { align-items: end; border-bottom: 1px solid rgba(255,255,255,.12); display: flex; justify-content: space-between; padding-bottom: 1rem; }
+.season-review-title div { display: grid; }
+.season-review-title span { color: var(--mint, #a8d5c0); font-size: .8rem; font-weight: 800; letter-spacing: .18em; }
+.season-review-title strong { font-family: Georgia, serif; font-size: clamp(1.8rem, 4vw, 3rem); }
+.season-review-title p { margin: 0; }
+.season-review-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+.season-review-metrics article, .season-review-highlights article, .season-review-notables article { background: rgba(17,22,21,.7); border: 1px solid rgba(255,255,255,.09); border-radius: .9rem; display: grid; gap: .35rem; padding: 1rem; }
+.season-review-metrics span, .season-review-highlights span, .season-review-notables span { color: var(--text-muted, #aaa698); font-size: .7rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.season-review-metrics strong { font-family: Georgia, serif; font-size: 1.8rem; }
+.season-review-metrics small, .season-review-highlights small, .season-review-notables small { color: var(--text-muted, #aaa698); }
+.season-review-highlights { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.season-review-highlights strong { font-family: Georgia, serif; font-size: 1.4rem; }
+.season-review-notables { display: grid; gap: 1rem; }
+.season-review-notables header { align-items: end; display: flex; justify-content: space-between; }
+.season-review-notables header h3, .season-review-notables header p { margin: 0; }
+.season-review-notables > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.season-review-notables article strong { font-family: Georgia, serif; font-size: 1.65rem; }
+.season-review-notables button { background: none; border: 0; color: var(--mint, #a8d5c0); cursor: pointer; font: inherit; justify-self: start; padding: .4rem 0 0; }
+.season-review-note { border-top: 1px solid rgba(255,255,255,.1); color: var(--text-muted, #aaa698); margin: 0; padding-top: 1rem; }
+
+@media (max-width: 760px) {
+  .season-reviews-heading, .season-review-title { align-items: flex-start; display: grid; }
+  .season-review-filters, .season-review-highlights, .season-review-notables > div { grid-template-columns: 1fr; }
+  .season-review-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}

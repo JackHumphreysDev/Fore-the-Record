@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.46.0 - 2026-09-23
+
+### User-facing changes
+
+- Added private Season and Year Reviews with a filter for every recorded calendar year plus full-year, Winter, Spring, Summer, and Autumn views.
+- Added previous-year comparisons for rounds, holes, shots, recorded yardage, eagles, birdies, pars, and bogeys.
+- Added Handicap Index movement, most-played course, and notable gross, Stableford, and differential rounds with direct links to private History.
+
+### Developer and admin changes
+
+- Added an authenticated server-derived review endpoint over verified individual rounds without a database migration.
+- Reconstructed period Handicap Index outcomes from eligible historical differentials and preserved honest pickup and missing-yardage semantics.
+- Added strict response validation plus calculation, filtering, route, and API-helper regression coverage.
+
 ## 0.45.0 - 2026-09-23
 
 ### User-facing changes
