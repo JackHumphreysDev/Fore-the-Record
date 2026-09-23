@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.47.0 - 2026-09-23
+
+### User-facing changes
+
+- Added a private Profile honours board with 37 achievements covering playing progress, scoring, competition and social play, course exploration, consistency, and Handicap Index improvement.
+- Added earned, in-progress, and not-started filters plus category filters, earned dates, and live progress indicators.
+- Added direct private History links from badges to the qualifying round where one exact card completed the requirement.
+
+### Developer and admin changes
+
+- Added authenticated server-derived badge calculation without persistent counters or a database migration.
+- Restricted every badge to verified individual rounds and preserved honest pickup, scoring, streak, course, and reconstructed Handicap Index semantics.
+- Added strict response validation plus catalogue, exclusion, route, and API-helper regression coverage.
+
 ## 0.46.0 - 2026-09-23
 
 ### User-facing changes

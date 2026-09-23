@@ -2338,6 +2338,36 @@ describe('GET /api/users/me/personal-milestones', () => {
   })
 })
 
+describe('GET /api/users/me/achievements', () => {
+  it('derives badge progress from the authenticated verified record', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [{
+        id: '11111111-1111-4111-8111-111111111111',
+        datePlayed: new Date('2026-09-09T00:00:00.000Z'),
+        createdAt: new Date('2026-09-09T12:00:00.000Z'),
+        category: 'COMPETITION', participation: 'INDIVIDUAL', scoringFormat: 'STABLEFORD', holeCount: 18,
+        grossScore: 89, stablefordPoints: 38, scoreDifferential: '12.4', isAcceptable: true,
+        scorecardStatus: 'VERIFIED', tee: { course: { id: '22222222-2222-4222-8222-222222222222' } },
+        holeScores: Array.from({ length: 18 }, (_, index) => ({ par: 4, strokesTaken: index === 0 ? 3 : 5, pickedUp: false })),
+      }],
+    })
+    const response = await request(app).get('/api/users/me/achievements')
+    expect(response.status).toBe(200)
+    expect(response.body.summary.total).toBeGreaterThan(30)
+    expect(response.body.achievements).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'rounds-1', qualifyingRoundId: '11111111-1111-4111-8111-111111111111' }),
+      expect.objectContaining({ id: 'first-competition', achievedAt: '2026-09-09T00:00:00.000Z' }),
+      expect.objectContaining({ id: 'stableford-36', current: 38 }),
+    ]))
+  })
+
+  it('returns 404 without a linked player profile', async () => {
+    userFindUniqueMock.mockResolvedValueOnce(null)
+    const response = await request(app).get('/api/users/me/achievements')
+    expect(response.status).toBe(404)
+  })
+})
+
 describe('player goals API', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
   const goalId = '22222222-2222-4222-8222-222222222222'

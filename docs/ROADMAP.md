@@ -46,7 +46,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 40. Round comparison. Completed in `0.44.0`.
 41. Playing Partners History. Completed in `0.45.0`.
 42. Season and Year Reviews. Completed in `0.46.0`.
-43. Achievements and Badges.
+43. Achievements and Badges. Completed in `0.47.0`.
 44. Notification Centre.
 45. Profile Customisation.
 46. Custom Statistics Dashboard.
@@ -58,6 +58,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Achievements and Badges — completed in 0.47.0
+
+The Profile screen now includes a private honours board with 37 server-derived badges. Categories cover playing progress, gross and Stableford scoring, birdies and eagles, competition and social-game participation, course exploration, consecutive-month playing streaks, and calculated Handicap Index improvement. Players can filter all badges by category and by earned, in-progress, or not-started status.
+
+Every badge displays its earned date or current progress. Where one exact round completed the requirement, the badge links directly to that private History card. Only verified individual rounds qualify; team, pending, and rejected cards cannot unlock a badge, and picked-up holes never receive invented strokes. Badges are calculated from the source record, cannot be manually awarded, and do not affect stored scores or Handicap Index calculations.
 
 ## Season and Year Reviews — completed in 0.46.0
 

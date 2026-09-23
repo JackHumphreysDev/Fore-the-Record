@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import './App.css'
 import AccountSettings from './AccountSettings.tsx'
+import AchievementsBadges from './AchievementsBadges.tsx'
 import { fetchWithAccessToken } from './api.ts'
 import {
   isAdminIdentity,
@@ -703,6 +704,13 @@ function App() {
                   />
                 </div>
               </div>
+              <AchievementsBadges
+                profileId={profile.id}
+                onOpenRound={(roundId) => {
+                  setHistoryFocusRoundId(roundId)
+                  setActiveView('history')
+                }}
+              />
               <div className="profile-actions">
                 <button
                   className="secondary-button"

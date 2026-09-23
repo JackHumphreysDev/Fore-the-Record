@@ -1,0 +1,30 @@
+.achievements-badges { border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.5); display: grid; gap: 18px; margin: 0 0 30px; padding: 22px; }
+.achievements-badges > header { align-items: end; display: flex; justify-content: space-between; gap: 24px; }
+.achievements-badges h2 { color: var(--forest-deep); font-family: Georgia,"Times New Roman",serif; font-size: clamp(26px,4vw,42px); font-weight: 400; margin: 5px 0; }
+.achievements-badges header p { color: var(--ink-muted); margin: 0; }
+.achievement-summary { align-items: end; display: grid; flex: 0 0 auto; text-align: right; }
+.achievement-summary strong { color: var(--forest-deep); font-family: Georgia,"Times New Roman",serif; font-size: 38px; font-weight: 400; }
+.achievement-summary span,.achievement-summary small { color: var(--ink-muted); font-size: 9px; }
+.achievement-filters { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.achievement-filters label { color: var(--ink-muted); display: grid; font-size: 8px; font-weight: 800; gap: 5px; letter-spacing: .08em; text-transform: uppercase; }
+.achievement-filters select { background: rgba(255,255,255,.7); border: 1px solid var(--line); border-radius: 9px; color: var(--forest-deep); min-height: 42px; padding: 8px 10px; }
+.achievement-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.achievement-grid article { border: 1px solid var(--line); border-radius: 12px; display: flex; gap: 12px; min-width: 0; padding: 14px; }
+.achievement-grid article.is-earned { background: linear-gradient(145deg,rgba(113,143,0,.16),rgba(168,213,192,.2)); border-color: rgba(113,143,0,.35); }
+.achievement-grid article.is-progress { background: rgba(255,255,255,.64); }
+.achievement-grid article.is-locked { filter: grayscale(.8); opacity: .62; }
+.achievement-badge { align-items: center; background: var(--forest); border: 2px solid rgba(255,255,255,.35); border-radius: 50%; color: white; display: flex; flex: 0 0 46px; font-family: Georgia,"Times New Roman",serif; font-size: 14px; height: 46px; justify-content: center; }
+.is-earned .achievement-badge { background: var(--olive); box-shadow: 0 0 0 4px rgba(113,143,0,.12); }
+.achievement-copy { display: grid; gap: 4px; min-width: 0; }
+.achievement-copy > span { color: var(--forest-soft); font-size: 7px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.achievement-copy h3 { color: var(--forest-deep); font-size: 12px; margin: 0; }
+.achievement-copy p { color: var(--ink-muted); font-size: 8px; line-height: 1.45; margin: 0; }
+.achievement-copy small { color: var(--forest-soft); font-size: 8px; font-weight: 750; }
+.achievement-copy button { background: none; border: 0; color: var(--forest); cursor: pointer; font: inherit; font-size: 8px; font-weight: 800; justify-self: start; padding: 4px 0 0; }
+.achievement-progress { background: rgba(5,54,40,.1); border-radius: 99px; height: 5px; margin-top: 3px; overflow: hidden; }
+.achievement-progress i { background: var(--olive); display: block; height: 100%; }
+.achievement-note { border-top: 1px solid var(--line); color: var(--ink-muted); font-size: 8px; margin: 0; padding-top: 12px; }
+.achievement-state { color: var(--ink-muted); padding: 30px; text-align: center; }
+
+@media (max-width: 900px) { .achievement-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 560px) { .achievements-badges > header { align-items: flex-start; display: grid; } .achievement-summary { text-align: left; } .achievement-filters,.achievement-grid { grid-template-columns: 1fr; } }

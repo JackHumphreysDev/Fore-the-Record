@@ -62,6 +62,7 @@ import {
   type PerformanceAnalysisFilters,
 } from './performanceAnalysis.js'
 import { buildPersonalMilestones } from './personalMilestones.js'
+import { buildAchievements } from './achievements.js'
 import { buildCoursePersonalBests } from './coursePersonalBests.js'
 import {
   buildPlayerGoalMetrics,
@@ -3738,6 +3739,45 @@ app.get('/api/users/me/personal-milestones', async (_request, response) => {
       })),
     ),
   )
+})
+
+app.get('/api/users/me/achievements', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      rounds: {
+        orderBy: [{ datePlayed: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          datePlayed: true,
+          createdAt: true,
+          category: true,
+          participation: true,
+          scoringFormat: true,
+          holeCount: true,
+          grossScore: true,
+          stablefordPoints: true,
+          scoreDifferential: true,
+          isAcceptable: true,
+          scorecardStatus: true,
+          tee: { select: { course: { select: { id: true } } } },
+          holeScores: {
+            orderBy: { holeNumber: 'asc' },
+            select: { par: true, strokesTaken: true, pickedUp: true },
+          },
+        },
+      },
+    },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+  response.status(200).json(buildAchievements(user.rounds.map((round) => ({
+    ...round,
+    scoreDifferential: round.scoreDifferential === null ? null : Number(round.scoreDifferential),
+  }))))
 })
 
 app.get('/api/users/me/goals', async (_request, response) => {
