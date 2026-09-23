@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'round-comparison',
+    publishedAt: '2026-09-23',
+    title: 'Put two rounds side by side',
+    summary: 'Choose two rounds from the same course and see where the scores and playing details changed from one card to the other.',
+    highlights: [
+      'Compare gross score, score to par, score differential, Handicap Index outcome, and Front 9 and Back 9 totals.',
+      'Compare rounds from different tees on the same course when they cover the same 18-hole, Front 9, or Back 9 layout.',
+      'See every hole marked as gained, lost, the same, or unavailable, with pickups kept honestly scoreless.',
+      'Compare recorded putting, driving, approach, short-game, penalty, and bunker figures, then open either complete round in History.',
+    ],
+  },
+  {
     id: 'advanced-statistics-insights',
     publishedAt: '2026-09-23',
     title: 'See where your game is moving',

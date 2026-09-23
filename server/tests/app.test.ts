@@ -3327,6 +3327,61 @@ describe('GET /api/users/me/performance-analysis', () => {
   })
 })
 
+describe('GET /api/users/me/round-comparison', () => {
+  const courseId = '11111111-1111-4111-8111-111111111111'
+  const teeId = '22222222-2222-4222-8222-222222222222'
+  const baselineId = '33333333-3333-4333-8333-333333333333'
+  const comparedId = '44444444-4444-4444-8444-444444444444'
+  const comparisonRound = (id: string, date: string, strokes: number) => ({
+    id,
+    datePlayed: new Date(`${date}T00:00:00.000Z`),
+    createdAt: new Date(`${date}T12:00:00.000Z`),
+    category: 'CASUAL',
+    participation: 'INDIVIDUAL',
+    scoringFormat: 'STROKE_PLAY',
+    holeCount: 18,
+    nineHoleSegment: null,
+    grossScore: strokes * 18,
+    stablefordPoints: null,
+    scoreDifferential: strokes * 18 - 72,
+    isAcceptable: true,
+    scorecardStatus: 'VERIFIED',
+    tee: { id: teeId, teeName: 'White', course: { id: courseId, name: 'Main Course', club: { name: 'Example Golf Club' } } },
+    holeScores: Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1, par: 4, strokesTaken: strokes, pickedUp: false,
+      putts: 2, fairwayResult: 'HIT', greenInRegulation: true,
+      penaltyStrokes: 0, bunkerVisits: 0, upAndDownResult: 'NOT_ATTEMPTED',
+    })),
+  })
+
+  it('returns a private comparison for two owned verified rounds', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      rounds: [
+        comparisonRound(comparedId, '2026-09-08', 4),
+        comparisonRound(baselineId, '2026-09-01', 5),
+      ],
+    })
+    const response = await request(app).get(
+      `/api/users/me/round-comparison?baselineRoundId=${baselineId}&comparedRoundId=${comparedId}`,
+    )
+    expect(response.status).toBe(200)
+    expect(response.body.selected).toEqual({ baselineRoundId: baselineId, comparedRoundId: comparedId })
+    expect(response.body.comparison).toMatchObject({ grossChange: -18, gainedHoles: 18, lostHoles: 0 })
+    expect(userFindUniqueMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+    }))
+  })
+
+  it('rejects incomplete or invalid round identifiers before querying', async () => {
+    const response = await request(app).get(
+      `/api/users/me/round-comparison?baselineRoundId=${baselineId}`,
+    )
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Choose two valid rounds to compare' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /api/users/me/course-personal-bests', () => {
   it('returns personal records from the authenticated player\'s verified rounds', async () => {
     userFindUniqueMock.mockResolvedValueOnce({
