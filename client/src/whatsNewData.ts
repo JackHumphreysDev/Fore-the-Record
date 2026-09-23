@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'achievements-badges',
+    publishedAt: '2026-09-23',
+    title: 'Build your golfing honours board',
+    summary: 'Unlock badges naturally as your rounds, scores, courses, and Handicap Index tell more of your story.',
+    highlights: [
+      'Follow 37 achievements across playing progress, scoring, competitions, social games, exploration, and consistency.',
+      'Filter badges by category or see what is earned, in progress, and still waiting to begin.',
+      'See the date each badge was earned and open its qualifying round in History when available.',
+      'Badge progress comes directly from verified rounds and never changes a score or your Handicap Index.',
+    ],
+  },
+  {
     id: 'season-year-reviews',
     publishedAt: '2026-09-23',
     title: 'Revisit every season of your golf',
