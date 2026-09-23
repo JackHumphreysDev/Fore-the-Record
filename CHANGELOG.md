@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.44.0 - 2026-09-23
+
+### User-facing changes
+
+- Added private side-by-side comparison for two verified individual rounds from the same course and matching hole layout, including different tees.
+- Added gross, score-to-par, Stableford, score-differential, Handicap Index outcome, Front 9, Back 9, and detailed-stat comparisons where the underlying data exists.
+- Added hole-by-hole gained, lost, same, and unavailable results plus direct links to each complete card in Round History.
+
+### Developer and admin changes
+
+- Added an authenticated server-derived comparison endpoint with ownership, verification, participation, course, and layout safeguards.
+- Reconstructed the Handicap Index and counting status after each selected historical round from eligible differentials rather than storing a duplicate value.
+- Preserved pickup and missing-statistic semantics, added strict client response validation, and added calculation, route, and API-helper regression coverage.
+
 ## 0.43.0 - 2026-09-23
 
 ### User-facing changes

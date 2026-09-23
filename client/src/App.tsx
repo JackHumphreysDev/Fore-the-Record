@@ -22,6 +22,7 @@ import PersonalMilestones from './PersonalMilestones.tsx'
 import PlayerGoals from './PlayerGoals.tsx'
 import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
+import RoundComparison from './RoundComparison.tsx'
 import Support from './Support.tsx'
 import type { SubmissionType } from './submissionApi.ts'
 import { isSubmissionUnreadCountResponse } from './submissionApi.ts'
@@ -746,6 +747,13 @@ function App() {
               }}
             />
             <PerformanceAnalysis profileId={profile.id} />
+            <RoundComparison
+              profileId={profile.id}
+              onOpenRound={(roundId) => {
+                setHistoryFocusRoundId(roundId)
+                setActiveView('history')
+              }}
+            />
             <CoursePersonalBests profileId={profile.id} />
             <RoundEntry
               profile={profile}

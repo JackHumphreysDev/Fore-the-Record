@@ -72,6 +72,10 @@ import {
 } from './playerGoals.js'
 import { buildHandicapProgression } from './handicapProgression.js'
 import {
+  buildRoundComparison,
+  RoundComparisonError,
+} from './roundComparison.js'
+import {
   buildFriendGroupStandings,
   friendGroupPeriodStart,
   FriendGroupValidationError,
@@ -3328,6 +3332,84 @@ app.get('/api/users/me/handicap-progression', async (_request, response) => {
       ),
     ),
   )
+})
+
+app.get('/api/users/me/round-comparison', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const baselineRoundId = typeof request.query.baselineRoundId === 'string' && request.query.baselineRoundId.trim()
+    ? request.query.baselineRoundId.trim()
+    : undefined
+  const comparedRoundId = typeof request.query.comparedRoundId === 'string' && request.query.comparedRoundId.trim()
+    ? request.query.comparedRoundId.trim()
+    : undefined
+  if (Boolean(baselineRoundId) !== Boolean(comparedRoundId) ||
+    (baselineRoundId && !UUID_PATTERN.test(baselineRoundId)) ||
+    (comparedRoundId && !UUID_PATTERN.test(comparedRoundId))) {
+    response.status(400).json({ error: 'Choose two valid rounds to compare' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: {
+      rounds: {
+        orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          id: true,
+          datePlayed: true,
+          createdAt: true,
+          category: true,
+          participation: true,
+          scoringFormat: true,
+          holeCount: true,
+          nineHoleSegment: true,
+          grossScore: true,
+          stablefordPoints: true,
+          scoreDifferential: true,
+          isAcceptable: true,
+          scorecardStatus: true,
+          tee: {
+            select: {
+              id: true,
+              teeName: true,
+              course: { select: { id: true, name: true, club: { select: { name: true } } } },
+            },
+          },
+          holeScores: {
+            orderBy: { holeNumber: 'asc' },
+            select: {
+              holeNumber: true,
+              par: true,
+              strokesTaken: true,
+              pickedUp: true,
+              putts: true,
+              fairwayResult: true,
+              greenInRegulation: true,
+              penaltyStrokes: true,
+              bunkerVisits: true,
+              upAndDownResult: true,
+            },
+          },
+        },
+      },
+    },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+  try {
+    response.status(200).json(buildRoundComparison(user.rounds.map((round) => ({
+      ...round,
+      scoreDifferential: round.scoreDifferential === null ? null : Number(round.scoreDifferential),
+    })), baselineRoundId, comparedRoundId))
+  } catch (error: unknown) {
+    if (error instanceof RoundComparisonError) {
+      response.status(400).json({ error: error.message })
+      return
+    }
+    throw error
+  }
 })
 
 app.get('/api/users/me/performance-summary', async (_request, response) => {

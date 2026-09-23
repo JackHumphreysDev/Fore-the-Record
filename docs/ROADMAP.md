@@ -4,7 +4,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 
 ## Suggested delivery order
 
-1. Custom domain and production email delivery.
+1. Custom domain and production email delivery. Deferred to item 52 while the domain is being secured.
 2. Admin-role and audit-log foundation. Completed in `0.2.0`.
 3. Admin portal. Read-only monitoring completed in `0.3.0`; guarded account management completed in `0.9.0`; audited round correction and deletion completed in `0.10.0`.
 4. User submissions and admin messaging. Submission foundation completed in `0.4.0`; private conversations and audited resolution controls completed in `0.5.0`; active and archived administrator queues completed in `0.8.1`; linked round-correction requests completed in `0.12.0`; unread indicators completed in `0.13.0`; rate limiting completed in `0.13.1`.
@@ -43,8 +43,27 @@ This roadmap records agreed future work. Items are planned requirements, not com
 37. Live Round mode. Completed in `0.41.0`.
 38. Detailed round statistics. Completed in `0.42.0`.
 39. Advanced statistics insights. Completed in `0.43.0`.
+40. Round comparison. Completed in `0.44.0`.
+41. Playing Partners History.
+42. Season and Year Reviews.
+43. Achievements and Badges.
+44. Notification Centre.
+45. Profile Customisation.
+46. Custom Statistics Dashboard.
+47. Knockout Competitions.
+48. Golf Bag and Club Management.
+49. Tournament Series.
+50. Calendar and Upcoming Rounds.
+51. Data Import.
+52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Round comparison — completed in 0.44.0
+
+The Rounds screen can now compare two private verified individual rounds from the same course and exact 18-hole, Front 9, or Back 9 layout. Different tees are supported and clearly identified. The comparison covers gross score, score to par, Stableford points when both cards use Stableford, score differential, reconstructed Handicap Index outcome, Front 9 and Back 9 totals, detailed playing statistics, and every matching hole.
+
+Hole results state whether the compared round gained, lost, or matched strokes. Pickups and incomplete optional statistics remain unavailable rather than receiving an invented score or zero. Team, pending, rejected, and incomplete cards cannot be selected. Either selected round can be opened in the player's private History, and no stored score or Handicap Index calculation is changed.
 
 ## Advanced statistics insights — completed in 0.43.0
 
