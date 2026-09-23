@@ -86,6 +86,12 @@ const {
   playerGoalFindManyMock,
   playerGoalUpsertMock,
   playerGoalDeleteManyMock,
+  notificationCountMock,
+  notificationFindManyMock,
+  notificationFindFirstMock,
+  notificationCreateMock,
+  notificationCreateManyMock,
+  notificationUpdateManyMock,
   createScorecardPhotoUploadMock,
   createScorecardPhotoViewUrlMock,
   deleteScorecardPhotosMock,
@@ -175,6 +181,12 @@ const {
   playerGoalFindManyMock: vi.fn(),
   playerGoalUpsertMock: vi.fn(),
   playerGoalDeleteManyMock: vi.fn(),
+  notificationCountMock: vi.fn(),
+  notificationFindManyMock: vi.fn(),
+  notificationFindFirstMock: vi.fn(),
+  notificationCreateMock: vi.fn(),
+  notificationCreateManyMock: vi.fn(),
+  notificationUpdateManyMock: vi.fn(),
   createScorecardPhotoUploadMock: vi.fn(),
   createScorecardPhotoViewUrlMock: vi.fn(),
   deleteScorecardPhotosMock: vi.fn(),
@@ -253,6 +265,14 @@ vi.mock('../src/database.js', () => ({
       findMany: playerGoalFindManyMock,
       upsert: playerGoalUpsertMock,
       deleteMany: playerGoalDeleteManyMock,
+    },
+    notification: {
+      count: notificationCountMock,
+      findMany: notificationFindManyMock,
+      findFirst: notificationFindFirstMock,
+      create: notificationCreateMock,
+      createMany: notificationCreateManyMock,
+      updateMany: notificationUpdateManyMock,
     },
     round: {
       count: roundCountMock,
@@ -487,6 +507,17 @@ beforeEach(() => {
   playerGoalUpsertMock.mockReset()
   playerGoalDeleteManyMock.mockReset()
   playerGoalDeleteManyMock.mockResolvedValue({ count: 0 })
+  notificationCountMock.mockReset()
+  notificationCountMock.mockResolvedValue(0)
+  notificationFindManyMock.mockReset()
+  notificationFindManyMock.mockResolvedValue([])
+  notificationFindFirstMock.mockReset()
+  notificationCreateMock.mockReset()
+  notificationCreateMock.mockResolvedValue({})
+  notificationCreateManyMock.mockReset()
+  notificationCreateManyMock.mockResolvedValue({ count: 0 })
+  notificationUpdateManyMock.mockReset()
+  notificationUpdateManyMock.mockResolvedValue({ count: 0 })
   createScorecardPhotoUploadMock.mockReset()
   createScorecardPhotoViewUrlMock.mockReset()
   deleteScorecardPhotosMock.mockReset()
@@ -609,6 +640,52 @@ describe('API authentication', () => {
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     )
     expect(userFindUniqueMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('notification centre', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+
+  it('lists the signed-in player notifications with filters and unread count', async () => {
+    const createdAt = new Date('2026-09-23T12:00:00.000Z')
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    notificationFindManyMock.mockResolvedValueOnce([{
+      id: '22222222-2222-4222-8222-222222222222',
+      category: 'SOCIAL',
+      eventType: 'FRIEND_REQUEST_RECEIVED',
+      title: 'New friend request',
+      message: 'Alex sent you a friend request.',
+      action: 'FRIENDS',
+      actionTargetId: '33333333-3333-4333-8333-333333333333',
+      readAt: null,
+      createdAt,
+    }])
+    notificationCountMock.mockResolvedValueOnce(1).mockResolvedValueOnce(1)
+
+    const response = await request(app).get('/api/users/me/notifications?category=SOCIAL&unread=true&page=1&pageSize=10')
+
+    expect(response.status).toBe(200)
+    expect(response.body.notifications[0]).toMatchObject({
+      category: 'SOCIAL',
+      createdAt: createdAt.toISOString(),
+      readAt: null,
+    })
+    expect(response.body.pagination).toEqual({ page: 1, pageSize: 10, total: 1, totalPages: 1 })
+    expect(response.body.unreadCount).toBe(1)
+  })
+
+  it('marks all of the signed-in player notifications as read', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    notificationUpdateManyMock.mockResolvedValueOnce({ count: 3 })
+
+    const response = await request(app).post('/api/users/me/notifications/read-all')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ updated: 3 })
+    expect(notificationUpdateManyMock).toHaveBeenCalledWith({
+      where: { recipientId: userId, readAt: null },
+      data: { readAt: expect.any(Date) },
+    })
   })
 })
 
@@ -2996,8 +3073,8 @@ describe('friend connections API', () => {
   })
 
   it('only lets the receiving player accept a pending request', async () => {
-    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId })
-    friendshipFindFirstMock.mockResolvedValueOnce({ id: friendshipId })
+    userFindUniqueMock.mockResolvedValueOnce({ id: currentUserId, name: 'Jack Player' })
+    friendshipFindFirstMock.mockResolvedValueOnce({ id: friendshipId, requesterId: otherUserId })
     friendshipUpdateMock.mockResolvedValueOnce({})
 
     const response = await request(app)
@@ -3015,7 +3092,7 @@ describe('friend connections API', () => {
           status: 'ACTIVE',
         },
       },
-      select: { id: true },
+      select: { id: true, requesterId: true },
     })
     expect(friendshipUpdateMock).toHaveBeenCalledWith({
       where: { id: friendshipId },

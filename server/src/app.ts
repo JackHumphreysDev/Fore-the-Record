@@ -110,6 +110,8 @@ import {
   RoundScorecardStatus,
   ChallengeMetric,
   ChallengeStatus,
+  NotificationAction,
+  NotificationCategory,
 } from './generated/prisma/enums.js'
 import {
   logRound,
@@ -863,6 +865,117 @@ app.use('/api/admin', async (_request, response, next) => {
 })
 
 app.use('/api/admin/catalogue', adminCatalogueRouter)
+
+const NOTIFICATION_SELECT = {
+  id: true,
+  category: true,
+  eventType: true,
+  title: true,
+  message: true,
+  action: true,
+  actionTargetId: true,
+  readAt: true,
+  createdAt: true,
+} as const
+
+function serializeNotification(notification: {
+  id: string
+  category: NotificationCategory
+  eventType: string
+  title: string
+  message: string
+  action: NotificationAction
+  actionTargetId: string | null
+  readAt: Date | null
+  createdAt: Date
+}) {
+  return {
+    ...notification,
+    readAt: notification.readAt?.toISOString() ?? null,
+    createdAt: notification.createdAt.toISOString(),
+  }
+}
+
+app.get('/api/users/me/notifications', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+
+  const page = Number(request.query.page ?? 1)
+  const pageSize = Number(request.query.pageSize ?? 20)
+  const category = request.query.category
+  const unreadOnly = request.query.unread === 'true'
+  if (!Number.isInteger(page) || page < 1 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50) {
+    return response.status(400).json({ error: 'Invalid notification pagination' })
+  }
+  if (category !== undefined && (typeof category !== 'string' || !Object.values(NotificationCategory).includes(category as NotificationCategory))) {
+    return response.status(400).json({ error: 'Invalid notification category' })
+  }
+
+  const where = {
+    recipientId: user.id,
+    ...(category ? { category: category as NotificationCategory } : {}),
+    ...(unreadOnly ? { readAt: null } : {}),
+  }
+  const [notifications, total, unreadCount] = await Promise.all([
+    prisma.notification.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: NOTIFICATION_SELECT,
+    }),
+    prisma.notification.count({ where }),
+    prisma.notification.count({ where: { recipientId: user.id, readAt: null } }),
+  ])
+  response.status(200).json({
+    notifications: notifications.map(serializeNotification),
+    pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+    unreadCount,
+  })
+})
+
+app.get('/api/users/me/notifications/unread-count', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const count = await prisma.notification.count({ where: { recipientId: user.id, readAt: null } })
+  response.status(200).json({ count })
+})
+
+app.patch('/api/users/me/notifications/:notificationId/read', async (request, response) => {
+  const notificationId = request.params.notificationId
+  if (!UUID_PATTERN.test(notificationId)) return response.status(400).json({ error: 'Invalid notification ID' })
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const result = await prisma.notification.updateMany({
+    where: { id: notificationId, recipientId: user.id, readAt: null },
+    data: { readAt: new Date() },
+  })
+  if (result.count === 0) {
+    const owned = await prisma.notification.findFirst({ where: { id: notificationId, recipientId: user.id }, select: { id: true } })
+    if (!owned) return response.status(404).json({ error: 'Notification not found' })
+  }
+  response.status(204).send()
+})
+
+app.post('/api/users/me/notifications/read-all', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const result = await prisma.notification.updateMany({
+    where: { recipientId: user.id, readAt: null },
+    data: { readAt: new Date() },
+  })
+  response.status(200).json({ updated: result.count })
+})
 
 app.get('/api/admin/me', (_request, response) => {
   response.status(200).json(getAdminProfile(response.locals))
@@ -2141,6 +2254,19 @@ app.patch(
         }),
       ])
 
+      await prisma.notification.create({
+        data: {
+          recipientId: review.round.userId,
+          category: NotificationCategory.ROUND,
+          eventType: 'SCORECARD_REVIEW_REJECTED',
+          title: 'Scorecard review needs attention',
+          message: 'Your submitted scorecard was not approved. Open the round to review its status.',
+          action: NotificationAction.HISTORY,
+          actionTargetId: review.round.id,
+          dedupeKey: `scorecard-review:${review.id}:rejected`,
+        },
+      })
+
       response.status(200).json({ status: 'rejected' })
       return
     }
@@ -2409,6 +2535,21 @@ app.patch(
       }),
     ])
 
+    await prisma.notification.create({
+      data: {
+        recipientId: review.round.userId,
+        category: NotificationCategory.ROUND,
+        eventType: amended ? 'SCORECARD_REVIEW_AMENDED' : 'SCORECARD_REVIEW_APPROVED',
+        title: amended ? 'Scorecard amended and approved' : 'Scorecard approved',
+        message: amended
+          ? 'An administrator amended and approved your submitted scorecard. Your round and handicap record have been updated.'
+          : 'Your submitted scorecard has been approved and added to your verified record.',
+        action: NotificationAction.HISTORY,
+        actionTargetId: review.round.id,
+        dedupeKey: `scorecard-review:${review.id}:approved`,
+      },
+    })
+
     response.status(200).json({
       status: 'approved',
       amended,
@@ -2486,7 +2627,7 @@ app.post(
 
     const submission = await prisma.submission.findUnique({
       where: { id: submissionId },
-      select: { id: true, status: true },
+      select: { id: true, userId: true, status: true },
     })
 
     if (!submission) {
@@ -2527,6 +2668,19 @@ app.post(
       }),
     ])
 
+    await prisma.notification.create({
+      data: {
+        recipientId: submission.userId,
+        category: NotificationCategory.SUPPORT,
+        eventType: 'SUPPORT_REPLY_RECEIVED',
+        title: 'New support reply',
+        message: 'An administrator replied to your submission.',
+        action: NotificationAction.SUPPORT,
+        actionTargetId: submissionId,
+        dedupeKey: `support-reply:${message.id}`,
+      },
+    })
+
     response.status(201).json(message)
   },
 )
@@ -2559,7 +2713,7 @@ app.patch(
 
     const submission = await prisma.submission.findUnique({
       where: { id: submissionId },
-      select: SUBMISSION_STATUS_SELECT,
+      select: { ...SUBMISSION_STATUS_SELECT, userId: true },
     })
 
     if (!submission) {
@@ -2568,7 +2722,11 @@ app.patch(
     }
 
     if (submission.status === input.status) {
-      response.status(200).json(submission)
+      response.status(200).json({
+        id: submission.id,
+        status: submission.status,
+        updatedAt: submission.updatedAt,
+      })
       return
     }
 
@@ -2590,6 +2748,19 @@ app.patch(
         },
       }),
     ])
+
+    await prisma.notification.create({
+      data: {
+        recipientId: submission.userId,
+        category: NotificationCategory.SUPPORT,
+        eventType: 'SUPPORT_STATUS_UPDATED',
+        title: 'Support request updated',
+        message: `Your submission is now ${input.status.toLowerCase().replaceAll('_', ' ')}.`,
+        action: NotificationAction.SUPPORT,
+        actionTargetId: submissionId,
+        dedupeKey: `support-status:${submissionId}:${input.status}:${updatedSubmission.updatedAt.toISOString()}`,
+      },
+    })
 
     response.status(200).json(updatedSubmission)
   },
@@ -2881,6 +3052,7 @@ app.get('/api/users/me/rounds', async (_request, response) => {
   const user = await prisma.user.findUnique({
     where: { authUserId: authenticatedUser.id },
     select: {
+      id: true,
       rounds: {
         orderBy: [{ datePlayed: 'desc' }, { createdAt: 'desc' }],
         select: {
@@ -3746,6 +3918,7 @@ app.get('/api/users/me/achievements', async (_request, response) => {
   const user = await prisma.user.findUnique({
     where: { authUserId: authenticatedUser.id },
     select: {
+      id: true,
       rounds: {
         orderBy: [{ datePlayed: 'asc' }, { createdAt: 'asc' }],
         select: {
@@ -3774,10 +3947,27 @@ app.get('/api/users/me/achievements', async (_request, response) => {
     response.status(404).json({ error: 'User not found' })
     return
   }
-  response.status(200).json(buildAchievements(user.rounds.map((round) => ({
+  const result = buildAchievements(user.rounds.map((round) => ({
     ...round,
     scoreDifferential: round.scoreDifferential === null ? null : Number(round.scoreDifferential),
-  }))))
+  })))
+  const earned = result.achievements.filter((achievement) => achievement.achievedAt !== null)
+  if (earned.length > 0) {
+    await prisma.notification.createMany({
+      data: earned.map((achievement) => ({
+        recipientId: user.id,
+        category: NotificationCategory.ACHIEVEMENT,
+        eventType: 'ACHIEVEMENT_EARNED',
+        title: achievement.title,
+        message: achievement.description,
+        action: NotificationAction.ACHIEVEMENTS,
+        actionTargetId: achievement.id,
+        dedupeKey: `achievement:${user.id}:${achievement.id}`,
+      })),
+      skipDuplicates: true,
+    })
+  }
+  response.status(200).json(result)
 })
 
 app.get('/api/users/me/goals', async (_request, response) => {
@@ -4211,7 +4401,7 @@ app.get('/api/users/me/friend-groups', async (_request, response) => {
 
 app.post('/api/users/me/friend-groups', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
-  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
   if (!user) return response.status(404).json({ error: 'User not found' })
   let input: ReturnType<typeof parseFriendGroupBody>
   try { input = parseFriendGroupBody(request.body) } catch (error: unknown) {
@@ -4225,6 +4415,19 @@ app.post('/api/users/me/friend-groups', async (request, response) => {
     data: { name: input.name, description: input.description, ownerId: user.id, members: { create: input.memberIds.map((userId) => ({ userId })) } },
     select: FRIEND_GROUP_SELECT,
   })
+  await prisma.notification.createMany({
+    data: input.memberIds.map((recipientId) => ({
+      recipientId,
+      category: NotificationCategory.GROUP,
+      eventType: 'FRIEND_GROUP_ADDED',
+      title: `Added to ${group.name}`,
+      message: `${user.name} added you to a private player group.`,
+      action: NotificationAction.GROUPS,
+      actionTargetId: group.id,
+      dedupeKey: `friend-group:${group.id}:member:${recipientId}`,
+    })),
+    skipDuplicates: true,
+  })
   response.status(201).json(serializeFriendGroup(group, user.id))
 })
 
@@ -4232,7 +4435,7 @@ app.put('/api/users/me/friend-groups/:groupId', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const groupId = request.params.groupId
   if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
-  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
   if (!user) return response.status(404).json({ error: 'User not found' })
   let input: ReturnType<typeof parseFriendGroupBody>
   try { input = parseFriendGroupBody(request.body) } catch (error: unknown) {
@@ -4250,6 +4453,19 @@ app.put('/api/users/me/friend-groups/:groupId', async (request, response) => {
     prisma.friendGroupMember.createMany({ data: input.memberIds.map((userId) => ({ groupId, userId })) }),
   ])
   const group = await prisma.friendGroup.findUniqueOrThrow({ where: { id: groupId }, select: FRIEND_GROUP_SELECT })
+  await prisma.notification.createMany({
+    data: input.memberIds.map((recipientId) => ({
+      recipientId,
+      category: NotificationCategory.GROUP,
+      eventType: 'FRIEND_GROUP_ADDED',
+      title: `Added to ${group.name}`,
+      message: `${user.name} added you to a private player group.`,
+      action: NotificationAction.GROUPS,
+      actionTargetId: group.id,
+      dedupeKey: `friend-group:${group.id}:member:${recipientId}`,
+    })),
+    skipDuplicates: true,
+  })
   response.status(200).json(serializeFriendGroup(group, user.id))
 })
 
@@ -4418,7 +4634,7 @@ app.post('/api/users/me/friend-groups/:groupId/messages', async (request, respon
   const authenticatedUser = getRequestUser(response.locals)
   const groupId = request.params.groupId
   if (!UUID_PATTERN.test(groupId)) return response.status(400).json({ error: 'Invalid group reference' })
-  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
   if (!user) return response.status(404).json({ error: 'User not found' })
   const group = await prisma.friendGroup.findFirst({
     where: { id: groupId, OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
@@ -4440,6 +4656,19 @@ app.post('/api/users/me/friend-groups/:groupId/messages', async (request, respon
     if (!round) return response.status(400).json({ error: 'Comments can be attached only to a verified round from this group' })
   }
   const message = await prisma.friendGroupMessage.create({ data: { groupId, authorId: user.id, roundId: typeof requestedRoundId === 'string' ? requestedRoundId : null, body }, select: FRIEND_GROUP_MESSAGE_SELECT })
+  await prisma.notification.createMany({
+    data: playerIds.filter((recipientId) => recipientId !== user.id).map((recipientId) => ({
+      recipientId,
+      category: NotificationCategory.GROUP,
+      eventType: 'FRIEND_GROUP_MESSAGE',
+      title: 'New group message',
+      message: `${user.name} posted in one of your private player groups.`,
+      action: NotificationAction.GROUPS,
+      actionTargetId: groupId,
+      dedupeKey: `friend-group-message:${message.id}:recipient:${recipientId}`,
+    })),
+    skipDuplicates: true,
+  })
   response.status(201).json(serializeFriendGroupMessage(message, user.id, group.ownerId))
 })
 
@@ -4863,7 +5092,7 @@ app.get('/api/users/me/challenges', async (_request, response) => {
 
 app.post('/api/users/me/challenges', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
-  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
   if (!user) return response.status(404).json({ error: 'User not found' })
   const opponentId = typeof request.body?.opponentId === 'string' ? request.body.opponentId : ''
   const metric = Object.values(ChallengeMetric).includes(request.body?.metric) ? request.body.metric as ChallengeMetric : null
@@ -4884,12 +5113,24 @@ app.post('/api/users/me/challenges', async (request, response) => {
     data: { creatorId: user.id, opponentId, metric, startsOn, endsOn },
     select: { id: true },
   })
+  await prisma.notification.create({
+    data: {
+      recipientId: opponentId,
+      category: NotificationCategory.SOCIAL,
+      eventType: 'CHALLENGE_RECEIVED',
+      title: 'New player challenge',
+      message: `${user.name} invited you to a challenge.`,
+      action: NotificationAction.FRIENDS,
+      actionTargetId: challenge.id,
+      dedupeKey: `challenge:${challenge.id}:received`,
+    },
+  })
   response.status(201).json(challenge)
 })
 
 app.patch('/api/users/me/challenges/:id', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
-  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
   if (!user) return response.status(404).json({ error: 'User not found' })
   const action = request.body?.action
   const challenge = await prisma.playerChallenge.findUnique({ where: { id: request.params.id }, select: { creatorId: true, opponentId: true, status: true } })
@@ -4902,6 +5143,19 @@ app.patch('/api/users/me/challenges/:id', async (request, response) => {
   if (challenge.creatorId === user.id && ['PENDING', 'ACTIVE'].includes(challenge.status) && action === 'cancel') status = ChallengeStatus.CANCELLED
   if (!status) return response.status(403).json({ error: 'This challenge cannot be updated' })
   await prisma.playerChallenge.update({ where: { id: request.params.id }, data: { status } })
+  const recipientId = user.id === challenge.creatorId ? challenge.opponentId : challenge.creatorId
+  await prisma.notification.create({
+    data: {
+      recipientId,
+      category: NotificationCategory.SOCIAL,
+      eventType: `CHALLENGE_${status}`,
+      title: 'Challenge updated',
+      message: `${user.name} ${status.toLowerCase()} the challenge.`,
+      action: NotificationAction.FRIENDS,
+      actionTargetId: request.params.id,
+      dedupeKey: `challenge:${request.params.id}:status:${status}`,
+    },
+  })
   response.status(200).json({ id: request.params.id, status })
 })
 
@@ -4965,7 +5219,7 @@ app.get('/api/users/me/round-shares', async (_request, response) => {
 
 app.post('/api/users/me/round-shares', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
-  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
   if (!user) return response.status(404).json({ error: 'User not found' })
   const roundId = typeof request.body?.roundId === 'string' ? request.body.roundId : ''
   const recipientId = typeof request.body?.recipientId === 'string' ? request.body.recipientId : ''
@@ -4980,6 +5234,18 @@ app.post('/api/users/me/round-shares', async (request, response) => {
   if (!friendship) return response.status(400).json({ error: 'Rounds can only be shared with accepted friends' })
   try {
     const share = await prisma.roundShare.create({ data: { roundId, recipientId }, select: { id: true } })
+    await prisma.notification.create({
+      data: {
+        recipientId,
+        category: NotificationCategory.SOCIAL,
+        eventType: 'ROUND_SHARED',
+        title: 'A round was shared with you',
+        message: `${user.name} shared a round from their record.`,
+        action: NotificationAction.FRIENDS,
+        actionTargetId: share.id,
+        dedupeKey: `round-share:${share.id}`,
+      },
+    })
     response.status(201).json(share)
   } catch (error: unknown) {
     if (isRecord(error) && error.code === 'P2002') return response.status(409).json({ error: 'This round is already shared with that friend' })
@@ -5292,7 +5558,7 @@ app.post('/api/users/me/friend-requests', async (request, response) => {
 
   const requester = await prisma.user.findUnique({
     where: { authUserId: authenticatedUser.id },
-    select: { id: true },
+    select: { id: true, name: true },
   })
 
   if (!requester) {
@@ -5351,6 +5617,18 @@ app.post('/api/users/me/friend-requests', async (request, response) => {
         updatedAt: true,
       },
     })
+    await prisma.notification.create({
+      data: {
+        recipientId: addressee.id,
+        category: NotificationCategory.SOCIAL,
+        eventType: 'FRIEND_REQUEST_RECEIVED',
+        title: 'New friend request',
+        message: `${requester.name} sent you a friend request.`,
+        action: NotificationAction.FRIENDS,
+        actionTargetId: friendship.id,
+        dedupeKey: `friend-request:${friendship.id}:received`,
+      },
+    })
     response.status(201).json({
       ...friendship,
       player: serializeFriendPlayer(addressee),
@@ -5381,7 +5659,7 @@ app.patch('/api/users/me/friend-requests/:id', async (request, response) => {
 
   const user = await prisma.user.findUnique({
     where: { authUserId: authenticatedUser.id },
-    select: { id: true },
+    select: { id: true, name: true },
   })
   if (!user) {
     response.status(404).json({ error: 'User not found' })
@@ -5398,7 +5676,7 @@ app.patch('/api/users/me/friend-requests/:id', async (request, response) => {
         status: UserStatus.ACTIVE,
       },
     },
-    select: { id: true },
+    select: { id: true, requesterId: true },
   })
   if (!friendship) {
     response.status(404).json({ error: 'Friend request not found' })
@@ -5414,6 +5692,18 @@ app.patch('/api/users/me/friend-requests/:id', async (request, response) => {
   await prisma.friendship.update({
     where: { id: friendship.id },
     data: { status: FriendshipStatus.ACCEPTED },
+  })
+  await prisma.notification.create({
+    data: {
+      recipientId: friendship.requesterId,
+      category: NotificationCategory.SOCIAL,
+      eventType: 'FRIEND_REQUEST_ACCEPTED',
+      title: 'Friend request accepted',
+      message: `${user.name} accepted your friend request.`,
+      action: NotificationAction.FRIENDS,
+      actionTargetId: friendship.id,
+      dedupeKey: `friend-request:${friendship.id}:accepted`,
+    },
   })
   response.status(200).json({ status: FriendshipStatus.ACCEPTED })
 })

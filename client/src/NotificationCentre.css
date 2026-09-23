@@ -1,0 +1,20 @@
+.notification-page { width: min(1180px, calc(100% - 2rem)); margin: 3rem auto 6rem; }
+.notification-hero { display: flex; align-items: end; justify-content: space-between; gap: 2rem; padding: clamp(1.5rem, 4vw, 3.5rem); border-radius: 2rem; color: var(--ledger-paper); background: linear-gradient(125deg, #0b392c, #1d4a31); }
+.notification-hero h1 { margin: .35rem 0 1rem; font-family: Georgia, serif; font-size: clamp(2.6rem, 6vw, 5rem); font-weight: 400; }
+.notification-hero p:last-child { max-width: 48rem; color: rgba(244, 240, 229, .72); }
+.notification-filters { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; margin: 1.5rem 0; }
+.notification-filters button, .notification-pagination button { border: 1px solid rgba(201, 190, 157, .3); border-radius: 999px; padding: .65rem 1rem; background: transparent; color: inherit; cursor: pointer; }
+.notification-filters button.active { background: #718b00; color: white; border-color: #718b00; }
+.notification-filters label { display: inline-flex; gap: .45rem; align-items: center; margin-left: auto; }
+.notification-list { display: grid; gap: .85rem; }
+.notification-card { display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; padding: 1.4rem 1.6rem; border: 1px solid rgba(201, 190, 157, .22); border-radius: 1.25rem; background: rgba(18, 25, 22, .7); }
+.notification-card.unread { border-left: .35rem solid #8da700; background: rgba(14, 47, 37, .78); }
+.notification-card h2 { margin: .35rem 0; font-family: Georgia, serif; font-size: 1.5rem; font-weight: 400; }
+.notification-card p { margin: 0; color: rgba(244, 240, 229, .7); }
+.notification-meta { display: flex; gap: .75rem; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
+.notification-meta span { color: #a7d3bd; }
+.notification-card > button { flex: 0 0 auto; border: 0; border-radius: .75rem; padding: .8rem 1rem; background: #718b00; color: white; font-weight: 700; cursor: pointer; }
+.notification-state { padding: 2rem; text-align: center; border: 1px solid rgba(201, 190, 157, .22); border-radius: 1rem; }
+.notification-state.error { color: #f0a49a; }
+.notification-pagination { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.5rem; }
+@media (max-width: 720px) { .notification-hero, .notification-card { align-items: stretch; flex-direction: column; } .notification-filters label { width: 100%; margin-left: 0; } }
