@@ -5,7 +5,6 @@ import {
   buildCatalogueCoursesPath,
   isCatalogueCoursesResponse,
   type CatalogueCoursesResponse,
-  type CatalogueTee,
 } from './courseCatalogueApi.ts'
 import {
   buildCoursePreferencePath,
@@ -38,45 +37,18 @@ import {
   type TeamCompetitionDraft,
 } from './teamCompetitionDraft.ts'
 import TeamCompetitionCard from './TeamCompetitionCard.tsx'
+import {
+  isLiveRoundResponse,
+  type LiveRoundDraftState,
+  type LiveRoundForm as RoundForm,
+  type LiveRoundHole as HoleEntry,
+  type LiveRoundTee as TeeOption,
+} from './liveRoundApi.ts'
 
 type RoundEntryProfile = {
   id: string
   name: string
   handicapIndex: number | null
-}
-
-type TeeOption = CatalogueTee & {
-  courseId: string
-  clubName: string
-  courseName: string
-  isFavourite: boolean
-}
-
-type RoundForm = {
-  teeId: string
-  datePlayed: string
-  timePlayed: string
-  category: RoundCategory
-  participation: RoundParticipation
-  scoringFormat: RoundScoringFormat
-  playingHandicap: string
-  holeCount: 9 | 18
-  nineHoleSegment: 'FRONT_NINE' | 'BACK_NINE'
-  competitionName: string
-  competitionFormat: string
-  competitionFormatOther: string
-  gameFormat: string
-  gameFormatOther: string
-  gameResult: '' | 'WON' | 'LOST' | 'TIED'
-  matchPlayOpponentName: string
-  playingPartnerIds: string[]
-  playingPartnerResults: Record<string, RoundGameResult | ''>
-  guestPlayerNames: string
-  guestPlayerResults: Record<string, RoundGameResult | ''>
-  numberOfPlayers: string
-  grossScore: string
-  weatherCondition: WeatherCondition
-  notes: string
 }
 
 type RoundFormErrors = Partial<
@@ -106,15 +78,6 @@ type ScorecardHole = {
   par: number
   strokeIndex: number
   yardage: number | null
-}
-
-type HoleEntry = {
-  holeNumber: number
-  par: string
-  strokeIndex: string
-  yardage: string
-  strokesTaken: string
-  pickedUp: boolean
 }
 
 type ScorecardResponse =
@@ -371,9 +334,17 @@ function RoundEntry({
   const [friendsError, setFriendsError] = useState('')
   const [matchPlayDraft, setMatchPlayDraft] = useState<MatchPlayDraft>({})
   const [teamCompetitionDraft, setTeamCompetitionDraft] = useState<TeamCompetitionDraft>(emptyTeamCompetitionDraft)
+  const [liveRoundId, setLiveRoundId] = useState<string | null>(null)
+  const [liveRoundTee, setLiveRoundTee] = useState<TeeOption | null>(null)
+  const [liveCurrentHoleIndex, setLiveCurrentHoleIndex] = useState(0)
+  const [liveMode, setLiveMode] = useState<'standard' | 'active' | 'review'>('standard')
+  const [liveSaveState, setLiveSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [liveMessage, setLiveMessage] = useState('')
+  const profileId = profile?.id
 
   const teeOptions = getTeeOptions(catalogueResponse, favourites)
-  const selectedTee = teeOptions.find((option) => option.id === form.teeId)
+  const selectedTee = teeOptions.find((option) => option.id === form.teeId) ??
+    (liveRoundTee?.id === form.teeId ? liveRoundTee : undefined)
   const isCompetition = form.category === 'COMPETITION'
   const isSocialGame = form.category === 'SOCIAL_GAME'
   const isOrganisedRound = isCompetition || isSocialGame
@@ -521,7 +492,38 @@ function RoundEntry({
   }, [])
 
   useEffect(() => {
-    if (!form.teeId || isTeamRound) {
+    if (!profileId) return
+    const controller = new AbortController()
+    async function loadLiveRound() {
+      try {
+        const response = await authenticatedFetch('/api/users/me/live-round', { signal: controller.signal })
+        const body: unknown = await response.json().catch(() => null)
+        if (!response.ok || !isLiveRoundResponse(body)) throw new Error('We could not check for an unfinished live round.')
+        if (controller.signal.aborted || !body.draft) return
+        const { state } = body.draft
+        setForm(state.form)
+        setLiveRoundTee(state.tee)
+        setScorecardStatus(state.scorecardStatus)
+        setScorecardSource(state.scorecardSource)
+        setHoleEntries(state.holeEntries)
+        setMatchPlayDraft(state.matchPlayDraft)
+        setLiveCurrentHoleIndex(state.currentHoleIndex)
+        setLiveRoundId(body.draft.id)
+        setLiveMode('active')
+        setLiveSaveState('saved')
+        setLiveMessage(`Resumed your live round from hole ${state.holeEntries[state.currentHoleIndex]?.holeNumber ?? 1}.`)
+      } catch (error: unknown) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setLiveMessage(error instanceof Error ? error.message : 'We could not check for an unfinished live round.')
+        }
+      }
+    }
+    void loadLiveRound()
+    return () => controller.abort()
+  }, [profileId])
+
+  useEffect(() => {
+    if (!form.teeId || isTeamRound || liveMode !== 'standard') {
       return
     }
 
@@ -582,7 +584,16 @@ function RoundEntry({
     void loadScorecard()
 
     return () => controller.abort()
-  }, [form.teeId, form.holeCount, form.nineHoleSegment, isTeamRound])
+  }, [form.teeId, form.holeCount, form.nineHoleSegment, isTeamRound, liveMode])
+
+  // The active-round draft writer intentionally follows all mutable scorecard state.
+  // oxlint-disable react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (liveMode !== 'active' || !selectedTee || scorecardStatus === 'idle' || scorecardStatus === 'loading') return
+    const timeout = window.setTimeout(() => { void saveLiveRound(liveCurrentHoleIndex) }, 650)
+    return () => window.clearTimeout(timeout)
+  }, [form, holeEntries, matchPlayDraft, liveCurrentHoleIndex, liveMode, scorecardSource, scorecardStatus, selectedTee])
+  // oxlint-enable react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isStableford || form.playingHandicap !== '') return
@@ -876,6 +887,134 @@ function RoundEntry({
     setSubmitError('')
   }
 
+  function buildLiveRoundState(currentHoleIndex: number): LiveRoundDraftState | null {
+    if (!selectedTee || form.participation !== 'INDIVIDUAL' ||
+      (scorecardStatus !== 'available' && scorecardStatus !== 'manual_required')) return null
+    return {
+      version: 1,
+      currentHoleIndex,
+      tee: selectedTee,
+      form: { ...form, participation: 'INDIVIDUAL' },
+      scorecardStatus,
+      scorecardSource,
+      holeEntries,
+      matchPlayDraft,
+    }
+  }
+
+  async function saveLiveRound(currentHoleIndex: number): Promise<boolean> {
+    const state = buildLiveRoundState(currentHoleIndex)
+    if (!state) return false
+    setLiveSaveState('saving')
+    try {
+      const response = await authenticatedFetch('/api/users/me/live-round', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state }),
+      })
+      const body: unknown = await response.json().catch(() => null)
+      if (!response.ok || !isLiveRoundResponse(body) || !body.draft) {
+        throw new Error(await readApiError(response, 'We could not save this live round.'))
+      }
+      setLiveRoundId(body.draft.id)
+      setLiveSaveState('saved')
+      setLiveMessage('Progress saved.')
+      return true
+    } catch (error: unknown) {
+      setLiveSaveState('error')
+      setLiveMessage(error instanceof Error ? error.message : 'We could not save this live round.')
+      return false
+    }
+  }
+
+  async function startLiveRound() {
+    setLiveMessage('')
+    if (!selectedTee || holeEntries.length !== expectedHoleCount ||
+      (scorecardStatus !== 'available' && scorecardStatus !== 'manual_required')) {
+      setLiveMessage('Choose a tee and wait for its complete scorecard before starting.')
+      return
+    }
+    if (isTeamRound) {
+      setLiveMessage('Team competitions use the full team card instead of Live Round mode.')
+      return
+    }
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(form.timePlayed) || !form.datePlayed) {
+      setLiveMessage('Choose the round date and starting time before going live.')
+      return
+    }
+    if (isStableford && (!Number.isInteger(playingHandicap) || playingHandicap < -20 || playingHandicap > 54)) {
+      setLiveMessage('Enter a valid Playing Handicap before starting this Stableford round.')
+      return
+    }
+    if (isCompetition && (!form.competitionName.trim() || !form.competitionFormat.trim())) {
+      setLiveMessage('Complete the competition name and format before starting.')
+      return
+    }
+    if (isSocialGame && !form.gameFormat.trim()) {
+      setLiveMessage('Choose the game format before starting.')
+      return
+    }
+    setLiveRoundTee(selectedTee)
+    const saved = await saveLiveRound(0)
+    if (!saved) return
+    setLiveCurrentHoleIndex(0)
+    setLiveMode('active')
+  }
+
+  function currentLiveHoleIsComplete(): boolean {
+    const hole = holeEntries[liveCurrentHoleIndex]
+    if (!hole) return false
+    const scoreIsValid = hole.pickedUp || (Number.isInteger(Number(hole.strokesTaken)) && Number(hole.strokesTaken) > 0)
+    const definitionIsValid = scorecardStatus !== 'manual_required' || (
+      Number.isInteger(Number(hole.par)) && Number(hole.par) >= 2 && Number(hole.par) <= 7 &&
+      Number.isInteger(Number(hole.strokeIndex)) && Number(hole.strokeIndex) >= 1 && Number(hole.strokeIndex) <= 18 &&
+      (hole.yardage === '' || Number.isInteger(Number(hole.yardage)) && Number(hole.yardage) > 0)
+    )
+    if (!scoreIsValid || !definitionIsValid) return false
+    if (!isMatchPlay) return true
+    if (matchPlayPreview && !matchPlayPreview.holes.some((item) => item.holeNumber === hole.holeNumber)) return true
+    const matchHole = matchPlayDraft[hole.holeNumber]
+    return Boolean(matchHole && (matchHole.opponentStrokes !== '' || matchHole.result !== ''))
+  }
+
+  async function moveLiveHole(nextIndex: number) {
+    if (nextIndex > liveCurrentHoleIndex && !currentLiveHoleIsComplete()) {
+      setLiveMessage('Complete this hole before moving on.')
+      return
+    }
+    const bounded = Math.max(0, Math.min(holeEntries.length - 1, nextIndex))
+    setLiveCurrentHoleIndex(bounded)
+    setLiveMessage('')
+    await saveLiveRound(bounded)
+  }
+
+  async function openLiveRoundReview() {
+    const saved = await saveLiveRound(liveCurrentHoleIndex)
+    if (!saved) return
+    setForm((current) => ({
+      ...current,
+      grossScore: hasPickedUpHole ? '' : String(holeScoreTotal),
+    }))
+    setLiveMode('review')
+  }
+
+  async function abandonLiveRound() {
+    if (!window.confirm('Abandon this unfinished live round? Its saved progress will be permanently removed.')) return
+    const response = await authenticatedFetch('/api/users/me/live-round', { method: 'DELETE' })
+    if (!response.ok) {
+      setLiveMessage('We could not abandon this live round. Please try again.')
+      return
+    }
+    setLiveRoundId(null)
+    setLiveRoundTee(null)
+    setLiveMode('standard')
+    setLiveSaveState('idle')
+    setLiveMessage('Live round abandoned.')
+    setHoleEntries((current) => current.map((hole) => ({ ...hole, strokesTaken: '', pickedUp: false })))
+    setMatchPlayDraft({})
+    setForm((current) => ({ ...current, grossScore: '' }))
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -1075,6 +1214,7 @@ function RoundEntry({
         },
         body: JSON.stringify({
           teeId: selectedTee.id,
+          ...(liveRoundId ? { liveRoundDraftId: liveRoundId } : {}),
           datePlayed: form.datePlayed,
           timePlayed: form.timePlayed,
           category: form.category,
@@ -1157,6 +1297,11 @@ function RoundEntry({
         ...body,
         teeLabel: `${selectedTee.clubName} · ${selectedTee.courseName} · ${selectedTee.teeName}`,
       })
+      setLiveRoundId(null)
+      setLiveRoundTee(null)
+      setLiveMode('standard')
+      setLiveSaveState('idle')
+      setLiveMessage('')
       onRoundLogged(body.handicapIndex)
     } catch (error: unknown) {
       setSubmitError(
@@ -1190,6 +1335,62 @@ function RoundEntry({
         </div>
       </section>
     )
+  }
+
+  if (liveMode === 'review' && selectedTee && holeEntries.length > 0) {
+    return <section className="rounds-page live-round-page" id="rounds">
+      <header className="live-round-header"><div><p className="eyebrow"><span aria-hidden="true" /> Live Round review</p><h1>Check your card.<span>{selectedTee.clubName} · {selectedTee.courseName} · {selectedTee.teeName}</span></h1></div><div className={`live-save-state live-save-${liveSaveState}`}><strong>{liveSaveState === 'saving' ? 'Saving…' : liveSaveState === 'error' ? 'Save failed' : 'Progress saved'}</strong><small>Nothing enters History until you confirm.</small></div></header>
+      <form className="live-review-card" onSubmit={handleSubmit} noValidate>
+        <div className="live-review-summary"><div><small>Holes</small><strong>{form.holeCount}</strong></div><div><small>Front 9</small><strong>{isStableford ? stablefordTotals.frontNine ?? '—' : scoreTotals.frontNine ?? '—'}</strong></div>{form.holeCount === 18 ? <div><small>Back 9</small><strong>{isStableford ? stablefordTotals.backNine ?? '—' : scoreTotals.backNine ?? '—'}</strong></div> : null}<div><small>{isStableford ? 'Points' : 'Gross total'}</small><strong>{isStableford ? stablefordTotals.total ?? '—' : scoreTotals.total ?? '—'}</strong></div></div>
+        <div className="round-scorecard-scroll"><table><thead><tr><th>Hole</th><th>Par</th><th>SI</th><th>Yards</th><th>Score</th>{isStableford ? <th>Points</th> : null}</tr></thead><tbody>{holeEntries.map((hole, index) => <tr key={hole.holeNumber}><th>{hole.holeNumber}</th><td>{hole.par}</td><td>{hole.strokeIndex}</td><td>{hole.yardage || '—'}</td><td>{hole.pickedUp ? 'Picked up' : hole.strokesTaken}</td>{isStableford ? <td>{stablefordTotals.points[index] ?? '—'}</td> : null}</tr>)}</tbody></table></div>
+        {isMatchPlay && matchPlayPreview ? <p className="live-review-match"><strong>Match result:</strong> {matchPlayPreview.result === 'WON' ? 'Won' : matchPlayPreview.result === 'LOST' ? 'Lost' : 'Tied'} · {matchPlayPreview.finalScore}</p> : null}
+        {scorecardStatus === 'manual_required' ? <p className="live-round-review-note">This player-entered scorecard will be sent to the administrator for review after submission.</p> : null}
+        {errors.scorecard || errors.grossScore || errors.matchPlay || errors.numberOfPlayers ? <p className="round-field-error" role="alert">{errors.scorecard ?? errors.grossScore ?? errors.matchPlay ?? errors.numberOfPlayers}</p> : null}
+        {submitError ? <p className="round-field-error" role="alert">{submitError}</p> : null}
+        <div className="live-round-actions"><button type="button" className="round-secondary-button" onClick={() => setLiveMode('active')}>Back to scorecard</button><button type="submit" className="round-primary-button" disabled={isSubmitting}>{isSubmitting ? 'Submitting…' : 'Confirm and save round'}</button></div>
+      </form>
+    </section>
+  }
+
+  if (liveMode === 'active' && selectedTee && holeEntries.length > 0) {
+    const hole = holeEntries[liveCurrentHoleIndex]
+    const matchEntry = matchPlayDraft[hole.holeNumber] ?? { opponentStrokes: '', result: '' as const }
+    const playerScore = hole.pickedUp || hole.strokesTaken === '' ? null : Number(hole.strokesTaken)
+    const opponentScore = matchEntry.opponentStrokes === '' ? null : Number(matchEntry.opponentStrokes)
+    const derivedMatchResult = playerScore !== null && opponentScore !== null && Number.isInteger(opponentScore)
+      ? playerScore < opponentScore ? 'WON' : playerScore > opponentScore ? 'LOST' : 'HALVED'
+      : ''
+    const completedPar = holeEntries.slice(0, liveCurrentHoleIndex + 1).reduce((sum, item) => sum + (Number(item.par) || 0), 0)
+    const completedStrokes = holeEntries.slice(0, liveCurrentHoleIndex + 1).reduce((sum, item) => sum + (Number(item.strokesTaken) || 0), 0)
+    const relativeToPar = completedStrokes - completedPar
+    const finishReady = completedStrokeCount === expectedHoleCount && (!isMatchPlay || Boolean(matchPlayPreview))
+
+    return <section className="rounds-page live-round-page" id="rounds">
+      <header className="live-round-header">
+        <div><p className="eyebrow"><span aria-hidden="true" /> Live Round</p><h1>{selectedTee.courseName}<span>{selectedTee.clubName} · {selectedTee.teeName}</span></h1></div>
+        <div className={`live-save-state live-save-${liveSaveState}`}><strong>{liveSaveState === 'saving' ? 'Saving…' : liveSaveState === 'error' ? 'Save failed' : 'Progress saved'}</strong><small>{form.holeCount} holes · {form.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'}</small></div>
+      </header>
+      {liveMessage ? <p className={liveSaveState === 'error' ? 'round-course-search-error' : 'live-round-message'} role={liveSaveState === 'error' ? 'alert' : 'status'}>{liveMessage}</p> : null}
+      <div className="live-round-progress" aria-label={`${completedStrokeCount} of ${expectedHoleCount} holes completed`}><span style={{ width: `${completedStrokeCount / expectedHoleCount * 100}%` }} /></div>
+      <form className="live-hole-card" onSubmit={handleSubmit} noValidate>
+        <div className="live-hole-heading"><div><p className="form-kicker">Hole {hole.holeNumber} of {holeEntries[holeEntries.length - 1].holeNumber}</p><h2>Play the next one.</h2></div><div><small>Running score</small><strong>{completedStrokes || '—'}</strong><span>{completedStrokes ? `${relativeToPar > 0 ? '+' : ''}${relativeToPar} to par` : 'Awaiting score'}</span></div></div>
+        <dl className="live-hole-facts">
+          <div><dt>Par</dt><dd>{scorecardStatus === 'manual_required' ? <input aria-label={`Hole ${hole.holeNumber} par`} type="number" min="2" max="7" value={hole.par} onChange={(event) => updateHoleEntry(hole.holeNumber, 'par', event.target.value)} /> : hole.par}</dd></div>
+          <div><dt>Stroke index</dt><dd>{scorecardStatus === 'manual_required' ? <input aria-label={`Hole ${hole.holeNumber} stroke index`} type="number" min="1" max="18" value={hole.strokeIndex} onChange={(event) => updateHoleEntry(hole.holeNumber, 'strokeIndex', event.target.value)} /> : hole.strokeIndex}</dd></div>
+          <div><dt>Yardage</dt><dd>{scorecardStatus === 'manual_required' ? <input aria-label={`Hole ${hole.holeNumber} yardage optional`} type="number" min="1" placeholder="Optional" value={hole.yardage} onChange={(event) => updateHoleEntry(hole.holeNumber, 'yardage', event.target.value)} /> : hole.yardage || '—'}</dd></div>
+        </dl>
+        {scorecardStatus === 'manual_required' ? <p className="live-round-review-note">This tee has no approved scorecard. Add par and stroke index as you play; yardage is optional. The completed card will await administrator review.</p> : null}
+        <label className="live-score-input">Your strokes<input autoFocus aria-label={`Hole ${hole.holeNumber} strokes`} type="number" min="1" inputMode="numeric" disabled={hole.pickedUp} value={hole.strokesTaken} onChange={(event) => updateHoleEntry(hole.holeNumber, 'strokesTaken', event.target.value)} /></label>
+        {isStableford ? <label className="live-pickup"><input type="checkbox" checked={hole.pickedUp} onChange={(event) => updatePickedUp(hole.holeNumber, event.target.checked)} /><span><strong>Picked up / no score</strong><small>Records zero Stableford points without inventing a gross score.</small></span></label> : null}
+        {isStableford ? <div className="live-hole-points"><small>This hole</small><strong>{stablefordTotals.points[liveCurrentHoleIndex] ?? '—'} pts</strong><span>Round total {stablefordTotals.total ?? 0}</span></div> : null}
+        {isMatchPlay ? <section className="live-match-hole"><header><strong>Match Play</strong>{matchPlayPreview ? <span>{matchPlayPreview.finalScore}</span> : null}</header>{matchPlayPreview && !matchPlayPreview.holes.some((item) => item.holeNumber === hole.holeNumber) ? <p>The match is already complete. Continue recording your own scorecard.</p> : <div><label>Opponent strokes<input type="number" min="1" max="30" value={matchEntry.opponentStrokes} onChange={(event) => setMatchPlayDraft((current) => ({ ...current, [hole.holeNumber]: { ...matchEntry, opponentStrokes: event.target.value, result: '' } }))} /></label><label>Hole result<select disabled={Boolean(derivedMatchResult)} value={derivedMatchResult || matchEntry.result} onChange={(event) => setMatchPlayDraft((current) => ({ ...current, [hole.holeNumber]: { opponentStrokes: '', result: event.target.value as MatchPlayDraft[number]['result'] } }))}><option value="">Choose</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="HALVED">Halved</option></select></label></div>}</section> : null}
+        <div className="live-nine-totals"><div><small>Front 9</small><strong>{isStableford ? stablefordTotals.frontNine ?? '—' : scoreTotals.frontNine ?? '—'}</strong></div>{form.holeCount === 18 ? <div><small>Back 9</small><strong>{isStableford ? stablefordTotals.backNine ?? '—' : scoreTotals.backNine ?? '—'}</strong></div> : null}<div><small>Total</small><strong>{isStableford ? stablefordTotals.total ?? '—' : scoreTotals.total ?? '—'}</strong></div></div>
+        {errors.scorecard || errors.grossScore || errors.matchPlay ? <p className="round-field-error" role="alert">{errors.scorecard ?? errors.grossScore ?? errors.matchPlay}</p> : null}
+        {submitError ? <p className="round-field-error" role="alert">{submitError}</p> : null}
+        <div className="live-round-actions"><button type="button" className="round-secondary-button" disabled={liveCurrentHoleIndex === 0} onClick={() => void moveLiveHole(liveCurrentHoleIndex - 1)}>Previous hole</button>{liveCurrentHoleIndex < holeEntries.length - 1 ? <button type="button" className="round-primary-button" onClick={() => void moveLiveHole(liveCurrentHoleIndex + 1)}>Save & next hole</button> : <button type="button" className="round-primary-button" disabled={!finishReady || liveSaveState === 'saving'} onClick={() => void openLiveRoundReview()}>Review completed card</button>}</div>
+        <button type="button" className="live-abandon-button" onClick={() => void abandonLiveRound()}>Abandon live round</button>
+      </form>
+    </section>
   }
 
   if (confirmation) {
@@ -1925,6 +2126,12 @@ function RoundEntry({
                 )}
               </div>
               )}
+
+            <section className="live-round-start" aria-labelledby="live-round-start-title">
+              <div><p className="form-kicker">Playing now?</p><h3 id="live-round-start-title">Take the card onto the course.</h3><p>Live Round shows one hole at a time and saves your progress so you can safely return after refreshing or signing in on another device.</p></div>
+              <button type="button" onClick={() => void startLiveRound()} disabled={scorecardStatus === 'loading' || holeEntries.length !== expectedHoleCount}>Start Live Round</button>
+            </section>
+            {liveMessage ? <p className="round-course-search-error" role="alert">{liveMessage}</p> : null}
 
             <section className="round-scorecard" aria-labelledby="round-scorecard-title">
               <div className="round-scorecard-heading">

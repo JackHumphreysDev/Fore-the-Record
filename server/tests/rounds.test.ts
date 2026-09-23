@@ -12,6 +12,8 @@ const {
   userFindUniqueMock,
   userFindManyMock,
   userUpdateMock,
+  liveRoundDraftFindFirstMock,
+  liveRoundDraftDeleteMock,
 } = vi.hoisted(() => ({
   getAuthenticatedUserMock: vi.fn(),
   profileFindUniqueMock: vi.fn(),
@@ -23,6 +25,8 @@ const {
   userFindUniqueMock: vi.fn(),
   userFindManyMock: vi.fn(),
   userUpdateMock: vi.fn(),
+  liveRoundDraftFindFirstMock: vi.fn(),
+  liveRoundDraftDeleteMock: vi.fn(),
 }))
 
 const transactionClient = {
@@ -38,6 +42,10 @@ const transactionClient = {
     findUnique: userFindUniqueMock,
     findMany: userFindManyMock,
     update: userUpdateMock,
+  },
+  liveRoundDraft: {
+    findFirst: liveRoundDraftFindFirstMock,
+    delete: liveRoundDraftDeleteMock,
   },
 }
 
@@ -63,6 +71,7 @@ import app from '../src/app.js'
 const userId = '11111111-1111-4111-8111-111111111111'
 const teeId = '22222222-2222-4222-8222-222222222222'
 const roundId = '33333333-3333-4333-8333-333333333333'
+const liveRoundDraftId = '44444444-4444-4444-8444-444444444444'
 const datePlayed = new Date('2026-08-30T00:00:00.000Z')
 const createdAt = new Date('2026-08-30T12:00:00.000Z')
 
@@ -84,6 +93,8 @@ beforeEach(() => {
   userFindManyMock.mockReset()
   userFindManyMock.mockResolvedValue([])
   userUpdateMock.mockReset()
+  liveRoundDraftFindFirstMock.mockReset()
+  liveRoundDraftDeleteMock.mockReset()
 
   transactionMock.mockImplementation(
     async (
@@ -92,6 +103,7 @@ beforeEach(() => {
   )
   roundUpdateManyMock.mockResolvedValue({ count: 0 })
   userUpdateMock.mockResolvedValue({})
+  liveRoundDraftDeleteMock.mockResolvedValue({ id: liveRoundDraftId })
 })
 
 describe('POST /api/rounds', () => {
@@ -103,6 +115,7 @@ describe('POST /api/rounds', () => {
       strokesTaken: 5,
     }))
     userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: 12.4 })
+    liveRoundDraftFindFirstMock.mockResolvedValueOnce({ id: liveRoundDraftId })
     teeFindUniqueMock.mockResolvedValueOnce({
       courseRating: 73.1,
       slopeRating: 137,
@@ -143,6 +156,7 @@ describe('POST /api/rounds', () => {
     const response = await request(app).post('/api/rounds').send({
       userId,
       teeId,
+      liveRoundDraftId,
       datePlayed: '2026-08-30',
       grossScore: 90,
       weatherCondition: 'DRY',
@@ -163,6 +177,11 @@ describe('POST /api/rounds', () => {
       usedRoundIds: [roundId],
     })
     expect(transactionMock).toHaveBeenCalledOnce()
+    expect(liveRoundDraftFindFirstMock).toHaveBeenCalledWith({
+      where: { id: liveRoundDraftId, userId, teeId },
+      select: { id: true },
+    })
+    expect(liveRoundDraftDeleteMock).toHaveBeenCalledWith({ where: { id: liveRoundDraftId } })
     expect(roundCreateMock).toHaveBeenCalledWith({
       data: {
         userId,

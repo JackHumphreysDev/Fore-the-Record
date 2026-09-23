@@ -84,6 +84,7 @@ export type RoundHoleInput = {
 
 type LogRoundBase = {
   userId: string
+  liveRoundDraftId: string | null
   teeId: string
   datePlayed: Date
   timePlayed: string | null
@@ -133,7 +134,7 @@ export type LogTeamRoundInput = LogRoundBase & {
 export type LogRoundInput = LogIndividualRoundInput | LogTeamRoundInput
 
 export class RoundReferenceNotFoundError extends Error {
-  constructor(readonly reference: 'user' | 'tee') {
+  constructor(readonly reference: 'user' | 'tee' | 'liveRound') {
     super(`${reference} not found`)
     this.name = 'RoundReferenceNotFoundError'
   }
@@ -416,6 +417,11 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     ? null
     : getOpponentResults(value.guestPlayerResults, guestPlayerNames, true)
   const holeCount = value.holeCount === undefined ? 18 : value.holeCount
+  const liveRoundDraftId = value.liveRoundDraftId === undefined || value.liveRoundDraftId === null
+    ? null
+    : typeof value.liveRoundDraftId === 'string' && UUID_PATTERN.test(value.liveRoundDraftId)
+      ? value.liveRoundDraftId
+      : undefined
   const nineHoleSegment = holeCount === 9
     ? getNineHoleSegment(value.nineHoleSegment)
     : null
@@ -446,7 +452,8 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     (holeCount !== 9 && holeCount !== 18) ||
     (holeCount === 9 && nineHoleSegment === null) ||
     (holeCount === 18 && value.nineHoleSegment !== undefined && value.nineHoleSegment !== null) ||
-    (value.timePlayed !== undefined && timePlayed === null)
+    (value.timePlayed !== undefined && timePlayed === null) ||
+    liveRoundDraftId === undefined
   ) {
     return null
   }
@@ -538,6 +545,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
 
     return {
       userId: value.userId,
+      liveRoundDraftId,
       teeId: value.teeId,
       datePlayed,
       timePlayed,
@@ -635,6 +643,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
 
   return {
     userId: value.userId,
+    liveRoundDraftId,
     teeId: value.teeId,
     datePlayed,
     timePlayed,
@@ -711,6 +720,18 @@ export async function logRound(input: LogRoundInput) {
 
     if (!tee) {
       throw new RoundReferenceNotFoundError('tee')
+    }
+
+    if (input.liveRoundDraftId) {
+      const liveRoundDraft = await transaction.liveRoundDraft.findFirst({
+        where: {
+          id: input.liveRoundDraftId,
+          userId: input.userId,
+          teeId: input.teeId,
+        },
+        select: { id: true },
+      })
+      if (!liveRoundDraft) throw new RoundReferenceNotFoundError('liveRound')
     }
 
     if (input.playingPartnerIds.includes(input.userId)) {
@@ -816,6 +837,10 @@ export async function logRound(input: LogRoundInput) {
         },
         select: { id: true },
       })
+
+      if (input.liveRoundDraftId) {
+        await transaction.liveRoundDraft.delete({ where: { id: input.liveRoundDraftId } })
+      }
 
       return {
         round: {
@@ -1083,6 +1108,10 @@ export async function logRound(input: LogRoundInput) {
       where: { id: input.userId },
       data: { handicapIndex: handicapCalculation.handicapIndex },
     })
+
+    if (input.liveRoundDraftId) {
+      await transaction.liveRoundDraft.delete({ where: { id: input.liveRoundDraftId } })
+    }
 
     return {
       round: {

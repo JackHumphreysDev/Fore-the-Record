@@ -64,6 +64,8 @@ The application features are still under development. Core profile, authenticati
 
 Round Entry supports casual rounds, individual competitions, complete team competitions, and games with friends. A team card records the player's team and every opposing team over all 18 holes, then calculates Gross Strokes or Stableford Points leaderboards with Front 9, Back 9, totals, and tied positions. Team records remain outside the Handicap Index. Structured competition and social-game formats can include accepted-friend links, guest names, and a Won/Lost/Tied result. A linked friend can remove their tag, but the round is never copied to their record and never affects their handicap. Individual cards can use Stroke play or Stableford scoring. Stableford stores the Playing Handicap used, allocates strokes by the approved hole indexes, calculates every hole's net score and points, and supports explicit picked-up holes. A pickup records zero points and no invented gross score; Net Double Bogey is used only for handicap processing. Manually supplied course definitions remain provisional until administrator approval.
 
+Live Round mode gives individual nine- and 18-hole rounds a focused one-hole-at-a-time card with running totals, score to par, Stableford points, pickups, and Match Play results where relevant. Progress is saved to the signed-in account and can resume after a refresh or on another device. A live draft does not appear in History, statistics, leaderboards, milestones, or handicap calculations until the player reviews and confirms the complete card; abandoned drafts are permanently removed after confirmation.
+
 Individual Match Play competitions and games now include a separate head-to-head card. Players can enter the opponent's score for an automatic hole result or record a concession, and Fore the Record calculates the running outcome and final result such as **3 & 2**, **1 up**, or **All square**. The player's complete stroke card remains separate and continues through the normal handicap rules.
 
 Accepted friends can now form named private player groups or leagues with an optional description and owner-managed image. Live leaderboards compare verified round activity, Stableford points, 18-hole gross scoring, and Handicap Index improvement, showing every player's position and selected result. Each group also includes a private message board for general discussion or comments attached to a recent group round, while notes and full scorecard details remain outside the group.
@@ -74,7 +76,7 @@ The production application is deployed on Vercel. The current RapidAPI allowance
 
 ## Roadmap and releases
 
-The current application version is `0.40.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.41.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)

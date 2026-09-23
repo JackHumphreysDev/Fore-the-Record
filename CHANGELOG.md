@@ -14,6 +14,22 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.41.0 - 2026-09-23
+
+### User-facing changes
+
+- Added Live Round mode for nine- and 18-hole individual casual rounds, competitions, and games with friends.
+- Added a focused one-hole screen with scorecard facts, running Front 9, Back 9, total, score-to-par, Stableford points, pickups, and Match Play results.
+- Saved live progress securely so an unfinished round can resume after refreshing, signing in again, or moving to another device.
+- Added a complete review step before the round enters History and the existing Handicap Index workflow.
+
+### Developer and admin changes
+
+- Added authenticated server-owned live-round drafts with one active draft per player and strict payload validation.
+- Made completed round creation and live-draft deletion one database transaction so retries cannot leave a submitted draft active.
+- Kept unfinished drafts outside History, statistics, leaderboards, milestones, and handicap calculations, and added explicit abandonment with confirmation.
+- Added a database migration plus client, parser, route, and atomic submission regression coverage.
+
 ## 0.40.0 - 2026-09-23
 
 ### User-facing changes

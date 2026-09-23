@@ -40,9 +40,15 @@ This roadmap records agreed future work. Items are planned requirements, not com
 34. Friends groups and advanced leaderboards. Completed in `0.38.0`.
 35. Performance insights. Completed in `0.39.0`.
 36. Full team-game scoring. Completed in `0.40.0`.
-37. Live Round mode.
+37. Live Round mode. Completed in `0.41.0`.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Live Round mode — completed in 0.41.0
+
+Players can start a live individual round after choosing the course, tee, date, time, round length, scoring method, and relevant competition or social-game details. The focused playing screen shows one hole at a time with its par, stroke index, yardage, score entry, Stableford pickup and points where applicable, plus running Front 9, Back 9, total, and score-to-par figures. Match Play retains its opponent scoring and calculated hole result.
+
+One unfinished draft is saved against the authenticated player and can be resumed after a refresh, a new sign-in, or a move to another device. The completed card must pass the existing validation and be reviewed before submission. Round creation and draft removal occur atomically; unfinished drafts never enter History, performance figures, milestones, leaderboards, or Handicap Index calculations. Nine- and 18-hole casual, individual competition, and social-game rounds are supported, while team competitions continue to use their complete full-field card.
 
 ## Full team-game scoring — completed in 0.40.0
 
