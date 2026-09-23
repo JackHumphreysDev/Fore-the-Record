@@ -75,6 +75,7 @@ import {
   buildRoundComparison,
   RoundComparisonError,
 } from './roundComparison.js'
+import { buildPlayingPartnersHistory } from './playingPartnersHistory.js'
 import {
   buildFriendGroupStandings,
   friendGroupPeriodStart,
@@ -4602,6 +4603,104 @@ app.get('/api/users/me/opponent-records', async (_request, response) => {
       name, ...totals, played: totals.wins + totals.losses + totals.ties,
     })).sort((left, right) => right.played - left.played || left.name.localeCompare(right.name)),
   })
+})
+
+app.get('/api/users/me/playing-partners-history', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!user) {
+    response.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  const qualifyingRound = {
+    OR: [
+      {
+        participation: RoundParticipation.INDIVIDUAL,
+        scorecardStatus: RoundScorecardStatus.VERIFIED,
+      },
+      {
+        participation: RoundParticipation.TEAM,
+        scorecardStatus: RoundScorecardStatus.NOT_REQUIRED,
+      },
+    ],
+  }
+  const playerSelect = {
+    id: true,
+    name: true,
+    homeClub: { select: { id: true, name: true } },
+  } satisfies Prisma.UserSelect
+  const roundSelect = {
+    id: true,
+    userId: true,
+    datePlayed: true,
+    createdAt: true,
+    category: true,
+    participation: true,
+    scoringFormat: true,
+    holeCount: true,
+    nineHoleSegment: true,
+    competitionName: true,
+    competitionFormat: true,
+    gameFormat: true,
+    user: { select: playerSelect },
+    tee: {
+      select: {
+        teeName: true,
+        course: {
+          select: {
+            id: true,
+            name: true,
+            club: { select: { id: true, name: true } },
+          },
+        },
+      },
+    },
+  } satisfies Prisma.RoundSelect
+
+  const [friendRecords, guestRecords] = await Promise.all([
+    prisma.roundPlayingPartner.findMany({
+      where: {
+        AND: [
+          {
+            OR: [
+              { round: { userId: user.id } },
+              { userId: user.id, tagRemovedAt: null },
+            ],
+          },
+          { round: qualifyingRound },
+        ],
+      },
+      select: {
+        userId: true,
+        result: true,
+        tagRemovedAt: true,
+        user: { select: playerSelect },
+        round: { select: roundSelect },
+      },
+    }),
+    prisma.roundGuestPlayer.findMany({
+      where: {
+        round: {
+          userId: user.id,
+          ...qualifyingRound,
+        },
+      },
+      select: {
+        name: true,
+        normalizedName: true,
+        result: true,
+        round: { select: roundSelect },
+      },
+    }),
+  ])
+
+  response.status(200).json(
+    buildPlayingPartnersHistory(user.id, friendRecords, guestRecords),
+  )
 })
 
 const challengePlayerSelect = {

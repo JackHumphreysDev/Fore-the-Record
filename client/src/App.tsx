@@ -729,7 +729,13 @@ function App() {
             onSessionEnded={clearSignedOutState}
           />
         ) : activeView === 'friends' ? (
-          <Friends profileId={profile.id} />
+          <Friends
+            profileId={profile.id}
+            onOpenRound={(roundId) => {
+              setHistoryFocusRoundId(roundId)
+              setActiveView('history')
+            }}
+          />
         ) : activeView === 'courses' ? (
           <CourseSearch
             onReportMissingCourse={() => {

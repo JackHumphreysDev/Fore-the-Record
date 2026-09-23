@@ -44,7 +44,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 38. Detailed round statistics. Completed in `0.42.0`.
 39. Advanced statistics insights. Completed in `0.43.0`.
 40. Round comparison. Completed in `0.44.0`.
-41. Playing Partners History.
+41. Playing Partners History. Completed in `0.45.0`.
 42. Season and Year Reviews.
 43. Achievements and Badges.
 44. Notification Centre.
@@ -58,6 +58,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Playing Partners History — completed in 0.45.0
+
+The Friends screen now keeps a private history of linked friends and named guests recorded on the player's qualifying rounds. Each partner summary includes rounds played, player-perspective wins, losses, ties, dates, shared courses, formats, and a chronological round list. Guest spellings are grouped through the same normalized name stored with the round.
+
+Rounds recorded by the signed-in player can be opened directly in private Round History. A round that another friend recorded is identified by its owner and exposes only limited context; private scores, notes, photos, and hole data are not copied into the partner history. Removed incoming tags are excluded, while the player's own historical record of whom they played remains intact. Verified individual cards and record-only team cards qualify, so pending or rejected scorecards cannot affect the history.
 
 ## Round comparison — completed in 0.44.0
 

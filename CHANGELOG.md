@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.45.0 - 2026-09-23
+
+### User-facing changes
+
+- Added a private Playing Partners History for linked friends and named guests, with rounds played, player-perspective results, first and latest dates, shared courses, and formats.
+- Added searchable friend and guest filters plus a newest-first round timeline, with direct Round History links for cards owned by the signed-in player.
+- Kept another player's scores, notes, photos, and hole details private while clearly identifying incoming tagged rounds and their recorder.
+
+### Developer and admin changes
+
+- Added an authenticated server-derived history endpoint covering verified individual cards and record-only team cards without a database migration.
+- Grouped guests by normalized name, inverted incoming friend results into the current player's perspective, and excluded removed incoming tags.
+- Added strict client response validation plus aggregation, route, privacy, and invalid-response regression coverage.
+
 ## 0.44.0 - 2026-09-23
 
 ### User-facing changes
