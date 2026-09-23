@@ -13,6 +13,7 @@ export type PerformanceAnalysisData = {
     courseId: string | null
     teeId: string | null
     category: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME' | null
+    holeCount: 9 | 18 | null
   }
   options: {
     courses: Array<{ id: string; name: string; clubName: string }>
@@ -51,6 +52,14 @@ export type PerformanceAnalysisData = {
   byCategory: Array<AnalysisAverage & {
     category: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
   }>
+  detailedStatistics: {
+    putts: { holes: number; completeRounds: number; total: number; averagePerHole: number | null; averagePerRound: number | null; threePutts: number; threePuttPercentage: number | null }
+    fairways: { holes: number; hits: number; missedLeft: number; missedRight: number; hitPercentage: number | null; missedLeftPercentage: number | null; missedRightPercentage: number | null }
+    greens: { holes: number; hits: number; percentage: number | null }
+    scrambling: { attempts: number; successful: number; percentage: number | null }
+    penalties: { completeRounds: number; total: number; averagePerRound: number | null }
+    bunkers: { completeRounds: number; total: number; averagePerRound: number | null }
+  }
 }
 
 export type PerformanceAnalysisFilters = {
@@ -59,6 +68,7 @@ export type PerformanceAnalysisFilters = {
   courseId?: string
   teeId?: string
   category?: 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'
+  holeCount?: 9 | 18
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -102,7 +112,8 @@ export function isPerformanceAnalysisData(
   const nullableString = (item: unknown) => item === null || typeof item === 'string'
   if (!nullableString(filters.from) || !nullableString(filters.to) ||
     !nullableString(filters.courseId) || !nullableString(filters.teeId) ||
-    !(filters.category === null || filters.category === 'CASUAL' || filters.category === 'COMPETITION' || filters.category === 'SOCIAL_GAME')) {
+    !(filters.category === null || filters.category === 'CASUAL' || filters.category === 'COMPETITION' || filters.category === 'SOCIAL_GAME') ||
+    !(filters.holeCount === null || filters.holeCount === 9 || filters.holeCount === 18)) {
     return false
   }
 
@@ -135,7 +146,14 @@ export function isPerformanceAnalysisData(
       isRecord(item) && isAverage(item) &&
         ((item as Record<string, unknown>).category === 'CASUAL' ||
           (item as Record<string, unknown>).category === 'COMPETITION' ||
-          (item as Record<string, unknown>).category === 'SOCIAL_GAME'))
+          (item as Record<string, unknown>).category === 'SOCIAL_GAME')) &&
+    isRecord(value.detailedStatistics) &&
+    isRecord(value.detailedStatistics.putts) && isCount(value.detailedStatistics.putts.holes) && isCount(value.detailedStatistics.putts.completeRounds) && isCount(value.detailedStatistics.putts.total) && isNullableNumber(value.detailedStatistics.putts.averagePerHole) && isNullableNumber(value.detailedStatistics.putts.averagePerRound) && isCount(value.detailedStatistics.putts.threePutts) && isNullableNumber(value.detailedStatistics.putts.threePuttPercentage) &&
+    isRecord(value.detailedStatistics.fairways) && isCount(value.detailedStatistics.fairways.holes) && isCount(value.detailedStatistics.fairways.hits) && isCount(value.detailedStatistics.fairways.missedLeft) && isCount(value.detailedStatistics.fairways.missedRight) && isNullableNumber(value.detailedStatistics.fairways.hitPercentage) && isNullableNumber(value.detailedStatistics.fairways.missedLeftPercentage) && isNullableNumber(value.detailedStatistics.fairways.missedRightPercentage) &&
+    isRecord(value.detailedStatistics.greens) && isCount(value.detailedStatistics.greens.holes) && isCount(value.detailedStatistics.greens.hits) && isNullableNumber(value.detailedStatistics.greens.percentage) &&
+    isRecord(value.detailedStatistics.scrambling) && isCount(value.detailedStatistics.scrambling.attempts) && isCount(value.detailedStatistics.scrambling.successful) && isNullableNumber(value.detailedStatistics.scrambling.percentage) &&
+    isRecord(value.detailedStatistics.penalties) && isCount(value.detailedStatistics.penalties.completeRounds) && isCount(value.detailedStatistics.penalties.total) && isNullableNumber(value.detailedStatistics.penalties.averagePerRound) &&
+    isRecord(value.detailedStatistics.bunkers) && isCount(value.detailedStatistics.bunkers.completeRounds) && isCount(value.detailedStatistics.bunkers.total) && isNullableNumber(value.detailedStatistics.bunkers.averagePerRound)
 }
 
 export function buildPerformanceAnalysisPath(
@@ -147,6 +165,7 @@ export function buildPerformanceAnalysisPath(
   if (filters.courseId) parameters.set('courseId', filters.courseId)
   if (filters.teeId) parameters.set('teeId', filters.teeId)
   if (filters.category) parameters.set('category', filters.category)
+  if (filters.holeCount) parameters.set('holeCount', String(filters.holeCount))
   const query = parameters.toString()
   return `/api/users/me/performance-analysis${query ? `?${query}` : ''}`
 }

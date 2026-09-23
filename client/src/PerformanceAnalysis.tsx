@@ -38,6 +38,10 @@ function formatToPar(value: number | null): string {
   return value > 0 ? `+${value.toFixed(1)}` : value.toFixed(1)
 }
 
+function formatPercentage(value: number | null): string {
+  return value === null ? '—' : `${value.toFixed(1)}%`
+}
+
 function sampleLabel(value: AnalysisAverage): string {
   return `${value.scoredRounds} scored of ${value.rounds} qualifying ${value.rounds === 1 ? 'round' : 'rounds'}`
 }
@@ -58,6 +62,7 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
   const [courseId, setCourseId] = useState('')
   const [teeId, setTeeId] = useState('')
   const [category, setCategory] = useState<'' | 'CASUAL' | 'COMPETITION' | 'SOCIAL_GAME'>('')
+  const [holeCount, setHoleCount] = useState<'' | 9 | 18>('')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
 
@@ -68,7 +73,8 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
     ...(courseId ? { courseId } : {}),
     ...(teeId ? { teeId } : {}),
     ...(category ? { category } : {}),
-  }), [category, courseId, customFrom, customTo, range, teeId])
+    ...(holeCount ? { holeCount } : {}),
+  }), [category, courseId, customFrom, customTo, holeCount, range, teeId])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -121,6 +127,7 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
           <option value="">All round types</option><option value="CASUAL">Casual only</option>
           <option value="COMPETITION">Competition only</option><option value="SOCIAL_GAME">Games with friends only</option>
         </select></label>
+        <label>Round length<select value={holeCount} onChange={(event) => setHoleCount(event.target.value === '' ? '' : Number(event.target.value) as 9 | 18)}><option value="">All lengths</option><option value="9">9 holes</option><option value="18">18 holes</option></select></label>
         {range === 'CUSTOM' ? <>
           <label>From<input type="date" value={customFrom} max={customTo || undefined} onChange={(event) => setCustomFrom(event.target.value)} /></label>
           <label>To<input type="date" value={customTo} min={customFrom || undefined} onChange={(event) => setCustomTo(event.target.value)} /></label>
@@ -137,6 +144,21 @@ function PerformanceAnalysis({ profileId }: { profileId: string }) {
           <div><dt>Average gross</dt><dd>{formatAverage(analysis.overall.averageGrossScore)}</dd><small>{sampleLabel(analysis.overall)}</small></div>
           <div><dt>Average to par</dt><dd>{formatToPar(analysis.overall.averageToPar)}</dd><small>{analysis.overall.relativeToParRounds} rounds with known par</small></div>
         </dl>
+
+        <section className="detailed-statistics" aria-labelledby="detailed-statistics-title">
+          <header><div><p className="form-kicker">Optional playing data</p><h3 id="detailed-statistics-title">Detailed round statistics</h3></div><p>Each figure uses only the holes or complete rounds where that detail was recorded.</p></header>
+          <div className="detailed-statistics-grid">
+            <article><span>Putts per round</span><strong>{formatAverage(analysis.detailedStatistics.putts.averagePerRound)}</strong><small>{analysis.detailedStatistics.putts.completeRounds} complete {analysis.detailedStatistics.putts.completeRounds === 1 ? 'round' : 'rounds'}</small></article>
+            <article><span>Putts per hole</span><strong>{formatAverage(analysis.detailedStatistics.putts.averagePerHole)}</strong><small>{analysis.detailedStatistics.putts.holes} recorded holes</small></article>
+            <article><span>Three-putt frequency</span><strong>{formatPercentage(analysis.detailedStatistics.putts.threePuttPercentage)}</strong><small>{analysis.detailedStatistics.putts.threePutts} of {analysis.detailedStatistics.putts.holes} recorded holes</small></article>
+            <article><span>Fairways hit</span><strong>{formatPercentage(analysis.detailedStatistics.fairways.hitPercentage)}</strong><small>{analysis.detailedStatistics.fairways.hits} of {analysis.detailedStatistics.fairways.holes} applicable holes</small></article>
+            <article><span>Miss tendency</span><strong>{formatPercentage(analysis.detailedStatistics.fairways.missedLeftPercentage)} L · {formatPercentage(analysis.detailedStatistics.fairways.missedRightPercentage)} R</strong><small>{analysis.detailedStatistics.fairways.holes} recorded tee shots</small></article>
+            <article><span>Greens in regulation</span><strong>{formatPercentage(analysis.detailedStatistics.greens.percentage)}</strong><small>{analysis.detailedStatistics.greens.hits} of {analysis.detailedStatistics.greens.holes} recorded holes</small></article>
+            <article><span>Scrambling</span><strong>{formatPercentage(analysis.detailedStatistics.scrambling.percentage)}</strong><small>{analysis.detailedStatistics.scrambling.successful} of {analysis.detailedStatistics.scrambling.attempts} attempts</small></article>
+            <article><span>Penalties per round</span><strong>{formatAverage(analysis.detailedStatistics.penalties.averagePerRound)}</strong><small>{analysis.detailedStatistics.penalties.completeRounds} complete {analysis.detailedStatistics.penalties.completeRounds === 1 ? 'round' : 'rounds'}</small></article>
+            <article><span>Bunker visits per round</span><strong>{formatAverage(analysis.detailedStatistics.bunkers.averagePerRound)}</strong><small>{analysis.detailedStatistics.bunkers.completeRounds} complete {analysis.detailedStatistics.bunkers.completeRounds === 1 ? 'round' : 'rounds'}</small></article>
+          </div>
+        </section>
 
         <div className="performance-analysis-grid">
           <section><header><h3>By par type</h3><p>Picked-up holes are excluded.</p></header><div className="analysis-card-row">

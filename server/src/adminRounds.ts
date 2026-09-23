@@ -112,6 +112,12 @@ export async function updateRoundAsAdmin(input: {
         strokesTaken:
           submitted?.pickedUp === true ? null : submitted?.strokesTaken,
         pickedUp: submitted?.pickedUp === true,
+        putts: hole.putts,
+        fairwayResult: hole.fairwayResult,
+        greenInRegulation: hole.greenInRegulation,
+        penaltyStrokes: hole.penaltyStrokes,
+        bunkerVisits: hole.bunkerVisits,
+        upAndDownResult: hole.upAndDownResult,
       }
     })
     const existingHoleCount = existing.holeCount ?? 18
@@ -293,6 +299,12 @@ export async function updateRoundAsAdmin(input: {
           strokeIndex: hole.strokeIndex,
           strokesTaken: hole.strokesTaken ?? 0,
           pickedUp: hole.pickedUp,
+          putts: hole.putts,
+          fairwayResult: hole.fairwayResult,
+          greenInRegulation: hole.greenInRegulation,
+          penaltyStrokes: hole.penaltyStrokes,
+          bunkerVisits: hole.bunkerVisits,
+          upAndDownResult: hole.upAndDownResult,
         })),
       })
     }

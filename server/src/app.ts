@@ -275,6 +275,12 @@ const ADMIN_ROUND_SELECT = {
       strokeIndex: true,
       strokesTaken: true,
       pickedUp: true,
+      putts: true,
+      fairwayResult: true,
+      greenInRegulation: true,
+      penaltyStrokes: true,
+      bunkerVisits: true,
+      upAndDownResult: true,
     },
   },
   playingPartners: {
@@ -2069,7 +2075,17 @@ app.patch(
             },
             holeScores: {
               orderBy: { holeNumber: 'asc' },
-              select: { holeNumber: true, strokesTaken: true, pickedUp: true },
+              select: {
+                holeNumber: true,
+                strokesTaken: true,
+                pickedUp: true,
+                putts: true,
+                fairwayResult: true,
+                greenInRegulation: true,
+                penaltyStrokes: true,
+                bunkerVisits: true,
+                upAndDownResult: true,
+              },
             },
           },
         },
@@ -2172,6 +2188,12 @@ app.patch(
           ? null
           : (playerScore?.strokesTaken ?? 0),
         pickedUp: playerScore?.pickedUp ?? false,
+        putts: playerScore?.putts ?? null,
+        fairwayResult: playerScore?.fairwayResult ?? null,
+        greenInRegulation: playerScore?.greenInRegulation ?? null,
+        penaltyStrokes: playerScore?.penaltyStrokes ?? null,
+        bunkerVisits: playerScore?.bunkerVisits ?? null,
+        upAndDownResult: playerScore?.upAndDownResult ?? null,
       }
     })
     const strokeIndexRank = new Map(
@@ -2310,6 +2332,12 @@ app.patch(
           strokeIndex: hole.strokeIndex,
           strokesTaken: hole.strokesTaken ?? 0,
           pickedUp: hole.pickedUp,
+          putts: hole.putts,
+          fairwayResult: hole.fairwayResult,
+          greenInRegulation: hole.greenInRegulation,
+          penaltyStrokes: hole.penaltyStrokes,
+          bunkerVisits: hole.bunkerVisits,
+          upAndDownResult: hole.upAndDownResult,
         })),
       }),
       prisma.round.update({
@@ -2891,6 +2919,12 @@ app.get('/api/users/me/rounds', async (_request, response) => {
               strokeIndex: true,
               strokesTaken: true,
               pickedUp: true,
+              putts: true,
+              fairwayResult: true,
+              greenInRegulation: true,
+              penaltyStrokes: true,
+              bunkerVisits: true,
+              upAndDownResult: true,
             },
           },
           playingPartners: {
@@ -3377,6 +3411,7 @@ app.get('/api/users/me/performance-analysis', async (request, response) => {
   const courseId = readQueryValue(request.query.courseId)
   const teeId = readQueryValue(request.query.teeId)
   const category = readQueryValue(request.query.category)
+  const holeCount = readQueryValue(request.query.holeCount)
   const isDate = (value: string | undefined) =>
     !value || /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
 
@@ -3386,7 +3421,8 @@ app.get('/api/users/me/performance-analysis', async (request, response) => {
     (from && to && from > to) ||
     (courseId && !UUID_PATTERN.test(courseId)) ||
     (teeId && !UUID_PATTERN.test(teeId)) ||
-    (category && category !== 'CASUAL' && category !== 'COMPETITION' && category !== 'SOCIAL_GAME')
+    (category && category !== 'CASUAL' && category !== 'COMPETITION' && category !== 'SOCIAL_GAME') ||
+    (holeCount && holeCount !== '9' && holeCount !== '18')
   ) {
     response.status(400).json({ error: 'Invalid performance analysis filters' })
     return
@@ -3398,6 +3434,7 @@ app.get('/api/users/me/performance-analysis', async (request, response) => {
     ...(courseId ? { courseId } : {}),
     ...(teeId ? { teeId } : {}),
     ...(category === 'CASUAL' || category === 'COMPETITION' || category === 'SOCIAL_GAME' ? { category } : {}),
+    ...(holeCount === '9' || holeCount === '18' ? { holeCount: Number(holeCount) as 9 | 18 } : {}),
   }
   const user = await prisma.user.findUnique({
     where: { authUserId: authenticatedUser.id },
@@ -3434,6 +3471,12 @@ app.get('/api/users/me/performance-analysis', async (request, response) => {
               par: true,
               strokesTaken: true,
               pickedUp: true,
+              putts: true,
+              fairwayResult: true,
+              greenInRegulation: true,
+              penaltyStrokes: true,
+              bunkerVisits: true,
+              upAndDownResult: true,
             },
           },
         },
@@ -6411,7 +6454,15 @@ app.get('/api/users/me/live-round', async (_request, response) => {
     where: { userId: profile.id },
     select: { id: true, teeId: true, state: true, createdAt: true, updatedAt: true },
   })
-  response.status(200).json({ draft })
+  if (!draft) {
+    response.status(200).json({ draft: null })
+    return
+  }
+
+  const state = parseLiveRoundDraftState(draft.state)
+  response.status(200).json({
+    draft: state ? { ...draft, state } : null,
+  })
 })
 
 app.put('/api/users/me/live-round', async (request, response) => {

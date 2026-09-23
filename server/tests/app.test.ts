@@ -513,7 +513,20 @@ describe('live round drafts', () => {
     form: { teeId, participation: 'INDIVIDUAL', holeCount: 9 },
     scorecardStatus: 'available',
     scorecardSource: 'saved',
-    holeEntries: Array.from({ length: 9 }, (_, index) => ({ holeNumber: index + 1, par: '4', strokeIndex: String(index + 1), yardage: '400', strokesTaken: '', pickedUp: false })),
+    holeEntries: Array.from({ length: 9 }, (_, index) => ({
+      holeNumber: index + 1,
+      par: '4',
+      strokeIndex: String(index + 1),
+      yardage: '400',
+      strokesTaken: '',
+      pickedUp: false,
+      putts: '',
+      fairwayResult: '',
+      greenInRegulation: '',
+      penaltyStrokes: '',
+      bunkerVisits: '',
+      upAndDownResult: '',
+    })),
     matchPlayDraft: {},
   }
 
@@ -3256,6 +3269,12 @@ describe('GET /api/users/me/performance-analysis', () => {
             par: 4,
             strokesTaken: index % 2 === 0 ? 4 : 5,
             pickedUp: false,
+            putts: index % 2 === 0 ? 2 : 3,
+            fairwayResult: index % 3 === 0 ? 'NOT_APPLICABLE' : 'HIT',
+            greenInRegulation: index % 2 === 0,
+            penaltyStrokes: 0,
+            bunkerVisits: 0,
+            upAndDownResult: 'NOT_ATTEMPTED',
           })),
         },
       ],
@@ -3272,6 +3291,7 @@ describe('GET /api/users/me/performance-analysis', () => {
       courseId,
       teeId,
       category: 'COMPETITION',
+      holeCount: null,
     })
     expect(response.body.overall).toEqual({
       rounds: 1,

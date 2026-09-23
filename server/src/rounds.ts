@@ -80,6 +80,12 @@ export type RoundHoleInput = {
   strokesTaken: number | null
   pickedUp: boolean
   yardage?: number
+  putts: number | null
+  fairwayResult: 'HIT' | 'MISSED_LEFT' | 'MISSED_RIGHT' | 'NOT_APPLICABLE' | null
+  greenInRegulation: boolean | null
+  penaltyStrokes: number | null
+  bunkerVisits: number | null
+  upAndDownResult: 'NOT_ATTEMPTED' | 'SUCCESSFUL' | 'UNSUCCESSFUL' | null
 }
 
 type LogRoundBase = {
@@ -334,6 +340,30 @@ function getHoleScores(
 
   for (const score of value) {
     const pickedUp = isRecord(score) && score.pickedUp === true
+    const optionalCount = (field: unknown): number | null | undefined =>
+      field === undefined || field === null
+        ? null
+        : typeof field === 'number' && Number.isInteger(field) && field >= 0 && field <= 9
+          ? field
+          : undefined
+    const putts = isRecord(score) ? optionalCount(score.putts) : undefined
+    const penaltyStrokes = isRecord(score) ? optionalCount(score.penaltyStrokes) : undefined
+    const bunkerVisits = isRecord(score) ? optionalCount(score.bunkerVisits) : undefined
+    const fairwayResult = isRecord(score) && (score.fairwayResult === undefined || score.fairwayResult === null)
+      ? null
+      : isRecord(score) && (score.fairwayResult === 'HIT' || score.fairwayResult === 'MISSED_LEFT' || score.fairwayResult === 'MISSED_RIGHT' || score.fairwayResult === 'NOT_APPLICABLE')
+        ? score.fairwayResult
+        : undefined
+    const greenInRegulation = isRecord(score) && (score.greenInRegulation === undefined || score.greenInRegulation === null)
+      ? null
+      : isRecord(score) && typeof score.greenInRegulation === 'boolean'
+        ? score.greenInRegulation
+        : undefined
+    const upAndDownResult = isRecord(score) && (score.upAndDownResult === undefined || score.upAndDownResult === null)
+      ? null
+      : isRecord(score) && (score.upAndDownResult === 'NOT_ATTEMPTED' || score.upAndDownResult === 'SUCCESSFUL' || score.upAndDownResult === 'UNSUCCESSFUL')
+        ? score.upAndDownResult
+        : undefined
     if (
       !isRecord(score) ||
       typeof score.holeNumber !== 'number' ||
@@ -357,7 +387,13 @@ function getHoleScores(
       (score.yardage !== undefined &&
         (typeof score.yardage !== 'number' ||
           !Number.isInteger(score.yardage) ||
-          score.yardage <= 0))
+          score.yardage <= 0)) ||
+      putts === undefined ||
+      penaltyStrokes === undefined ||
+      bunkerVisits === undefined ||
+      fairwayResult === undefined ||
+      greenInRegulation === undefined ||
+      upAndDownResult === undefined
     ) {
       return null
     }
@@ -368,6 +404,12 @@ function getHoleScores(
       strokeIndex: score.strokeIndex,
       strokesTaken: pickedUp ? null : (score.strokesTaken as number),
       pickedUp,
+      putts,
+      fairwayResult,
+      greenInRegulation,
+      penaltyStrokes,
+      bunkerVisits,
+      upAndDownResult,
       ...(typeof score.yardage === 'number'
         ? { yardage: score.yardage }
         : {}),
@@ -879,6 +921,12 @@ export async function logRound(input: LogRoundInput) {
         strokeIndex: savedHole?.strokeIndex ?? submittedHole.strokeIndex,
         strokesTaken: submittedHole.strokesTaken,
         pickedUp: submittedHole.pickedUp,
+        putts: submittedHole.putts,
+        fairwayResult: submittedHole.fairwayResult,
+        greenInRegulation: submittedHole.greenInRegulation,
+        penaltyStrokes: submittedHole.penaltyStrokes,
+        bunkerVisits: submittedHole.bunkerVisits,
+        upAndDownResult: submittedHole.upAndDownResult,
         ...(savedHole?.yardage ?? submittedHole.yardage
           ? { yardage: savedHole?.yardage ?? submittedHole.yardage }
           : {}),

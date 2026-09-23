@@ -32,6 +32,8 @@ The Profile screen includes a private performance summary with round-type totals
 
 The Rounds screen includes deeper private performance analysis with date, course, tee, and round-type filters. It compares average gross and score-to-par results by course, tee, par type, Front 9 or Back 9, and casual or competition play. Every average includes its qualifying sample, while team records, unverified cards, and invented pickup scores remain excluded.
 
+Individual scorecards can also record optional putts, fairway result, green in regulation, penalty strokes, bunker visits, and up-and-down result for every hole in standard or Live Round entry. Private performance analysis turns only the fields a player actually recorded into putting, driving, approach, scrambling, penalty, and bunker figures with clear sample sizes. The same detail remains available when the player expands the round in History, while it stays out of friend, group, and shared-round views.
+
 The Rounds screen also includes private performance insights for recent form, scoring consistency, strongest and weakest par types, Front 9 and Back 9 comparisons, and strongest course-and-tee combinations. Hole Performance History plots an exact hole over time against par and the player's average, keeps pickups visibly scoreless, and links each recorded point to its full Round History entry.
 
 The Rounds screen also keeps personal bests separately for every course and tee played. It shows the lowest completed 18-hole gross score, highest 18-hole Stableford total, best Front 9 and Back 9, and the player's lowest completed score on each hole, together with the date each record was set.
@@ -76,7 +78,7 @@ The production application is deployed on Vercel. The current RapidAPI allowance
 
 ## Roadmap and releases
 
-The current application version is `0.41.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.42.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)

@@ -41,8 +41,17 @@ This roadmap records agreed future work. Items are planned requirements, not com
 35. Performance insights. Completed in `0.39.0`.
 36. Full team-game scoring. Completed in `0.40.0`.
 37. Live Round mode. Completed in `0.41.0`.
+38. Detailed round statistics. Completed in `0.42.0`.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Detailed round statistics — completed in 0.42.0
+
+Standard and Live Round entry now let a player optionally record putts, fairway result, green in regulation, penalty strokes, bunker visits, and up-and-down result for each hole. Par 3 holes default to fairway not applicable. Blank fields never block a round and never change its score, Stableford result, score differential, or Handicap Index; a filled numeric field must be a whole number from zero to nine.
+
+The private performance-analysis panel reports putting averages and three-putt frequency, fairways hit and miss direction, greens in regulation, scrambling, penalties, and bunker visits. Course, tee, date, category, and nine- or 18-hole filters apply consistently, and each result states its recorded sample rather than treating missing data as zero. Only verified individual rounds enter aggregates; pending and rejected cards retain their entered statistics but remain excluded.
+
+Expanded private History cards show the recorded detail and round summaries. Administrator score correction preserves the statistics. They are not included in friend profiles, activity feeds, groups, or shared-round payloads in this release.
 
 ## Live Round mode — completed in 0.41.0
 

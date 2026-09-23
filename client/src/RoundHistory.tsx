@@ -138,6 +138,14 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
   const matchPlayByHole = new Map(round.matchPlayHoles?.map((hole) => [hole.holeNumber, hole]) ?? [])
   const parTotal = (holes: typeof round.holeScores) =>
     holes.reduce((sum, hole) => sum + hole.par, 0)
+  const hasDetailedStatistics = round.holeScores.some((hole) =>
+    hole.putts !== null || hole.fairwayResult !== null || hole.greenInRegulation !== null ||
+    hole.penaltyStrokes !== null || hole.bunkerVisits !== null || hole.upAndDownResult !== null,
+  )
+  const recordedPutts = round.holeScores.filter((hole) => hole.putts !== null)
+  const fairways = round.holeScores.filter((hole) => hole.fairwayResult !== null && hole.fairwayResult !== 'NOT_APPLICABLE')
+  const greens = round.holeScores.filter((hole) => hole.greenInRegulation !== null)
+  const scrambles = round.holeScores.filter((hole) => hole.upAndDownResult === 'SUCCESSFUL' || hole.upAndDownResult === 'UNSUCCESSFUL')
 
   return (
     <div className="history-scorecard">
@@ -149,6 +157,12 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
               <th scope="col">Par</th>
               <th scope="col">SI</th>
               <th scope="col">Score</th>
+              <th scope="col">Putts</th>
+              <th scope="col">Fairway</th>
+              <th scope="col">GIR</th>
+              <th scope="col">Pen.</th>
+              <th scope="col">Bunkers</th>
+              <th scope="col">Up & down</th>
               {round.matchPlayHoles ? <th scope="col">Opponent</th> : null}
               {round.matchPlayHoles ? <th scope="col">Match</th> : null}
               <th scope="col">To par</th>
@@ -163,6 +177,12 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
                 <td>{hole.par}</td>
                 <td>{hole.strokeIndex}</td>
                 <td>{hole.pickedUp ? 'Picked up' : hole.strokesTaken}</td>
+                <td>{hole.putts ?? '—'}</td>
+                <td>{hole.fairwayResult === 'HIT' ? 'Hit' : hole.fairwayResult === 'MISSED_LEFT' ? 'Left' : hole.fairwayResult === 'MISSED_RIGHT' ? 'Right' : hole.fairwayResult === 'NOT_APPLICABLE' ? 'N/A' : '—'}</td>
+                <td>{hole.greenInRegulation === null ? '—' : hole.greenInRegulation ? 'Yes' : 'No'}</td>
+                <td>{hole.penaltyStrokes ?? '—'}</td>
+                <td>{hole.bunkerVisits ?? '—'}</td>
+                <td>{hole.upAndDownResult === 'SUCCESSFUL' ? 'Yes' : hole.upAndDownResult === 'UNSUCCESSFUL' ? 'No' : hole.upAndDownResult === 'NOT_ATTEMPTED' ? 'N/A' : '—'}</td>
                 {round.matchPlayHoles ? <td>{matchPlayByHole.get(hole.holeNumber)?.opponentStrokes ?? '—'}</td> : null}
                 {round.matchPlayHoles ? <td>{matchPlayByHole.get(hole.holeNumber)?.result === 'WON' ? 'Won' : matchPlayByHole.get(hole.holeNumber)?.result === 'LOST' ? 'Lost' : matchPlayByHole.get(hole.holeNumber)?.result === 'HALVED' ? 'Halved' : 'Not played'}</td> : null}
                 <td>{hole.pickedUp ? '—' : scoreToPar(hole.strokesTaken, hole.par)}</td>
@@ -184,6 +204,14 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
         {round.holeCount === 18 ? <div><dt>Back 9</dt><dd>{isStableford ? stableford.backNine : totals.backNine} <small>{isStableford ? 'points' : `Par ${parTotal(backNine)}`}</small></dd></div> : null}
         <div><dt>{round.holeCount === 9 ? (round.nineHoleSegment === 'FRONT_NINE' ? 'Front 9' : 'Back 9') : 'Total'}</dt><dd>{isStableford ? stableford.total : totals.total} <small>{isStableford ? 'points' : `Par ${parTotal(round.holeScores)}`}</small></dd></div>
       </dl>
+      {hasDetailedStatistics ? <dl className="history-performance-summary">
+        <div><dt>Total putts</dt><dd>{recordedPutts.length > 0 ? recordedPutts.reduce((sum, hole) => sum + (hole.putts ?? 0), 0) : '—'}</dd><small>{recordedPutts.length} recorded holes</small></div>
+        <div><dt>Fairways hit</dt><dd>{fairways.length > 0 ? `${fairways.filter((hole) => hole.fairwayResult === 'HIT').length}/${fairways.length}` : '—'}</dd><small>Applicable recorded holes</small></div>
+        <div><dt>Greens in regulation</dt><dd>{greens.length > 0 ? `${greens.filter((hole) => hole.greenInRegulation).length}/${greens.length}` : '—'}</dd><small>Recorded holes</small></div>
+        <div><dt>Up and downs</dt><dd>{scrambles.length > 0 ? `${scrambles.filter((hole) => hole.upAndDownResult === 'SUCCESSFUL').length}/${scrambles.length}` : '—'}</dd><small>Recorded attempts</small></div>
+        <div><dt>Penalty strokes</dt><dd>{round.holeScores.some((hole) => hole.penaltyStrokes !== null) ? round.holeScores.reduce((sum, hole) => sum + (hole.penaltyStrokes ?? 0), 0) : '—'}</dd><small>Recorded total</small></div>
+        <div><dt>Bunker visits</dt><dd>{round.holeScores.some((hole) => hole.bunkerVisits !== null) ? round.holeScores.reduce((sum, hole) => sum + (hole.bunkerVisits ?? 0), 0) : '—'}</dd><small>Recorded total</small></div>
+      </dl> : null}
     </div>
   )
 }
