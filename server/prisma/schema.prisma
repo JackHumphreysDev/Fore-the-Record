@@ -175,6 +175,12 @@ model User {
   friendGroupMemberships FriendGroupMember[]
   friendGroupMessages     FriendGroupMessage[]
   notifications          Notification[]
+  organizedKnockouts     KnockoutCompetition[]  @relation("KnockoutOrganizer")
+  wonKnockouts           KnockoutCompetition[]  @relation("KnockoutChampion")
+  knockoutEntries        KnockoutParticipant[]
+  knockoutMatchesAsOne   KnockoutMatch[]        @relation("KnockoutPlayerOne")
+  knockoutMatchesAsTwo   KnockoutMatch[]        @relation("KnockoutPlayerTwo")
+  knockoutMatchWins      KnockoutMatch[]        @relation("KnockoutMatchWinner")
 
   @@index([status, createdAt])
 }
@@ -211,6 +217,25 @@ enum ChallengeStatus {
   CANCELLED
 }
 
+enum KnockoutCompetitionStatus {
+  INVITING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum KnockoutParticipantStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+}
+
+enum KnockoutMatchStatus {
+  WAITING
+  READY
+  COMPLETED
+}
+
 model PlayerChallenge {
   id          String          @id @default(uuid()) @db.Uuid
   creatorId   String          @db.Uuid
@@ -226,6 +251,62 @@ model PlayerChallenge {
 
   @@index([creatorId, status, endsOn])
   @@index([opponentId, status, endsOn])
+}
+
+model KnockoutCompetition {
+  id           String                    @id @default(uuid()) @db.Uuid
+  organizerId  String                    @db.Uuid
+  name         String                    @db.VarChar(100)
+  status       KnockoutCompetitionStatus @default(INVITING)
+  championId   String?                   @db.Uuid
+  createdAt    DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime                  @updatedAt @db.Timestamptz(3)
+  organizer    User                      @relation("KnockoutOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  champion     User?                     @relation("KnockoutChampion", fields: [championId], references: [id], onDelete: SetNull)
+  participants KnockoutParticipant[]
+  matches      KnockoutMatch[]
+
+  @@index([organizerId, createdAt])
+  @@index([status, updatedAt])
+}
+
+model KnockoutParticipant {
+  competitionId String                    @db.Uuid
+  userId        String                    @db.Uuid
+  status        KnockoutParticipantStatus @default(INVITED)
+  seed          Int
+  respondedAt   DateTime?                 @db.Timestamptz(3)
+  competition   KnockoutCompetition       @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([competitionId, userId])
+  @@unique([competitionId, seed])
+  @@index([userId, status])
+}
+
+model KnockoutMatch {
+  id             String              @id @default(uuid()) @db.Uuid
+  competitionId  String              @db.Uuid
+  roundNumber    Int
+  position       Int
+  playerOneId    String?             @db.Uuid
+  playerTwoId    String?             @db.Uuid
+  winnerId       String?             @db.Uuid
+  status         KnockoutMatchStatus @default(WAITING)
+  winningMargin  Int?
+  holesRemaining Int?
+  resultLabel    String?             @db.VarChar(40)
+  completedAt    DateTime?           @db.Timestamptz(3)
+  createdAt      DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @db.Timestamptz(3)
+  competition    KnockoutCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  playerOne      User?               @relation("KnockoutPlayerOne", fields: [playerOneId], references: [id], onDelete: SetNull)
+  playerTwo      User?               @relation("KnockoutPlayerTwo", fields: [playerTwoId], references: [id], onDelete: SetNull)
+  winner         User?               @relation("KnockoutMatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+
+  @@unique([competitionId, roundNumber, position])
+  @@index([playerOneId, status])
+  @@index([playerTwoId, status])
 }
 
 model PlayerGoal {

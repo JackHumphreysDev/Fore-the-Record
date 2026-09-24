@@ -112,6 +112,9 @@ import {
   ChallengeStatus,
   NotificationAction,
   NotificationCategory,
+  KnockoutCompetitionStatus,
+  KnockoutMatchStatus,
+  KnockoutParticipantStatus,
 } from './generated/prisma/enums.js'
 import {
   logRound,
@@ -137,6 +140,13 @@ import {
   readStatisticsDashboardConfig,
   StatisticsDashboardValidationError,
 } from './statisticsDashboard.js'
+import {
+  buildKnockoutBracket,
+  KnockoutCompetitionError,
+  parseKnockoutInvitees,
+  parseKnockoutName,
+  parseKnockoutResult,
+} from './knockoutCompetitions.js'
 import {
   calculateAdjustedGrossScore,
   calculateCourseHandicap,
@@ -5114,6 +5124,164 @@ app.get('/api/users/me/playing-partners-history', async (_request, response) => 
   response.status(200).json(
     buildPlayingPartnersHistory(user.id, friendRecords, guestRecords),
   )
+})
+
+const knockoutPlayerSelect = {
+  id: true,
+  name: true,
+  homeClub: { select: { id: true, name: true } },
+} satisfies Prisma.UserSelect
+
+app.get('/api/users/me/knockout-competitions', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const competitions = await prisma.knockoutCompetition.findMany({
+    where: { participants: { some: { userId: user.id } } },
+    orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
+    select: {
+      id: true, name: true, status: true, organizerId: true, championId: true, createdAt: true, updatedAt: true,
+      organizer: { select: knockoutPlayerSelect },
+      champion: { select: knockoutPlayerSelect },
+      participants: { orderBy: { seed: 'asc' }, select: { userId: true, status: true, seed: true, respondedAt: true, user: { select: knockoutPlayerSelect } } },
+      matches: { orderBy: [{ roundNumber: 'asc' }, { position: 'asc' }], select: { id: true, roundNumber: true, position: true, status: true, playerOneId: true, playerTwoId: true, winnerId: true, winningMargin: true, holesRemaining: true, resultLabel: true, completedAt: true, playerOne: { select: knockoutPlayerSelect }, playerTwo: { select: knockoutPlayerSelect }, winner: { select: knockoutPlayerSelect } } },
+    },
+  })
+  response.status(200).json({
+    competitions: competitions.map((competition) => ({
+      ...competition,
+      isOrganizer: competition.organizerId === user.id,
+      createdAt: competition.createdAt.toISOString(),
+      updatedAt: competition.updatedAt.toISOString(),
+      participants: competition.participants.map((participant) => ({ ...participant, respondedAt: participant.respondedAt?.toISOString() ?? null })),
+      matches: competition.matches.map((match) => ({ ...match, completedAt: match.completedAt?.toISOString() ?? null })),
+    })),
+  })
+})
+
+app.post('/api/users/me/knockout-competitions', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  let name: string
+  let inviteeIds: string[]
+  try {
+    name = parseKnockoutName(request.body?.name)
+    inviteeIds = parseKnockoutInvitees(request.body?.inviteeIds)
+  } catch (error: unknown) {
+    if (error instanceof KnockoutCompetitionError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  if (inviteeIds.includes(user.id)) return response.status(400).json({ error: 'You are already included as the organiser' })
+  const friendships = await prisma.friendship.findMany({
+    where: { status: FriendshipStatus.ACCEPTED, OR: inviteeIds.flatMap((friendId) => [{ requesterId: user.id, addresseeId: friendId }, { requesterId: friendId, addresseeId: user.id }]) },
+    select: { requesterId: true, addresseeId: true },
+  })
+  const acceptedIds = new Set(friendships.map((friendship) => friendship.requesterId === user.id ? friendship.addresseeId : friendship.requesterId))
+  const activeInvitees = await prisma.user.findMany({ where: { id: { in: inviteeIds }, status: UserStatus.ACTIVE, authUserId: { not: null } }, select: { id: true } })
+  const activeIds = new Set(activeInvitees.map((invitee) => invitee.id))
+  if (inviteeIds.some((id) => !acceptedIds.has(id) || !activeIds.has(id))) return response.status(400).json({ error: 'Every competitor must be an active accepted friend' })
+  const now = new Date()
+  const competition = await prisma.knockoutCompetition.create({
+    data: {
+      organizerId: user.id,
+      name,
+      participants: { create: [{ userId: user.id, status: KnockoutParticipantStatus.ACCEPTED, seed: 1, respondedAt: now }, ...inviteeIds.map((userId, index) => ({ userId, status: KnockoutParticipantStatus.INVITED, seed: index + 2 }))] },
+    },
+    select: { id: true, name: true },
+  })
+  await prisma.notification.createMany({
+    data: inviteeIds.map((recipientId) => ({ recipientId, category: NotificationCategory.SOCIAL, eventType: 'KNOCKOUT_INVITATION', title: 'Knockout competition invitation', message: `${user.name} invited you to ${competition.name}.`, action: NotificationAction.FRIENDS, actionTargetId: competition.id, dedupeKey: `knockout:${competition.id}:invite:${recipientId}` })),
+    skipDuplicates: true,
+  })
+  response.status(201).json({ id: competition.id })
+})
+
+app.patch('/api/users/me/knockout-competitions/:competitionId/invitation', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const participant = await prisma.knockoutParticipant.findUnique({
+    where: { competitionId_userId: { competitionId: request.params.competitionId, userId: user.id } },
+    select: { status: true, competition: { select: { organizerId: true, name: true, status: true } } },
+  })
+  if (!participant) return response.status(404).json({ error: 'Competition invitation not found' })
+  const action = request.body?.action
+  if (participant.status !== KnockoutParticipantStatus.INVITED || participant.competition.status !== KnockoutCompetitionStatus.INVITING || (action !== 'accept' && action !== 'decline')) {
+    return response.status(400).json({ error: 'This invitation can no longer be updated' })
+  }
+  const status = action === 'accept' ? KnockoutParticipantStatus.ACCEPTED : KnockoutParticipantStatus.DECLINED
+  await prisma.knockoutParticipant.update({ where: { competitionId_userId: { competitionId: request.params.competitionId, userId: user.id } }, data: { status, respondedAt: new Date() } })
+  await prisma.notification.create({ data: { recipientId: participant.competition.organizerId, category: NotificationCategory.SOCIAL, eventType: `KNOCKOUT_INVITATION_${status}`, title: 'Knockout invitation updated', message: `${user.name} ${status === KnockoutParticipantStatus.ACCEPTED ? 'accepted' : 'declined'} the invitation to ${participant.competition.name}.`, action: NotificationAction.FRIENDS, actionTargetId: request.params.competitionId, dedupeKey: `knockout:${request.params.competitionId}:response:${user.id}` } })
+  response.status(200).json({ status })
+})
+
+app.post('/api/users/me/knockout-competitions/:competitionId/start', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const competition = await prisma.knockoutCompetition.findUnique({ where: { id: request.params.competitionId }, select: { organizerId: true, name: true, status: true, participants: { orderBy: { seed: 'asc' }, select: { userId: true, status: true } } } })
+  if (!competition) return response.status(404).json({ error: 'Competition not found' })
+  if (competition.organizerId !== user.id) return response.status(403).json({ error: 'Only the organiser can start this competition' })
+  if (competition.status !== KnockoutCompetitionStatus.INVITING) return response.status(400).json({ error: 'This competition draw has already been decided' })
+  if (competition.participants.some((participant) => participant.status === KnockoutParticipantStatus.INVITED)) return response.status(400).json({ error: 'Wait for every invitation to be answered before starting the draw' })
+  const acceptedIds = competition.participants.filter((participant) => participant.status === KnockoutParticipantStatus.ACCEPTED).map((participant) => participant.userId)
+  if (acceptedIds.length < 2) return response.status(400).json({ error: 'At least two accepted players are needed to start' })
+  const matches = buildKnockoutBracket(acceptedIds)
+  await prisma.$transaction([
+    prisma.knockoutMatch.createMany({ data: matches.map((match) => ({ competitionId: request.params.competitionId, ...match })) }),
+    prisma.knockoutCompetition.update({ where: { id: request.params.competitionId }, data: { status: KnockoutCompetitionStatus.ACTIVE } }),
+  ])
+  const recipients = acceptedIds.filter((id) => id !== user.id)
+  if (recipients.length > 0) await prisma.notification.createMany({ data: recipients.map((recipientId) => ({ recipientId, category: NotificationCategory.SOCIAL, eventType: 'KNOCKOUT_STARTED', title: 'Knockout draw ready', message: `${competition.name} has started. Your bracket is ready.`, action: NotificationAction.FRIENDS, actionTargetId: request.params.competitionId, dedupeKey: `knockout:${request.params.competitionId}:started:${recipientId}` })), skipDuplicates: true })
+  response.status(200).json({ status: KnockoutCompetitionStatus.ACTIVE })
+})
+
+app.patch('/api/users/me/knockout-competitions/:competitionId/matches/:matchId', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const competition = await prisma.knockoutCompetition.findUnique({ where: { id: request.params.competitionId }, select: { organizerId: true, name: true, status: true } })
+  if (!competition) return response.status(404).json({ error: 'Competition not found' })
+  if (competition.organizerId !== user.id) return response.status(403).json({ error: 'Only the organiser can record knockout results' })
+  if (competition.status !== KnockoutCompetitionStatus.ACTIVE) return response.status(400).json({ error: 'This competition is not active' })
+  const match = await prisma.knockoutMatch.findFirst({ where: { id: request.params.matchId, competitionId: request.params.competitionId }, select: { id: true, roundNumber: true, position: true, status: true, playerOneId: true, playerTwoId: true } })
+  if (!match) return response.status(404).json({ error: 'Knockout match not found' })
+  let result
+  try { result = parseKnockoutResult(request.body) } catch (error: unknown) {
+    if (error instanceof KnockoutCompetitionError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  if (match.status !== KnockoutMatchStatus.READY || !match.playerOneId || !match.playerTwoId) return response.status(400).json({ error: 'This match is not ready for a result' })
+  if (result.winnerId !== match.playerOneId && result.winnerId !== match.playerTwoId) return response.status(400).json({ error: 'Choose one of the players in this match as the winner' })
+  const nextMatch = await prisma.knockoutMatch.findUnique({ where: { competitionId_roundNumber_position: { competitionId: request.params.competitionId, roundNumber: match.roundNumber + 1, position: Math.ceil(match.position / 2) } }, select: { id: true, playerOneId: true, playerTwoId: true } })
+  const operations: Prisma.PrismaPromise<unknown>[] = [prisma.knockoutMatch.update({ where: { id: match.id }, data: { winnerId: result.winnerId, winningMargin: result.winningMargin, holesRemaining: result.holesRemaining, resultLabel: result.resultLabel, status: KnockoutMatchStatus.COMPLETED, completedAt: new Date() } })]
+  if (nextMatch) {
+    const fillsPlayerOne = match.position % 2 === 1
+    const otherPlayerId = fillsPlayerOne ? nextMatch.playerTwoId : nextMatch.playerOneId
+    operations.push(prisma.knockoutMatch.update({ where: { id: nextMatch.id }, data: { ...(fillsPlayerOne ? { playerOneId: result.winnerId } : { playerTwoId: result.winnerId }), status: otherPlayerId ? KnockoutMatchStatus.READY : KnockoutMatchStatus.WAITING } }))
+  } else {
+    operations.push(prisma.knockoutCompetition.update({ where: { id: request.params.competitionId }, data: { status: KnockoutCompetitionStatus.COMPLETED, championId: result.winnerId } }))
+  }
+  await prisma.$transaction(operations)
+  const loserId = result.winnerId === match.playerOneId ? match.playerTwoId : match.playerOneId
+  const resultRecipients = [result.winnerId, loserId].filter((id) => id !== user.id)
+  if (resultRecipients.length > 0) await prisma.notification.createMany({ data: resultRecipients.map((recipientId) => ({ recipientId, category: NotificationCategory.SOCIAL, eventType: nextMatch ? 'KNOCKOUT_RESULT' : 'KNOCKOUT_CHAMPION', title: nextMatch ? 'Knockout result recorded' : 'Knockout champion decided', message: `${competition.name}: ${result.resultLabel}.`, action: NotificationAction.FRIENDS, actionTargetId: request.params.competitionId, dedupeKey: `knockout:${request.params.competitionId}:match:${match.id}:${recipientId}` })), skipDuplicates: true })
+  response.status(200).json({ winnerId: result.winnerId, resultLabel: result.resultLabel, competitionStatus: nextMatch ? KnockoutCompetitionStatus.ACTIVE : KnockoutCompetitionStatus.COMPLETED })
+})
+
+app.delete('/api/users/me/knockout-competitions/:competitionId', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, name: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const competition = await prisma.knockoutCompetition.findUnique({ where: { id: request.params.competitionId }, select: { organizerId: true, name: true, status: true, participants: { select: { userId: true } } } })
+  if (!competition) return response.status(404).json({ error: 'Competition not found' })
+  if (competition.organizerId !== user.id) return response.status(403).json({ error: 'Only the organiser can cancel this competition' })
+  if (competition.status === KnockoutCompetitionStatus.COMPLETED || competition.status === KnockoutCompetitionStatus.CANCELLED) return response.status(400).json({ error: 'This competition can no longer be cancelled' })
+  await prisma.knockoutCompetition.update({ where: { id: request.params.competitionId }, data: { status: KnockoutCompetitionStatus.CANCELLED } })
+  const recipients = competition.participants.map((participant) => participant.userId).filter((id) => id !== user.id)
+  if (recipients.length > 0) await prisma.notification.createMany({ data: recipients.map((recipientId) => ({ recipientId, category: NotificationCategory.SOCIAL, eventType: 'KNOCKOUT_CANCELLED', title: 'Knockout competition cancelled', message: `${user.name} cancelled ${competition.name}.`, action: NotificationAction.FRIENDS, actionTargetId: request.params.competitionId, dedupeKey: `knockout:${request.params.competitionId}:cancelled:${recipientId}` })), skipDuplicates: true })
+  response.status(200).json({ status: KnockoutCompetitionStatus.CANCELLED })
 })
 
 const challengePlayerSelect = {
