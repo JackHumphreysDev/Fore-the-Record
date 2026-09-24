@@ -3470,6 +3470,74 @@ describe('GET /api/users/me/season-year-reviews', () => {
   })
 })
 
+describe('statistics dashboard routes', () => {
+  const savedConfig = {
+    cards: ['CURRENT_HANDICAP', 'ROUNDS_PLAYED', 'FAIRWAYS_HIT'],
+    filters: {
+      dateRange: '90_DAYS',
+      customFrom: null,
+      customTo: null,
+      courseId: '11111111-1111-4111-8111-111111111111',
+      teeId: null,
+      category: 'COMPETITION',
+      holeCount: 18,
+    },
+  }
+
+  it('returns the default dashboard when the player has not saved one', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ statisticsDashboardConfig: null })
+
+    const response = await request(app).get('/api/users/me/statistics-dashboard')
+
+    expect(response.status).toBe(200)
+    expect(response.body.cards).toEqual([
+      'ROUNDS_PLAYED', 'AVERAGE_GROSS', 'AVERAGE_TO_PAR',
+      'CURRENT_HANDICAP', 'PUTTS_PER_ROUND', 'FAIRWAYS_HIT',
+    ])
+    expect(response.body.filters).toMatchObject({ dateRange: 'ALL_TIME', courseId: null, teeId: null })
+  })
+
+  it('returns a valid saved dashboard for the authenticated player', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ statisticsDashboardConfig: savedConfig })
+
+    const response = await request(app).get('/api/users/me/statistics-dashboard')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual(savedConfig)
+    expect(userFindUniqueMock).toHaveBeenCalledWith({
+      where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+      select: { statisticsDashboardConfig: true },
+    })
+  })
+
+  it('validates and saves an ordered dashboard for the authenticated player', async () => {
+    const userId = '99999999-9999-4999-8999-999999999999'
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    userUpdateMock.mockResolvedValueOnce({})
+
+    const response = await request(app).patch('/api/users/me/statistics-dashboard').send(savedConfig)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual(savedConfig)
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: userId },
+      data: { statisticsDashboardConfig: savedConfig },
+    })
+  })
+
+  it('rejects duplicate cards before updating the player', async () => {
+    const response = await request(app).patch('/api/users/me/statistics-dashboard').send({
+      ...savedConfig,
+      cards: ['ROUNDS_PLAYED', 'ROUNDS_PLAYED'],
+    })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Choose between 1 and 11 different statistic cards' })
+    expect(userFindUniqueMock).not.toHaveBeenCalled()
+    expect(userUpdateMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /api/users/me/performance-analysis', () => {
   const courseId = '11111111-1111-4111-8111-111111111111'
   const teeId = '22222222-2222-4222-8222-222222222222'

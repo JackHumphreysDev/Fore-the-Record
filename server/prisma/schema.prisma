@@ -151,6 +151,7 @@ model User {
   profileImageMimeType   String?                @db.VarChar(100)
   profileImageSize       Int?
   profileImageUploadedAt DateTime?              @db.Timestamptz(3)
+  statisticsDashboardConfig Json?
   homeClubId             String?                @db.Uuid
   handicapIndex          Decimal?               @db.Decimal(4, 1)
   createdAt              DateTime               @default(now()) @db.Timestamptz(3)

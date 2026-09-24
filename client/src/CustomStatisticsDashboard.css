@@ -1,0 +1,29 @@
+.custom-statistics-dashboard { width: min(1180px, calc(100% - 40px)); margin: 42px auto 28px; padding: clamp(22px,4vw,42px); border: 1px solid var(--line); border-radius: 24px; background: rgba(249,247,239,.82); }
+.custom-statistics-dashboard > header { display: grid; grid-template-columns: 1.2fr .8fr; align-items: end; gap: 24px; }
+.custom-statistics-dashboard h2 { margin: 4px 0 0; color: var(--forest-deep); font-family: Georgia,"Times New Roman",serif; font-size: clamp(34px,5vw,58px); font-weight: 400; line-height: .95; }
+.custom-statistics-dashboard > header > p,.custom-statistics-note { margin: 0; color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
+.custom-statistics-filters { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 28px; padding: 16px; border-radius: 15px; color: white; background: var(--forest); }
+.custom-statistics-filters label,.custom-statistics-editor label { display: grid; gap: 7px; font-size: 9px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+.custom-statistics-filters label { color: rgba(255,255,255,.72); }
+.custom-statistics-filters :is(select,input),.custom-statistics-editor select { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid rgba(255,255,255,.16); border-radius: 9px; color: white; background: #152019; font: inherit; font-size: 11px; letter-spacing: 0; text-transform: none; }
+.custom-statistics-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 18px; }
+.custom-statistics-grid article { position: relative; min-width: 0; min-height: 190px; padding: 20px; display: grid; align-content: end; border: 1px solid var(--line); background: rgba(255,255,255,.52); }
+.custom-statistics-grid article > span { color: var(--forest); font-size: 8px; font-weight: 800; letter-spacing: .75px; text-transform: uppercase; }
+.custom-statistics-grid h3 { margin: 7px 0 0; color: var(--forest-deep); font-size: 12px; }
+.custom-statistics-grid article > strong { display: block; margin: 8px 0 4px; color: var(--forest-deep); font-family: Georgia,"Times New Roman",serif; font-size: 38px; font-weight: 400; }
+.custom-statistics-grid article > small { color: var(--ink-muted); font-size: 9px; line-height: 1.45; }
+.custom-statistics-card-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
+.custom-statistics-card-controls button { width: 28px; height: 28px; padding: 0; border: 1px solid var(--line); color: var(--forest-deep); background: transparent; font-size: 13px; }
+.custom-statistics-card-controls button:disabled { opacity: .28; }
+.custom-statistics-editor { margin-top: 14px; padding: 15px; display: grid; grid-template-columns: minmax(220px,1fr) auto auto; align-items: end; gap: 10px; border: 1px solid var(--line); }
+.custom-statistics-editor label { color: var(--ink-muted); }
+.custom-statistics-editor select { color: var(--forest-deep); background: white; border-color: var(--line); }
+.custom-statistics-editor button { min-height: 40px; padding: 0 15px; border: 1px solid var(--forest); color: white; background: var(--forest); font-weight: 800; }
+.custom-statistics-editor button.is-secondary { color: var(--forest-deep); background: transparent; }
+.custom-statistics-state { min-height: 140px; display: grid; place-content: center; gap: 8px; text-align: center; color: var(--ink-muted); }
+.custom-statistics-state p { margin: 0; }
+.custom-statistics-state button { justify-self: center; padding: 9px 14px; color: white; background: var(--forest); }
+.custom-statistics-message { margin: 12px 0 0; padding: 10px 12px; color: var(--forest-deep); background: rgba(95,128,0,.12); font-size: 11px; font-weight: 750; }
+.custom-statistics-note { margin-top: 14px; text-align: center; }
+@media (max-width:900px) { .custom-statistics-filters { grid-template-columns: repeat(2,minmax(0,1fr)); } .custom-statistics-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width:620px) { .custom-statistics-dashboard { width: min(100% - 20px,1180px); padding: 20px 14px; } .custom-statistics-dashboard > header,.custom-statistics-filters,.custom-statistics-grid,.custom-statistics-editor { grid-template-columns: 1fr; } }
