@@ -1,6 +1,6 @@
 # Versioning and release notes
 
-Fore the Record uses one application version across the root, client, and server packages. The current version is `0.51.0`.
+Fore the Record uses one application version across the root, client, and server packages. The current version is `0.52.0`.
 
 ## Version format
 
@@ -61,6 +61,7 @@ Examples:
 - `0.48.0` → `0.49.0` for player profile customisation and private profile pictures.
 - `0.49.0` → `0.50.0` for the configurable private statistics dashboard.
 - `0.50.0` → `0.51.0` for private knockout competitions and Match Play brackets.
+- `0.51.0` → `0.52.0` for private golf bag and club management.
 - `0.x.x` → `1.0.0` when the product is ready for its first stable release.
 
 Do not increase the version for every commit. Increase it once for a coherent release.

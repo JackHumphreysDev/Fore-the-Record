@@ -115,6 +115,7 @@ import {
   KnockoutCompetitionStatus,
   KnockoutMatchStatus,
   KnockoutParticipantStatus,
+  GolfClubType,
 } from './generated/prisma/enums.js'
 import {
   logRound,
@@ -147,6 +148,11 @@ import {
   parseKnockoutName,
   parseKnockoutResult,
 } from './knockoutCompetitions.js'
+import {
+  GolfBagValidationError,
+  parseGolfBagOrder,
+  parseGolfClubInput,
+} from './golfBag.js'
 import {
   calculateAdjustedGrossScore,
   calculateCourseHandicap,
@@ -4036,6 +4042,101 @@ app.get('/api/users/me/achievements', async (_request, response) => {
     })
   }
   response.status(200).json(result)
+})
+
+const golfClubSelect = {
+  id: true, type: true, brand: true, model: true, nickname: true, loft: true,
+  shaftFlex: true, carryDistanceYards: true, sortOrder: true, archivedAt: true,
+  createdAt: true, updatedAt: true,
+} satisfies Prisma.GolfClubSelect
+
+function serializeGolfClub(club: { loft: { toString(): string } | number | null; archivedAt: Date | null; createdAt: Date; updatedAt: Date } & Record<string, unknown>) {
+  return { ...club, loft: club.loft === null ? null : Number(club.loft), archivedAt: club.archivedAt?.toISOString() ?? null, createdAt: club.createdAt.toISOString(), updatedAt: club.updatedAt.toISOString() }
+}
+
+app.get('/api/users/me/golf-bag', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true, golfClubs: { orderBy: [{ archivedAt: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }], select: golfClubSelect } },
+  })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  response.status(200).json({ clubs: user.golfClubs.map(serializeGolfClub), activeCount: user.golfClubs.filter((club) => club.archivedAt === null).length, maximumActive: 14 })
+})
+
+app.post('/api/users/me/golf-bag', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  let input
+  try { input = parseGolfClubInput(request.body) } catch (error: unknown) {
+    if (error instanceof GolfBagValidationError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, golfClubs: { where: { archivedAt: null }, select: { sortOrder: true } } } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  if (user.golfClubs.length >= 14) return response.status(400).json({ error: 'Your active bag already contains the maximum of 14 clubs' })
+  const club = await prisma.golfClub.create({ data: { userId: user.id, ...input, type: input.type as GolfClubType, sortOrder: Math.max(-1, ...user.golfClubs.map((item) => item.sortOrder)) + 1 }, select: golfClubSelect })
+  response.status(201).json(serializeGolfClub(club))
+})
+
+app.put('/api/users/me/golf-bag/:clubId', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  if (!UUID_PATTERN.test(request.params.clubId)) return response.status(400).json({ error: 'Invalid club reference' })
+  let input
+  try { input = parseGolfClubInput(request.body) } catch (error: unknown) {
+    if (error instanceof GolfBagValidationError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  const club = await prisma.golfClub.findFirst({ where: { id: request.params.clubId, user: { authUserId: authenticatedUser.id } }, select: { id: true } })
+  if (!club) return response.status(404).json({ error: 'Club not found' })
+  const updated = await prisma.golfClub.update({ where: { id: club.id }, data: { ...input, type: input.type as GolfClubType }, select: golfClubSelect })
+  response.status(200).json(serializeGolfClub(updated))
+})
+
+app.post('/api/users/me/golf-bag/:clubId/archive', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  if (!UUID_PATTERN.test(request.params.clubId)) return response.status(400).json({ error: 'Invalid club reference' })
+  const club = await prisma.golfClub.findFirst({ where: { id: request.params.clubId, archivedAt: null, user: { authUserId: authenticatedUser.id } }, select: { id: true } })
+  if (!club) return response.status(404).json({ error: 'Active club not found' })
+  await prisma.golfClub.update({ where: { id: club.id }, data: { archivedAt: new Date() } })
+  response.status(200).json({ archived: true })
+})
+
+app.post('/api/users/me/golf-bag/:clubId/restore', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  if (!UUID_PATTERN.test(request.params.clubId)) return response.status(400).json({ error: 'Invalid club reference' })
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, golfClubs: { select: { id: true, archivedAt: true, sortOrder: true } } } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const club = user.golfClubs.find((item) => item.id === request.params.clubId && item.archivedAt !== null)
+  if (!club) return response.status(404).json({ error: 'Archived club not found' })
+  const active = user.golfClubs.filter((item) => item.archivedAt === null)
+  if (active.length >= 14) return response.status(400).json({ error: 'Archive an active club before restoring another one' })
+  await prisma.golfClub.update({ where: { id: club.id }, data: { archivedAt: null, sortOrder: Math.max(-1, ...active.map((item) => item.sortOrder)) + 1 } })
+  response.status(200).json({ restored: true })
+})
+
+app.patch('/api/users/me/golf-bag/order', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  let clubIds: string[]
+  try { clubIds = parseGolfBagOrder(request.body?.clubIds) } catch (error: unknown) {
+    if (error instanceof GolfBagValidationError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, golfClubs: { where: { archivedAt: null }, select: { id: true } } } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const activeIds = new Set(user.golfClubs.map((club) => club.id))
+  if (clubIds.length !== activeIds.size || clubIds.some((id) => !activeIds.has(id))) return response.status(400).json({ error: 'Submit every active club once in the preferred order' })
+  await prisma.$transaction(clubIds.map((id, sortOrder) => prisma.golfClub.update({ where: { id }, data: { sortOrder } })))
+  response.status(200).json({ clubIds })
+})
+
+app.delete('/api/users/me/golf-bag/:clubId', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  if (!UUID_PATTERN.test(request.params.clubId)) return response.status(400).json({ error: 'Invalid club reference' })
+  if (request.body?.confirmation !== 'DELETE') return response.status(400).json({ error: 'Type DELETE to permanently remove this club' })
+  const club = await prisma.golfClub.findFirst({ where: { id: request.params.clubId, user: { authUserId: authenticatedUser.id } }, select: { id: true } })
+  if (!club) return response.status(404).json({ error: 'Club not found' })
+  await prisma.golfClub.delete({ where: { id: club.id } })
+  response.status(204).send()
 })
 
 app.get('/api/users/me/goals', async (_request, response) => {

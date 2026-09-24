@@ -51,13 +51,19 @@ This roadmap records agreed future work. Items are planned requirements, not com
 45. Profile Customisation. Completed in `0.49.0`.
 46. Custom Statistics Dashboard. Completed in `0.50.0`.
 47. Knockout Competitions. Completed in `0.51.0`.
-48. Golf Bag and Club Management.
+48. Golf Bag and Club Management. Completed in `0.52.0`.
 49. Tournament Series.
 50. Calendar and Upcoming Rounds.
 51. Data Import.
 52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Golf Bag and Club Management — completed in 0.52.0
+
+The Profile screen now includes a private golf bag containing up to 14 active clubs in the player's chosen order. A club can be recorded as a driver, fairway wood, hybrid, iron, wedge, putter, or other type, with optional brand, model, nickname, loft, shaft flex, and carry distance details.
+
+Players can edit and reorder active clubs, archive equipment without losing its details, restore an archived club when the bag has room, or permanently delete one after entering an exact confirmation. The server derives ownership from the verified account, enforces the active-club limit and complete reorder set, and removes the bag with the account. Equipment remains private and never changes a round, score, statistic, or Handicap Index.
 
 ## Knockout Competitions — completed in 0.51.0
 

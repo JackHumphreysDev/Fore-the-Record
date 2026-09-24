@@ -25,6 +25,7 @@ import NotificationCentre from './NotificationCentre.tsx'
 import ProfileAvatar from './ProfileAvatar.tsx'
 import { isNotificationUnreadCount, type NotificationAction } from './notificationsApi.ts'
 import PlayerGoals from './PlayerGoals.tsx'
+import GolfBag from './GolfBag.tsx'
 import RoundEntry from './RoundEntry.tsx'
 import RoundHistory from './RoundHistory.tsx'
 import RoundComparison from './RoundComparison.tsx'
@@ -754,6 +755,7 @@ function App() {
                   />
                 </div>
               </div>
+              <GolfBag profileId={profile.id} />
               <AchievementsBadges
                 profileId={profile.id}
                 onOpenRound={(roundId) => {

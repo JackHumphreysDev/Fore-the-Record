@@ -76,6 +76,8 @@ The private Statistics Dashboard lets each player choose and reorder scoring, Ha
 
 Accepted friends can run private named knockout competitions for two to 16 players. Invitees answer before the organiser starts the automatic Match Play draw, byes advance safely, decisive margins move winners into their next fixtures, and the completed bracket records its champion without changing anyone’s round history or Handicap Index.
 
+The Profile screen includes a private golf bag with up to 14 active clubs in the player's preferred order. Players can record the club type plus optional brand, model, nickname, loft, shaft flex, and carry distance, then edit, reorder, archive, restore, or permanently delete equipment. Golf bag details stay private and never alter rounds, statistics, or Handicap Index calculations.
+
 The application features are still under development. Core profile, authentication, course catalogue, scorecard, round-history, handicap, support, social, privacy, goal, milestone, and administrator workflows are implemented. Authenticated API requests derive ownership from the verified Supabase session rather than trusting a browser-supplied profile ID.
 
 Round Entry supports casual rounds, individual competitions, complete team competitions, and games with friends. A team card records the player's team and every opposing team over all 18 holes, then calculates Gross Strokes or Stableford Points leaderboards with Front 9, Back 9, totals, and tied positions. Team records remain outside the Handicap Index. Structured competition and social-game formats can include accepted-friend links, guest names, and a Won/Lost/Tied result. A linked friend can remove their tag, but the round is never copied to their record and never affects their handicap. Individual cards can use Stroke play or Stableford scoring. Stableford stores the Playing Handicap used, allocates strokes by the approved hole indexes, calculates every hole's net score and points, and supports explicit picked-up holes. A pickup records zero points and no invented gross score; Net Double Bogey is used only for handicap processing. Manually supplied course definitions remain provisional until administrator approval.
@@ -92,7 +94,7 @@ The production application is deployed on Vercel. The current RapidAPI allowance
 
 ## Roadmap and releases
 
-The current application version is `0.51.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.52.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)

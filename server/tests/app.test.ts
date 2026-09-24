@@ -96,6 +96,10 @@ const {
   playerGoalFindManyMock,
   playerGoalUpsertMock,
   playerGoalDeleteManyMock,
+  golfClubCreateMock,
+  golfClubFindFirstMock,
+  golfClubUpdateMock,
+  golfClubDeleteMock,
   notificationCountMock,
   notificationFindManyMock,
   notificationFindFirstMock,
@@ -201,6 +205,10 @@ const {
   playerGoalFindManyMock: vi.fn(),
   playerGoalUpsertMock: vi.fn(),
   playerGoalDeleteManyMock: vi.fn(),
+  golfClubCreateMock: vi.fn(),
+  golfClubFindFirstMock: vi.fn(),
+  golfClubUpdateMock: vi.fn(),
+  golfClubDeleteMock: vi.fn(),
   notificationCountMock: vi.fn(),
   notificationFindManyMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
@@ -301,6 +309,12 @@ vi.mock('../src/database.js', () => ({
       findMany: playerGoalFindManyMock,
       upsert: playerGoalUpsertMock,
       deleteMany: playerGoalDeleteManyMock,
+    },
+    golfClub: {
+      create: golfClubCreateMock,
+      findFirst: golfClubFindFirstMock,
+      update: golfClubUpdateMock,
+      delete: golfClubDeleteMock,
     },
     notification: {
       count: notificationCountMock,
@@ -554,6 +568,10 @@ beforeEach(() => {
   playerGoalUpsertMock.mockReset()
   playerGoalDeleteManyMock.mockReset()
   playerGoalDeleteManyMock.mockResolvedValue({ count: 0 })
+  golfClubCreateMock.mockReset()
+  golfClubFindFirstMock.mockReset()
+  golfClubUpdateMock.mockReset()
+  golfClubDeleteMock.mockReset()
   notificationCountMock.mockReset()
   notificationCountMock.mockResolvedValue(0)
   notificationFindManyMock.mockReset()
@@ -2489,6 +2507,98 @@ describe('GET /api/users/me/achievements', () => {
     userFindUniqueMock.mockResolvedValueOnce(null)
     const response = await request(app).get('/api/users/me/achievements')
     expect(response.status).toBe(404)
+  })
+})
+
+describe('golf bag API', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const clubId = '22222222-2222-4222-8222-222222222222'
+  const otherClubId = '33333333-3333-4333-8333-333333333333'
+  const createdAt = new Date('2026-09-24T12:00:00.000Z')
+  const club = {
+    id: clubId,
+    type: 'DRIVER',
+    brand: 'Ping',
+    model: 'G440',
+    nickname: null,
+    loft: { toString: () => '10.5' },
+    shaftFlex: 'Stiff',
+    carryDistanceYards: 245,
+    sortOrder: 0,
+    archivedAt: null,
+    createdAt,
+    updatedAt: createdAt,
+  }
+
+  it('returns the authenticated player private bag with numeric lofts', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId, golfClubs: [club] })
+
+    const response = await request(app).get('/api/users/me/golf-bag')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({ activeCount: 1, maximumActive: 14 })
+    expect(response.body.clubs[0]).toMatchObject({ id: clubId, loft: 10.5 })
+  })
+
+  it('adds a club after the current final active position', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId, golfClubs: [{ sortOrder: 2 }] })
+    golfClubCreateMock.mockResolvedValueOnce({ ...club, sortOrder: 3 })
+
+    const response = await request(app).post('/api/users/me/golf-bag').send({
+      type: 'DRIVER', brand: ' Ping ', model: ' G440 ', loft: '10.5',
+      shaftFlex: 'Stiff', carryDistanceYards: '245',
+    })
+
+    expect(response.status).toBe(201)
+    expect(golfClubCreateMock).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ userId, brand: 'Ping', model: 'G440', sortOrder: 3 }),
+    }))
+  })
+
+  it('enforces the fourteen-club active bag limit', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({
+      id: userId,
+      golfClubs: Array.from({ length: 14 }, (_, sortOrder) => ({ sortOrder })),
+    })
+
+    const response = await request(app).post('/api/users/me/golf-bag').send({ type: 'IRON' })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toContain('maximum of 14')
+    expect(golfClubCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('archives an owned active club and restores it at the end of the bag', async () => {
+    golfClubFindFirstMock.mockResolvedValueOnce({ id: clubId })
+    golfClubUpdateMock.mockResolvedValue({})
+    const archiveResponse = await request(app).post(`/api/users/me/golf-bag/${clubId}/archive`)
+    expect(archiveResponse.status).toBe(200)
+    expect(golfClubUpdateMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: clubId }, data: { archivedAt: expect.any(Date) } }))
+
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId, golfClubs: [{ id: clubId, archivedAt: createdAt, sortOrder: 0 }, { id: otherClubId, archivedAt: null, sortOrder: 4 }] })
+    const restoreResponse = await request(app).post(`/api/users/me/golf-bag/${clubId}/restore`)
+    expect(restoreResponse.status).toBe(200)
+    expect(golfClubUpdateMock).toHaveBeenLastCalledWith({ where: { id: clubId }, data: { archivedAt: null, sortOrder: 5 } })
+  })
+
+  it('requires the exact active set when saving bag order', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId, golfClubs: [{ id: clubId }, { id: otherClubId }] })
+    const response = await request(app).patch('/api/users/me/golf-bag/order').send({ clubIds: [otherClubId, clubId] })
+    expect(response.status).toBe(200)
+    expect(prismaTransactionMock).toHaveBeenCalledOnce()
+    expect(golfClubUpdateMock).toHaveBeenNthCalledWith(1, { where: { id: otherClubId }, data: { sortOrder: 0 } })
+    expect(golfClubUpdateMock).toHaveBeenNthCalledWith(2, { where: { id: clubId }, data: { sortOrder: 1 } })
+  })
+
+  it('permanently deletes only an owned club after exact confirmation', async () => {
+    const rejected = await request(app).delete(`/api/users/me/golf-bag/${clubId}`).send({ confirmation: 'delete' })
+    expect(rejected.status).toBe(400)
+    expect(golfClubFindFirstMock).not.toHaveBeenCalled()
+
+    golfClubFindFirstMock.mockResolvedValueOnce({ id: clubId })
+    const deleted = await request(app).delete(`/api/users/me/golf-bag/${clubId}`).send({ confirmation: 'DELETE' })
+    expect(deleted.status).toBe(204)
+    expect(golfClubDeleteMock).toHaveBeenCalledWith({ where: { id: clubId } })
   })
 })
 
