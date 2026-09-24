@@ -52,12 +52,18 @@ This roadmap records agreed future work. Items are planned requirements, not com
 46. Custom Statistics Dashboard. Completed in `0.50.0`.
 47. Knockout Competitions. Completed in `0.51.0`.
 48. Golf Bag and Club Management. Completed in `0.52.0`.
-49. Tournament Series.
+49. Tournament Series. Completed in `0.53.0`.
 50. Calendar and Upcoming Rounds.
 51. Data Import.
 52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Tournament Series — completed in 0.53.0
+
+Players can organise a private named series for accepted friends, add multiple dated events with optional course and notes, and record finishing positions using a flexible points system. Invitees accept or decline before taking part, while only the organiser can schedule events, enter results, complete the series, or cancel it.
+
+The live standings show position, events played, wins, podiums, and total points, including shared positions when totals are tied. Completed and cancelled series remain available as social history. Series data never creates a round or changes any scorecard, statistic, or Handicap Index.
 
 ## Golf Bag and Club Management — completed in 0.52.0
 

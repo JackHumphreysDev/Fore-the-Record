@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'tournament-series',
+    publishedAt: '2026-09-24',
+    title: 'Take your tour across a full series',
+    summary: 'Invite friends into a private series, play across multiple events, and follow the overall points table.',
+    highlights: [
+      'Create a named series and invite accepted friends to take part.',
+      'Schedule dated events with optional course details and notes.',
+      'Record finishing positions with flexible points and see automatic standings for wins, podiums, and events played.',
+      'Keep completed or cancelled series as social history without changing any Handicap Index.',
+    ],
+  },
+  {
     id: 'golf-bag-management',
     publishedAt: '2026-09-24',
     title: 'Keep your golf bag on the record',

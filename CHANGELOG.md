@@ -14,6 +14,19 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.53.0 - 2026-09-24
+
+### User-facing changes
+
+- Added private multi-event tournament series for accepted friends with invitations, event scheduling, and organiser-managed results.
+- Added flexible points and automatic standings showing position, events played, wins, podiums, and total points.
+- Added completed and cancelled series history without changing scorecards or Handicap Index calculations.
+
+### Developer and admin changes
+
+- Added series, member, event, and result records with authenticated membership and organiser authorization boundaries.
+- Added strict input and response validation, tied-position standings, database constraints, migration coverage, and release documentation.
+
 ## 0.52.0 - 2026-09-24
 
 ### User-facing changes
