@@ -142,7 +142,15 @@ model User {
   profileDiscoverable    Boolean                @default(true)
   friendRequestsEnabled  Boolean                @default(true)
   showHandicapToFriends  Boolean                @default(true)
+  showProfileToFriends   Boolean                @default(true)
   shareRoundActivity     Boolean                @default(true)
+  bio                    String?                @db.VarChar(280)
+  location               String?                @db.VarChar(100)
+  profileImagePath       String?                @db.VarChar(500)
+  profileImageName       String?                @db.VarChar(255)
+  profileImageMimeType   String?                @db.VarChar(100)
+  profileImageSize       Int?
+  profileImageUploadedAt DateTime?              @db.Timestamptz(3)
   homeClubId             String?                @db.Uuid
   handicapIndex          Decimal?               @db.Decimal(4, 1)
   createdAt              DateTime               @default(now()) @db.Timestamptz(3)

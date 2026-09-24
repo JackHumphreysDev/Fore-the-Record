@@ -48,7 +48,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 42. Season and Year Reviews. Completed in `0.46.0`.
 43. Achievements and Badges. Completed in `0.47.0`.
 44. Notification Centre. Completed in `0.48.0`.
-45. Profile Customisation.
+45. Profile Customisation. Completed in `0.49.0`.
 46. Custom Statistics Dashboard.
 47. Knockout Competitions.
 48. Golf Bag and Club Management.
@@ -58,6 +58,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Profile Customisation — completed in 0.49.0
+
+Account Settings now lets a player add, replace, or remove a profile picture, write a short optional bio, and add an optional location. These details appear on the player’s own Profile screen and, when permitted, on accepted-friend profiles and the social surfaces where player identity matters, including friend cards, private groups, leaderboards, member choices, and group messages.
+
+One dedicated visibility choice controls the picture, bio, and location shown to accepted friends. It does not change the separate Handicap Index privacy choice, and email addresses, authentication details, notes, support information, and other private account data remain hidden. Pictures stay in private storage, use short-lived signed links, accept only validated JPEG, PNG, or WebP files up to 10 MB, and are removed when replaced, explicitly deleted, or cleaned up with the account.
 
 ## Notification Centre — completed in 0.48.0
 

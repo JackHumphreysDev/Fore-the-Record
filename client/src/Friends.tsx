@@ -20,6 +20,7 @@ import ChallengesBoard from './ChallengesBoard.tsx'
 import SharedRounds from './SharedRounds.tsx'
 import FriendGroups from './FriendGroups.tsx'
 import PlayingPartnersHistory from './PlayingPartnersHistory.tsx'
+import ProfileAvatar from './ProfileAvatar.tsx'
 
 type FriendsProps = { profileId: string; onOpenRound: (roundId: string) => void }
 
@@ -34,7 +35,7 @@ async function readError(response: Response, fallback: string) {
 function PlayerIdentity({ player }: { player: FriendPlayer }) {
   return (
     <div className="friend-identity">
-      <span aria-hidden="true">{player.name.trim()[0]?.toUpperCase()}</span>
+      <ProfileAvatar userId={player.id} name={player.name} hasImage={player.hasProfileImage} />
       <div>
         <strong>{player.name}</strong>
         <small>{player.homeClub?.name ?? 'Home club not set'}</small>

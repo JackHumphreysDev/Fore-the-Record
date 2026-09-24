@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'profile-customisation',
+    publishedAt: '2026-09-24',
+    title: 'Make your player profile your own',
+    summary: 'Add a profile picture and a few optional details that help accepted friends recognise you around Fore the Record.',
+    highlights: [
+      'Add, replace, or remove a profile picture from Account Settings.',
+      'Write a short player bio and add an optional location.',
+      'Choose whether accepted friends can see your picture, bio, and location without changing your Handicap Index privacy.',
+      'See player pictures across friend profiles, private groups, leaderboards, and group conversations.',
+    ],
+  },
+  {
     id: 'notification-centre',
     publishedAt: '2026-09-23',
     title: 'Keep every update in one place',

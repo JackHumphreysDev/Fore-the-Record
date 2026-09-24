@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.49.0 - 2026-09-24
+
+### User-facing changes
+
+- Added optional profile pictures, a short player bio, and a location to Account Settings and the player’s own Profile screen.
+- Added one privacy choice that lets a player show or hide their picture, bio, and location from accepted friends without changing separate Handicap Index visibility.
+- Added visible profile pictures across friend cards, accepted-friend profiles, private group leaderboards, member choices, and group messages.
+
+### Developer and admin changes
+
+- Added private profile-image storage using short-lived signed links, validated JPEG, PNG, and WebP uploads, safe replacement and removal, and account-deletion cleanup.
+- Added authenticated ownership and accepted-friend authorization for profile-image access while keeping storage paths and private account data out of client responses.
+- Added profile customisation persistence, database constraints, strict client response validation, and server/client regression coverage.
+
 ## 0.48.0 - 2026-09-23
 
 ### User-facing changes

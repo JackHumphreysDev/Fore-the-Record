@@ -503,7 +503,30 @@
   background: var(--forest);
   font-family: Georgia, "Times New Roman", serif;
   font-size: 17px;
+  flex: none;
+  overflow: hidden;
 }
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.profile-custom-details {
+  margin-top: 20px;
+  display: grid;
+  gap: 5px;
+}
+
+.profile-custom-details p,
+.profile-custom-details span {
+  margin: 0;
+}
+
+.profile-custom-details p { line-height: 1.6; }
+.profile-custom-details span { color: var(--ink-muted); font-size: 12px; }
 
 .profile-identity {
   min-width: 0;

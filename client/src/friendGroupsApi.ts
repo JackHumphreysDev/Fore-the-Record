@@ -2,6 +2,7 @@ export type FriendGroupPlayer = {
   id: string
   name: string
   homeClub: { id: string; name: string } | null
+  hasProfileImage: boolean
   joinedAt: string
   isOwner: boolean
 }
@@ -71,7 +72,7 @@ function isHomeClub(value: unknown): boolean {
 }
 
 function isBasePlayer(value: unknown): boolean {
-  return isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string' && isHomeClub(value.homeClub)
+  return isRecord(value) && typeof value.id === 'string' && typeof value.name === 'string' && typeof value.hasProfileImage === 'boolean' && isHomeClub(value.homeClub)
 }
 
 export function isFriendGroup(value: unknown): value is FriendGroup {

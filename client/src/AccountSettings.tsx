@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   checkEmailAvailability,
   normalizeEmail,
@@ -23,6 +23,9 @@ import {
   type PrivacySettings,
 } from './privacySettingsApi.ts'
 import './AccountSettings.css'
+import ProfileAvatar from './ProfileAvatar.tsx'
+import { confirmProfileImage, removeProfileImage, requestProfileImageUpload, saveProfileCustomisation, validateBio, validateLocation } from './profileCustomisationApi.ts'
+import { SCORECARD_PHOTO_BUCKET, SCORECARD_PHOTO_MAX_BYTES, SCORECARD_PHOTO_TYPES } from './scorecardPhotoApi.ts'
 
 type AccountSettingsProps = {
   profile: AccountProfile
@@ -57,6 +60,12 @@ function AccountSettings({
   const [nameError, setNameError] = useState('')
   const [nameMessage, setNameMessage] = useState('')
   const [isSavingName, setIsSavingName] = useState(false)
+  const [bio, setBio] = useState(profile.bio ?? '')
+  const [location, setLocation] = useState(profile.location ?? '')
+  const [showProfileToFriends, setShowProfileToFriends] = useState(profile.showProfileToFriends)
+  const [customisationError, setCustomisationError] = useState('')
+  const [customisationMessage, setCustomisationMessage] = useState('')
+  const [isSavingCustomisation, setIsSavingCustomisation] = useState(false)
 
   const [newEmail, setNewEmail] = useState('')
   const [emailPassword, setEmailPassword] = useState('')
@@ -366,6 +375,53 @@ function AccountSettings({
     }
   }
 
+  async function saveCustomisation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const validation = validateBio(bio) || validateLocation(location)
+    if (validation) { setCustomisationError(validation); return }
+    setIsSavingCustomisation(true); setCustomisationError(''); setCustomisationMessage('')
+    try {
+      const updated = await saveProfileCustomisation({ bio, location, showProfileToFriends })
+      onProfileUpdated(updated)
+      setBio(updated.bio ?? ''); setLocation(updated.location ?? '')
+      setCustomisationMessage('Your profile details have been saved.')
+    } catch (error: unknown) {
+      setCustomisationError(error instanceof Error ? error.message : 'We could not save your profile details.')
+    } finally { setIsSavingCustomisation(false) }
+  }
+
+  async function uploadProfileImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!SCORECARD_PHOTO_TYPES.includes(file.type as typeof SCORECARD_PHOTO_TYPES[number])) { setCustomisationError('Choose a JPEG, PNG, or WebP profile picture.'); return }
+    if (file.size <= 0 || file.size > SCORECARD_PHOTO_MAX_BYTES) { setCustomisationError('Keep the profile picture at 10 MB or smaller.'); return }
+    setIsSavingCustomisation(true); setCustomisationError(''); setCustomisationMessage('')
+    try {
+      const metadata = { fileName: file.name, mimeType: file.type, size: file.size }
+      const ticket = await requestProfileImageUpload(metadata)
+      const uploaded = await getSupabaseClient().storage.from(SCORECARD_PHOTO_BUCKET).uploadToSignedUrl(ticket.path, ticket.token, file, { contentType: file.type, cacheControl: '3600' })
+      if (uploaded.error) throw new Error('The profile picture upload did not finish.')
+      const profileImage = await confirmProfileImage({ ...metadata, path: ticket.path })
+      onProfileUpdated({ ...profile, profileImage })
+      setCustomisationMessage(profile.profileImage ? 'Profile picture replaced.' : 'Profile picture added.')
+    } catch (error: unknown) {
+      setCustomisationError(error instanceof Error ? error.message : 'We could not upload your profile picture.')
+    } finally { setIsSavingCustomisation(false) }
+  }
+
+  async function removeImage() {
+    if (!window.confirm('Remove your profile picture?')) return
+    setIsSavingCustomisation(true); setCustomisationError(''); setCustomisationMessage('')
+    try {
+      await removeProfileImage()
+      onProfileUpdated({ ...profile, profileImage: null })
+      setCustomisationMessage('Profile picture removed.')
+    } catch (error: unknown) {
+      setCustomisationError(error instanceof Error ? error.message : 'We could not remove your profile picture.')
+    } finally { setIsSavingCustomisation(false) }
+  }
+
   return (
     <section className="settings-page" aria-labelledby="settings-title">
       <header className="settings-heading">
@@ -403,6 +459,27 @@ function AccountSettings({
           <button type="submit" disabled={isSavingName}>
             {isSavingName ? 'Saving…' : 'Save name'}
           </button>
+        </form>
+
+        <form className="settings-card settings-customisation-card" onSubmit={saveCustomisation} noValidate>
+          <div>
+            <p className="form-kicker">Profile customisation</p>
+            <h2>Make the record yours</h2>
+            <p>Add a private profile picture and optional details. You control whether accepted friends can see them.</p>
+          </div>
+          <div className="profile-picture-editor">
+            <ProfileAvatar userId={profile.id} name={profile.name} hasImage={profile.profileImage !== null} imageVersion={profile.profileImage?.uploadedAt} />
+            <div>
+              <label className="profile-picture-upload">{profile.profileImage ? 'Replace picture' : 'Add picture'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={isSavingCustomisation} onChange={(event) => void uploadProfileImage(event)} /></label>
+              {profile.profileImage ? <button type="button" className="profile-picture-remove" disabled={isSavingCustomisation} onClick={() => void removeImage()}>Remove picture</button> : null}
+            </div>
+          </div>
+          <label>Player bio<textarea rows={4} maxLength={280} value={bio} placeholder="A few words about your golf…" onChange={(event) => { setBio(event.target.value); setCustomisationError(''); setCustomisationMessage('') }} /><small>{bio.length}/280 characters</small></label>
+          <label>Location<input type="text" maxLength={100} value={location} placeholder="e.g. Sheffield" onChange={(event) => { setLocation(event.target.value); setCustomisationError(''); setCustomisationMessage('') }} /></label>
+          <label className="settings-toggle"><input type="checkbox" checked={showProfileToFriends} onChange={(event) => { setShowProfileToFriends(event.target.checked); setCustomisationError(''); setCustomisationMessage('') }} /><span><strong>Show custom profile details to friends</strong><small>Accepted friends can see your picture, bio, and location. Other players still see only the standard search details.</small></span></label>
+          {customisationError ? <p className="settings-error" role="alert">{customisationError}</p> : null}
+          {customisationMessage ? <p className="settings-success" role="status">{customisationMessage}</p> : null}
+          <button type="submit" disabled={isSavingCustomisation}>{isSavingCustomisation ? 'Saving…' : 'Save profile customisation'}</button>
         </form>
 
         <form className="settings-card" onSubmit={saveEmail} noValidate>

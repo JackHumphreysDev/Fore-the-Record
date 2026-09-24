@@ -8,6 +8,10 @@ export type AccountProfile = {
   handicapIndex: number | null
   createdAt: string
   homeClub: { id: string; name: string } | null
+  bio: string | null
+  location: string | null
+  showProfileToFriends: boolean
+  profileImage: { name: string; mimeType: string; size: number; uploadedAt: string } | null
 }
 
 export function normalizeName(value: string): string {

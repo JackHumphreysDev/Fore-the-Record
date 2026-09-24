@@ -21,6 +21,7 @@ import PerformanceInsights from './PerformanceInsights.tsx'
 import CoursePersonalBests from './CoursePersonalBests.tsx'
 import PersonalMilestones from './PersonalMilestones.tsx'
 import NotificationCentre from './NotificationCentre.tsx'
+import ProfileAvatar from './ProfileAvatar.tsx'
 import { isNotificationUnreadCount, type NotificationAction } from './notificationsApi.ts'
 import PlayerGoals from './PlayerGoals.tsx'
 import RoundEntry from './RoundEntry.tsx'
@@ -61,6 +62,10 @@ type Profile = {
   handicapIndex: number | null
   createdAt: string
   homeClub: HomeClub | null
+  bio: string | null
+  location: string | null
+  showProfileToFriends: boolean
+  profileImage: { name: string; mimeType: string; size: number; uploadedAt: string } | null
 }
 
 async function loadAdminIdentity(
@@ -100,11 +105,6 @@ async function getApiError(
   }
 
   return fallbackMessage
-}
-
-function getMonogram(name: string): string {
-  const parts = name.split(/\s+/).filter(Boolean)
-  return parts.at(-1)?.[0]?.toUpperCase() ?? parts[0]?.[0]?.toUpperCase() ?? '•'
 }
 
 function removeAuthQueryParameters() {
@@ -660,10 +660,17 @@ function App() {
                 </div>
 
                 <div className="player-signature">
-                  <span aria-hidden="true">{getMonogram(profile.name)}</span>
+                  <ProfileAvatar userId={profile.id} name={profile.name} hasImage={profile.profileImage !== null} imageVersion={profile.profileImage?.uploadedAt} />
                   <i />
                   <strong>{profile.name}</strong>
                 </div>
+
+                {profile.bio || profile.location ? (
+                  <div className="profile-custom-details">
+                    {profile.bio ? <p>{profile.bio}</p> : null}
+                    {profile.location ? <span>{profile.location}</span> : null}
+                  </div>
+                ) : null}
 
                 <p className="profile-table-label">Player details</p>
                 <dl className="profile-record">

@@ -11,6 +11,7 @@ const player = {
   acceptsFriendRequests: true,
   handicapVisible: true,
   handicapIndex: 1.2,
+  hasProfileImage: false,
   homeClub: { id: 'club-id', name: 'Example Golf Club' },
 }
 

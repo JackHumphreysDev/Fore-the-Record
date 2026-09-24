@@ -4,6 +4,7 @@ export type FriendPlayer = {
   acceptsFriendRequests: boolean
   handicapVisible: boolean
   handicapIndex: number | null
+  hasProfileImage: boolean
   homeClub: { id: string; name: string } | null
 }
 
@@ -41,6 +42,7 @@ function isPlayer(value: unknown): value is FriendPlayer {
     typeof value.name === 'string' &&
     typeof value.acceptsFriendRequests === 'boolean' &&
     typeof value.handicapVisible === 'boolean' &&
+    typeof value.hasProfileImage === 'boolean' &&
     (value.handicapIndex === null || typeof value.handicapIndex === 'number') &&
     (value.homeClub === null ||
       (isRecord(value.homeClub) &&

@@ -129,6 +129,10 @@ import {
   parseSelfDeleteConfirmation,
 } from './privacySettings.js'
 import {
+  parseProfileCustomisation,
+  ProfileCustomisationError,
+} from './profileCustomisation.js'
+import {
   calculateAdjustedGrossScore,
   calculateCourseHandicap,
   calculateHandicap,
@@ -186,6 +190,13 @@ const PROFILE_SELECT = {
   homeClubId: true,
   handicapIndex: true,
   createdAt: true,
+  bio: true,
+  location: true,
+  showProfileToFriends: true,
+  profileImageName: true,
+  profileImageMimeType: true,
+  profileImageSize: true,
+  profileImageUploadedAt: true,
   homeClub: {
     select: {
       id: true,
@@ -200,6 +211,8 @@ const FRIEND_PLAYER_SELECT = {
   handicapIndex: true,
   friendRequestsEnabled: true,
   showHandicapToFriends: true,
+  showProfileToFriends: true,
+  profileImagePath: true,
   homeClub: {
     select: {
       id: true,
@@ -535,12 +548,22 @@ function getAdminProfile(locals: Record<string, unknown>): AdminProfile {
 }
 
 function serializeProfile<
-  T extends { handicapIndex: unknown | null },
+  T extends {
+    handicapIndex: unknown | null
+    profileImageName?: string | null
+    profileImageMimeType?: string | null
+    profileImageSize?: number | null
+    profileImageUploadedAt?: Date | null
+  },
 >(profile: T) {
+  const { profileImageName, profileImageMimeType, profileImageSize, profileImageUploadedAt, ...details } = profile
   return {
-    ...profile,
+    ...details,
     handicapIndex:
       profile.handicapIndex === null ? null : Number(profile.handicapIndex),
+    profileImage: profileImageName && profileImageMimeType && profileImageSize && profileImageUploadedAt
+      ? { name: profileImageName, mimeType: profileImageMimeType, size: profileImageSize, uploadedAt: profileImageUploadedAt.toISOString() }
+      : null,
   }
 }
 
@@ -549,11 +572,15 @@ function serializeFriendPlayer<
     handicapIndex: unknown | null
     friendRequestsEnabled?: boolean
     showHandicapToFriends?: boolean
+    showProfileToFriends?: boolean
+    profileImagePath?: string | null
   },
 >(player: T) {
   const {
     friendRequestsEnabled,
     showHandicapToFriends,
+    showProfileToFriends,
+    profileImagePath,
     ...safePlayer
   } = player
   const handicapVisible = showHandicapToFriends !== false
@@ -562,6 +589,7 @@ function serializeFriendPlayer<
     ...safePlayer,
     acceptsFriendRequests: friendRequestsEnabled !== false,
     handicapVisible,
+    hasProfileImage: showProfileToFriends !== false && Boolean(profileImagePath),
     handicapIndex:
       !handicapVisible || player.handicapIndex === null
         ? null
@@ -4311,8 +4339,19 @@ app.delete(
 const FRIEND_GROUP_PLAYER_SELECT = {
   id: true,
   name: true,
+  showProfileToFriends: true,
+  profileImagePath: true,
   homeClub: { select: { id: true, name: true } },
 } satisfies Prisma.UserSelect
+
+function serializeFriendGroupPlayer(player: Prisma.UserGetPayload<{ select: typeof FRIEND_GROUP_PLAYER_SELECT }>) {
+  return {
+    id: player.id,
+    name: player.name,
+    homeClub: player.homeClub,
+    hasProfileImage: player.showProfileToFriends && Boolean(player.profileImagePath),
+  }
+}
 
 const FRIEND_GROUP_SELECT = {
   id: true,
@@ -4350,9 +4389,9 @@ function serializeFriendGroup(group: Prisma.FriendGroupGetPayload<{ select: type
       ? { name: group.imageName, mimeType: group.imageMimeType, size: group.imageSize, uploadedAt: group.imageUploadedAt.toISOString() }
       : null,
     players: [
-      { ...group.owner, joinedAt: group.createdAt.toISOString(), isOwner: true },
+      { ...serializeFriendGroupPlayer(group.owner), joinedAt: group.createdAt.toISOString(), isOwner: true },
       ...group.members.map((member) => ({
-        ...member.user,
+        ...serializeFriendGroupPlayer(member.user),
         joinedAt: member.joinedAt.toISOString(),
         isOwner: false,
       })),
@@ -4608,11 +4647,22 @@ const FRIEND_GROUP_MESSAGE_SELECT = {
 
 function serializeFriendGroupMessage(message: Prisma.FriendGroupMessageGetPayload<{ select: typeof FRIEND_GROUP_MESSAGE_SELECT }>, viewerId: string, ownerId: string, currentPlayerIds?: ReadonlySet<string>) {
   return {
-    ...message,
+    id: message.id,
+    groupId: message.groupId,
+    authorId: message.authorId,
+    body: message.body,
+    author: serializeFriendGroupPlayer(message.author),
     createdAt: message.createdAt.toISOString(),
     canDelete: message.authorId === viewerId || ownerId === viewerId,
     round: message.round && (!currentPlayerIds || currentPlayerIds.has(message.round.user.id))
-      ? { ...message.round, datePlayed: message.round.datePlayed.toISOString().slice(0, 10) }
+      ? {
+          id: message.round.id,
+          datePlayed: message.round.datePlayed.toISOString().slice(0, 10),
+          grossScore: message.round.grossScore,
+          stablefordPoints: message.round.stablefordPoints,
+          player: serializeFriendGroupPlayer(message.round.user),
+          tee: message.round.tee,
+        }
       : null,
   }
 }
@@ -4721,13 +4771,16 @@ app.get('/api/users/me/friend-groups/:groupId/leaderboard', async (request, resp
     group: serializeFriendGroup(group, user.id),
     period,
     startsOn: start?.toISOString().slice(0, 10) ?? null,
-    standings,
+    standings: standings.map((standing) => ({
+      ...standing,
+      player: serializeFriendGroupPlayer(players.find((player) => player.id === standing.player.id)!),
+    })),
     recentRounds: rounds.filter((round) => !start || round.datePlayed >= start).slice(-20).reverse().map((round) => ({
       id: round.id,
       datePlayed: round.datePlayed.toISOString().slice(0, 10),
       grossScore: round.grossScore,
       stablefordPoints: round.stablefordPoints,
-      player: round.user,
+      player: serializeFriendGroupPlayer(round.user),
       tee: round.tee,
     })),
   })
@@ -4766,11 +4819,17 @@ app.get('/api/users/me/friends', async (_request, response) => {
     const otherPlayer = isRequester
       ? friendship.addressee
       : friendship.requester
+    const serializedPlayer = serializeFriendPlayer(otherPlayer)
     const item = {
       id: friendship.id,
       createdAt: friendship.createdAt,
       updatedAt: friendship.updatedAt,
-      player: serializeFriendPlayer(otherPlayer),
+      player: {
+        ...serializedPlayer,
+        hasProfileImage: friendship.status === FriendshipStatus.ACCEPTED
+          ? serializedPlayer.hasProfileImage
+          : false,
+      },
     }
 
     if (friendship.status === FriendshipStatus.ACCEPTED) {
@@ -5300,6 +5359,8 @@ async function getVisibleFriendProfile(authUserId: string, friendId: string) {
     where: { id: friendId, status: UserStatus.ACTIVE },
     select: {
       id: true, name: true, handicapIndex: true, showHandicapToFriends: true,
+      bio: true, location: true, showProfileToFriends: true,
+      profileImagePath: true,
       homeClub: { select: { id: true, name: true } },
     },
   })
@@ -5318,6 +5379,10 @@ app.get('/api/users/me/friends/:friendId/profile-rounds', async (request, respon
       id: friend.id, name: friend.name, homeClub: friend.homeClub,
       handicapIndex: friend.showHandicapToFriends && friend.handicapIndex !== null ? Number(friend.handicapIndex) : null,
       handicapVisible: friend.showHandicapToFriends,
+      bio: friend.showProfileToFriends ? friend.bio : null,
+      location: friend.showProfileToFriends ? friend.location : null,
+      profileDetailsVisible: friend.showProfileToFriends,
+      hasProfileImage: friend.showProfileToFriends && Boolean(friend.profileImagePath),
     },
     rounds: rounds.map(serializeSharedRound),
   })
@@ -5531,8 +5596,12 @@ app.get('/api/users/me/friends/search', async (request, response) => {
       const relationship = relationshipByPair.get(
         buildFriendshipPairKey(user.id, player.id),
       )
+      const serializedPlayer = serializeFriendPlayer(player)
       return {
-        ...serializeFriendPlayer(player),
+        ...serializedPlayer,
+        hasProfileImage: relationship?.status === FriendshipStatus.ACCEPTED
+          ? serializedPlayer.hasProfileImage
+          : false,
         relationship: relationship
           ? {
               id: relationship.id,
@@ -5792,6 +5861,105 @@ const PRIVACY_SETTINGS_SELECT = {
   shareRoundActivity: true,
 } as const
 
+app.patch('/api/users/me/settings/customisation', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  let input
+  try {
+    input = parseProfileCustomisation(request.body)
+  } catch (error: unknown) {
+    if (error instanceof ProfileCustomisationError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const updated = await prisma.user.update({ where: { id: user.id }, data: input, select: PROFILE_SELECT })
+  response.status(200).json(serializeProfile(updated))
+})
+
+app.post('/api/users/me/settings/profile-image/upload', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  try {
+    const input = parseScorecardPhotoInput(request.body)
+    const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+    if (!user) return response.status(404).json({ error: 'User not found' })
+    const upload = await createScorecardPhotoUpload({ userId: user.id, roundId: user.id, mimeType: input.mimeType })
+    response.status(200).json({ ...upload, expiresInSeconds: 7200 })
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message.replaceAll('scorecard photo', 'profile picture') })
+    throw error
+  }
+})
+
+app.post('/api/users/me/settings/profile-image', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const path = isRecord(request.body) && typeof request.body.path === 'string' ? request.body.path : ''
+  let ownedPath = false
+  try {
+    const input = parseScorecardPhotoInput(request.body)
+    const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, profileImagePath: true } })
+    if (!user) return response.status(404).json({ error: 'User not found' })
+    ownedPath = isOwnedScorecardPhotoPath(path, user.id, user.id)
+    if (!ownedPath) return response.status(400).json({ error: 'Invalid profile picture upload' })
+    await verifyScorecardPhotoUpload({ path, expectedMimeType: input.mimeType, expectedSize: input.size })
+    const uploadedAt = new Date()
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { profileImagePath: path, profileImageName: input.fileName, profileImageMimeType: input.mimeType, profileImageSize: input.size, profileImageUploadedAt: uploadedAt },
+    })
+    if (user.profileImagePath && user.profileImagePath !== path) await deleteScorecardPhotos([user.profileImagePath]).catch(() => undefined)
+    ownedPath = false
+    response.status(200).json({ profileImage: { name: input.fileName, mimeType: input.mimeType, size: input.size, uploadedAt: uploadedAt.toISOString() } })
+  } catch (error: unknown) {
+    if (ownedPath) await deleteScorecardPhotos([path]).catch(() => undefined)
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message.replaceAll('scorecard photo', 'profile picture') })
+    throw error
+  }
+})
+
+app.delete('/api/users/me/settings/profile-image', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true, profileImagePath: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  if (!user.profileImagePath) return response.status(204).send()
+  try {
+    await deleteScorecardPhotos([user.profileImagePath])
+    await prisma.user.update({ where: { id: user.id }, data: { profileImagePath: null, profileImageName: null, profileImageMimeType: null, profileImageSize: null, profileImageUploadedAt: null } })
+    response.status(204).send()
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message.replaceAll('scorecard photo', 'profile picture') })
+    throw error
+  }
+})
+
+app.get('/api/users/:userId/profile-image', async (request, response) => {
+  const targetId = request.params.userId
+  if (!UUID_PATTERN.test(targetId)) return response.status(400).json({ error: 'Invalid player ID' })
+  const authenticatedUser = getRequestUser(response.locals)
+  const viewer = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!viewer) return response.status(404).json({ error: 'User not found' })
+  const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true, showProfileToFriends: true, profileImagePath: true } })
+  if (!target?.profileImagePath) return response.status(404).json({ error: 'Profile picture not found' })
+  if (viewer.id !== target.id) {
+    if (!target.showProfileToFriends) return response.status(404).json({ error: 'Profile picture not found' })
+    const friendship = await prisma.friendship.findFirst({
+      where: { status: FriendshipStatus.ACCEPTED, OR: [{ requesterId: viewer.id, addresseeId: target.id }, { requesterId: target.id, addresseeId: viewer.id }] },
+      select: { id: true },
+    })
+    if (!friendship) return response.status(404).json({ error: 'Profile picture not found' })
+  }
+  try {
+    const url = await createScorecardPhotoViewUrl(target.profileImagePath)
+    response.status(200).json({ url, expiresInSeconds: 300 })
+  } catch (error: unknown) {
+    const photoError = getScorecardPhotoErrorResponse(error)
+    if (photoError) return response.status(photoError.status).json({ error: photoError.message.replaceAll('scorecard photo', 'profile picture') })
+    throw error
+  }
+})
+
 app.get('/api/users/me/settings/privacy', async (_request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const settings = await prisma.user.findUnique({
@@ -5918,7 +6086,7 @@ app.delete('/api/users/me/settings/account', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const user = await prisma.user.findUnique({
     where: { authUserId: authenticatedUser.id },
-    select: { id: true, authUserId: true, email: true, role: true },
+    select: { id: true, authUserId: true, email: true, role: true, profileImagePath: true },
   })
 
   if (!user) {
@@ -5947,6 +6115,7 @@ app.delete('/api/users/me/settings/account', async (request, response) => {
       ...photoRounds.flatMap((round) =>
         round.scorecardPhotoPath ? [round.scorecardPhotoPath] : []),
       ...ownedGroupImages.flatMap((group) => group.imagePath ? [group.imagePath] : []),
+      ...(user.profileImagePath ? [user.profileImagePath] : []),
     ])
   } catch (error: unknown) {
     const storageError = getScorecardPhotoErrorResponse(error)

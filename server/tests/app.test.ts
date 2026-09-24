@@ -2635,6 +2635,8 @@ describe('friend connections API', () => {
     handicapIndex: '1.4',
     friendRequestsEnabled: true,
     showHandicapToFriends: true,
+    showProfileToFriends: true,
+    profileImagePath: null,
     homeClub: { id: '44444444-4444-4444-8444-444444444444', name: 'Medinah' },
   }
 
@@ -2668,6 +2670,7 @@ describe('friend connections API', () => {
       acceptsFriendRequests: true,
       handicapIndex: 1.4,
       handicapVisible: true,
+      hasProfileImage: false,
       homeClub: otherPlayer.homeClub,
     })
     expect(response.body.friends[0].player).not.toHaveProperty('email')
@@ -2691,6 +2694,7 @@ describe('friend connections API', () => {
       acceptsFriendRequests: true,
       handicapIndex: 1.4,
       handicapVisible: true,
+      hasProfileImage: false,
       homeClub: otherPlayer.homeClub,
       relationship: null,
     })
@@ -2732,6 +2736,7 @@ describe('friend connections API', () => {
       acceptsFriendRequests: false,
       handicapIndex: null,
       handicapVisible: false,
+      hasProfileImage: false,
       homeClub: otherPlayer.homeClub,
       relationship: null,
     })
@@ -2745,6 +2750,10 @@ describe('friend connections API', () => {
       name: 'Tiger Woods',
       handicapIndex: '1.4',
       showHandicapToFriends: true,
+      bio: 'Weekend golfer',
+      location: 'Sheffield',
+      showProfileToFriends: true,
+      profileImagePath: 'scorecards/22222222-2222-4222-8222-222222222222/profile.jpg',
       homeClub: otherPlayer.homeClub,
     })
     roundFindManyMock.mockResolvedValueOnce([{
@@ -2776,6 +2785,10 @@ describe('friend connections API', () => {
       homeClub: otherPlayer.homeClub,
       handicapIndex: 1.4,
       handicapVisible: true,
+      bio: 'Weekend golfer',
+      location: 'Sheffield',
+      profileDetailsVisible: true,
+      hasProfileImage: true,
     })
     expect(response.body.rounds).toEqual([
       expect.objectContaining({
@@ -3116,6 +3129,7 @@ describe('GET /api/users/me', () => {
         id: '22222222-2222-4222-8222-222222222222',
         name: 'Example Golf Club',
       },
+      profileImage: null,
     })
 
     const response = await request(app).get('/api/users/me')
@@ -3132,6 +3146,7 @@ describe('GET /api/users/me', () => {
         id: '22222222-2222-4222-8222-222222222222',
         name: 'Example Golf Club',
       },
+      profileImage: null,
     })
     expect(userFindUniqueMock).toHaveBeenCalledWith({
       where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
@@ -3142,6 +3157,13 @@ describe('GET /api/users/me', () => {
         homeClubId: true,
         handicapIndex: true,
         createdAt: true,
+        bio: true,
+        location: true,
+        showProfileToFriends: true,
+        profileImageName: true,
+        profileImageMimeType: true,
+        profileImageSize: true,
+        profileImageUploadedAt: true,
         homeClub: {
           select: {
             id: true,
@@ -3657,6 +3679,13 @@ describe('PATCH /api/users/me', () => {
     homeClubId: true,
     handicapIndex: true,
     createdAt: true,
+    bio: true,
+    location: true,
+    showProfileToFriends: true,
+    profileImageName: true,
+    profileImageMimeType: true,
+    profileImageSize: true,
+    profileImageUploadedAt: true,
     homeClub: {
       select: {
         id: true,
@@ -3679,6 +3708,7 @@ describe('PATCH /api/users/me', () => {
         id: homeClubId,
         name: 'Example Golf Club',
       },
+      profileImage: null,
     })
 
     const response = await request(app).patch('/api/users/me').send({
@@ -3697,6 +3727,7 @@ describe('PATCH /api/users/me', () => {
         id: homeClubId,
         name: 'Example Golf Club',
       },
+      profileImage: null,
     })
     expect(userFindUniqueMock).toHaveBeenCalledWith({
       where: { authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
@@ -5138,6 +5169,13 @@ describe('POST /api/users', () => {
     homeClubId: true,
     handicapIndex: true,
     createdAt: true,
+    bio: true,
+    location: true,
+    showProfileToFriends: true,
+    profileImageName: true,
+    profileImageMimeType: true,
+    profileImageSize: true,
+    profileImageUploadedAt: true,
     homeClub: {
       select: {
         id: true,
@@ -5185,6 +5223,7 @@ describe('POST /api/users', () => {
       handicapIndex: null,
       createdAt: new Date('2026-08-29T12:00:00.000Z'),
       homeClub: null,
+      profileImage: null,
     })
 
     const response = await request(app).post('/api/users').send({
@@ -5201,6 +5240,7 @@ describe('POST /api/users', () => {
       handicapIndex: null,
       createdAt: expect.any(String),
       homeClub: null,
+      profileImage: null,
     })
     expect(userCreateMock).toHaveBeenCalledWith({
       data: {
@@ -5285,6 +5325,83 @@ describe('POST /api/users', () => {
   })
 })
 
+describe('profile customisation API', () => {
+  const userId = '11111111-1111-4111-8111-111111111111'
+  const friendId = '22222222-2222-4222-8222-222222222222'
+  const path = `${userId}/${userId}/55555555-5555-4555-8555-555555555555.jpg`
+  const previousPath = `${userId}/${userId}/66666666-6666-4666-8666-666666666666.jpg`
+
+  it('saves normalized public profile details for the authenticated player', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    userUpdateMock.mockResolvedValueOnce({
+      id: userId,
+      name: 'Jack Humphreys',
+      email: 'jack@example.com',
+      homeClubId: null,
+      handicapIndex: null,
+      createdAt: new Date('2026-08-29T12:00:00.000Z'),
+      bio: 'Weekend golfer',
+      location: 'Sheffield',
+      showProfileToFriends: true,
+      profileImageName: null,
+      profileImageMimeType: null,
+      profileImageSize: null,
+      profileImageUploadedAt: null,
+      homeClub: null,
+    })
+
+    const response = await request(app)
+      .patch('/api/users/me/settings/customisation')
+      .send({ bio: '  Weekend   golfer ', location: ' Sheffield ', showProfileToFriends: true })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({ bio: 'Weekend golfer', location: 'Sheffield', showProfileToFriends: true, profileImage: null })
+    expect(userUpdateMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: userId },
+      data: { bio: 'Weekend golfer', location: 'Sheffield', showProfileToFriends: true },
+    }))
+  })
+
+  it('verifies a new picture and removes the replaced private object', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId, profileImagePath: previousPath })
+    userUpdateMock.mockResolvedValueOnce({ id: userId })
+
+    const response = await request(app)
+      .post('/api/users/me/settings/profile-image')
+      .send({ path, fileName: 'profile.jpg', mimeType: 'image/jpeg', size: 2048 })
+
+    expect(response.status).toBe(200)
+    expect(verifyScorecardPhotoUploadMock).toHaveBeenCalledWith({ path, expectedMimeType: 'image/jpeg', expectedSize: 2048 })
+    expect(deleteScorecardPhotosMock).toHaveBeenCalledWith([previousPath])
+    expect(response.body.profileImage).toMatchObject({ name: 'profile.jpg', mimeType: 'image/jpeg', size: 2048 })
+  })
+
+  it('returns a signed picture link to an accepted friend', async () => {
+    userFindUniqueMock
+      .mockResolvedValueOnce({ id: userId })
+      .mockResolvedValueOnce({ id: friendId, showProfileToFriends: true, profileImagePath: path })
+    friendshipFindFirstMock.mockResolvedValueOnce({ id: '33333333-3333-4333-8333-333333333333' })
+    createScorecardPhotoViewUrlMock.mockResolvedValueOnce('https://example.supabase.co/profile')
+
+    const response = await request(app).get(`/api/users/${friendId}/profile-image`)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ url: 'https://example.supabase.co/profile', expiresInSeconds: 300 })
+  })
+
+  it('does not expose a hidden picture to another player', async () => {
+    userFindUniqueMock
+      .mockResolvedValueOnce({ id: userId })
+      .mockResolvedValueOnce({ id: friendId, showProfileToFriends: false, profileImagePath: path })
+
+    const response = await request(app).get(`/api/users/${friendId}/profile-image`)
+
+    expect(response.status).toBe(404)
+    expect(friendshipFindFirstMock).not.toHaveBeenCalled()
+    expect(createScorecardPhotoViewUrlMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('privacy and account controls', () => {
   const userId = '11111111-1111-4111-8111-111111111111'
   const authUserId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -5356,6 +5473,7 @@ describe('privacy and account controls', () => {
       authUserId,
       email: 'player@example.com',
       role: 'PLAYER',
+      profileImagePath: `${userId}/${userId}/55555555-5555-4555-8555-555555555555.jpg`,
     })
     userDeleteMock.mockResolvedValueOnce({ id: userId })
 
@@ -5365,6 +5483,9 @@ describe('privacy and account controls', () => {
 
     expect(response.status).toBe(204)
     expect(deleteAuthUserMock).toHaveBeenCalledWith(authUserId)
+    expect(deleteScorecardPhotosMock).toHaveBeenCalledWith([
+      `${userId}/${userId}/55555555-5555-4555-8555-555555555555.jpg`,
+    ])
     expect(userDeleteMock).toHaveBeenCalledWith({ where: { id: userId } })
   })
 
