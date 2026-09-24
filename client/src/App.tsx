@@ -19,6 +19,7 @@ import PerformanceSummary from './PerformanceSummary.tsx'
 import PerformanceAnalysis from './PerformanceAnalysis.tsx'
 import PerformanceInsights from './PerformanceInsights.tsx'
 import CoursePersonalBests from './CoursePersonalBests.tsx'
+import CustomStatisticsDashboard from './CustomStatisticsDashboard.tsx'
 import PersonalMilestones from './PersonalMilestones.tsx'
 import NotificationCentre from './NotificationCentre.tsx'
 import ProfileAvatar from './ProfileAvatar.tsx'
@@ -803,6 +804,7 @@ function App() {
           />
         ) : activeView === 'rounds' ? (
           <>
+            <CustomStatisticsDashboard profileId={profile.id} handicapIndex={profile.handicapIndex} />
             <SeasonYearReviews
               profileId={profile.id}
               onOpenRound={(roundId) => {

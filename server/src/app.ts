@@ -133,6 +133,11 @@ import {
   ProfileCustomisationError,
 } from './profileCustomisation.js'
 import {
+  parseStatisticsDashboardConfig,
+  readStatisticsDashboardConfig,
+  StatisticsDashboardValidationError,
+} from './statisticsDashboard.js'
+import {
   calculateAdjustedGrossScore,
   calculateCourseHandicap,
   calculateHandicap,
@@ -3739,6 +3744,31 @@ app.get('/api/users/me/performance-insights', async (request, response) => {
   })
   if (!user) return response.status(404).json({ error: 'User not found' })
   response.status(200).json(buildPerformanceInsights(user.rounds, teeId, hole))
+})
+
+app.get('/api/users/me/statistics-dashboard', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { statisticsDashboardConfig: true },
+  })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  response.status(200).json(readStatisticsDashboardConfig(user.statisticsDashboardConfig))
+})
+
+app.patch('/api/users/me/statistics-dashboard', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  let config
+  try {
+    config = parseStatisticsDashboardConfig(request.body)
+  } catch (error: unknown) {
+    if (error instanceof StatisticsDashboardValidationError) return response.status(400).json({ error: error.message })
+    throw error
+  }
+  const user = await prisma.user.findUnique({ where: { authUserId: authenticatedUser.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  await prisma.user.update({ where: { id: user.id }, data: { statisticsDashboardConfig: config } })
+  response.status(200).json(config)
 })
 
 app.get('/api/users/me/performance-analysis', async (request, response) => {

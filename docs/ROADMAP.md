@@ -49,7 +49,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 43. Achievements and Badges. Completed in `0.47.0`.
 44. Notification Centre. Completed in `0.48.0`.
 45. Profile Customisation. Completed in `0.49.0`.
-46. Custom Statistics Dashboard.
+46. Custom Statistics Dashboard. Completed in `0.50.0`.
 47. Knockout Competitions.
 48. Golf Bag and Club Management.
 49. Tournament Series.
@@ -58,6 +58,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Custom Statistics Dashboard — completed in 0.50.0
+
+The Rounds screen now includes a private dashboard that each player can shape around the parts of their game they want to follow. Scoring, current Handicap Index, putting, driving, approach, scrambling, penalties, and bunker cards can be added, removed, and reordered, and the chosen layout is saved to the signed-in account for use across devices.
+
+Players can combine 30-day, 90-day, 12-month, all-time, or custom dates with course, tee, casual, competition, social-game, nine-hole, and 18-hole filters. Every card reports its qualifying sample and leaves unavailable optional statistics blank rather than treating missing entries as zero. Only verified individual rounds contribute; team rounds and pending or rejected scorecards remain excluded. The current Handicap Index card always reflects the complete current record and explicitly states that dashboard filters do not alter it.
 
 ## Profile Customisation — completed in 0.49.0
 

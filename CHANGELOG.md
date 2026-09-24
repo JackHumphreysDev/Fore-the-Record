@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.50.0 - 2026-09-24
+
+### User-facing changes
+
+- Added a private Statistics Dashboard where players can add, remove, and reorder the figures most useful to their game.
+- Added saved date, course, tee, round-type, and round-length filters that follow the signed-in account across devices.
+- Added scoring, Handicap Index, putting, driving, approach, short-game, penalty, and bunker cards with clear sample sizes and unavailable states.
+
+### Developer and admin changes
+
+- Added authenticated per-player dashboard configuration stored as validated JSON without duplicating calculated statistics.
+- Reused the verified-individual-round performance analysis boundary so team rounds, pending cards, rejected cards, and missing optional fields remain excluded honestly.
+- Added database migration, route validation, strict client response checks, statistic-card calculations, and regression coverage.
+
 ## 0.49.0 - 2026-09-24
 
 ### User-facing changes

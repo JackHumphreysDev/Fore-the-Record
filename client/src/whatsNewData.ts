@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'custom-statistics-dashboard',
+    publishedAt: '2026-09-24',
+    title: 'Build a dashboard around your game',
+    summary: 'Choose the figures you care about, put them in your preferred order, and keep the same private view wherever you sign in.',
+    highlights: [
+      'Add, remove, and reorder cards covering scoring, Handicap Index, putting, driving, approach, short game, penalties, and bunkers.',
+      'Filter the dashboard by date, course, tee, round type, and nine- or 18-hole rounds.',
+      'See the real sample behind every result, with missing optional details left unavailable rather than counted as zero.',
+      'Save your card layout and filters to your account so they follow you across devices.',
+    ],
+  },
+  {
     id: 'profile-customisation',
     publishedAt: '2026-09-24',
     title: 'Make your player profile your own',
