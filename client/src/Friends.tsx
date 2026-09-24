@@ -22,6 +22,8 @@ import FriendGroups from './FriendGroups.tsx'
 import PlayingPartnersHistory from './PlayingPartnersHistory.tsx'
 import ProfileAvatar from './ProfileAvatar.tsx'
 import KnockoutCompetitions from './KnockoutCompetitions.tsx'
+import TournamentSeries from './TournamentSeries.tsx'
+import TournamentSeriesResults from './TournamentSeriesResults.tsx'
 
 type FriendsProps = { profileId: string; onOpenRound: (roundId: string) => void }
 
@@ -385,6 +387,8 @@ function Friends({ profileId, onOpenRound }: FriendsProps) {
 
       <ChallengesBoard profileId={profileId} friends={data?.friends ?? []} />
       <KnockoutCompetitions profileId={profileId} friends={data?.friends ?? []} />
+      <TournamentSeries profileId={profileId} friends={data?.friends ?? []} />
+      <TournamentSeriesResults profileId={profileId} />
       <FriendGroups profileId={profileId} friends={data?.friends ?? []} />
       <SharedRounds profileId={profileId} friends={data?.friends ?? []} />
 

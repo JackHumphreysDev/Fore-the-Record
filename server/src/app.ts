@@ -116,6 +116,7 @@ import {
   KnockoutMatchStatus,
   KnockoutParticipantStatus,
   GolfClubType,
+  TournamentSeriesStatus,
 } from './generated/prisma/enums.js'
 import {
   logRound,
@@ -153,6 +154,7 @@ import {
   parseGolfBagOrder,
   parseGolfClubInput,
 } from './golfBag.js'
+import { parseSeries, parseSeriesEvent, parseSeriesResults, TournamentSeriesError } from './tournamentSeries.js'
 import {
   calculateAdjustedGrossScore,
   calculateCourseHandicap,
@@ -5232,6 +5234,53 @@ const knockoutPlayerSelect = {
   name: true,
   homeClub: { select: { id: true, name: true } },
 } satisfies Prisma.UserSelect
+
+app.get('/api/users/me/tournament-series', async (_request, response) => {
+  const auth = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: auth.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const series = await prisma.tournamentSeries.findMany({ where: { members: { some: { userId: user.id } } }, orderBy: { updatedAt: 'desc' }, include: { organizer: { select: knockoutPlayerSelect }, members: { include: { user: { select: knockoutPlayerSelect } } }, events: { orderBy: { playedOn: 'asc' }, include: { results: true } } } })
+  response.status(200).json({ series: series.map((item) => { const accepted = item.members.filter((member) => member.status === KnockoutParticipantStatus.ACCEPTED); const sorted = accepted.map((member) => { const results = item.events.flatMap((event) => event.results).filter((result) => result.userId === member.userId); return { user: member.user, eventsPlayed: results.length, wins: results.filter((result) => result.position === 1).length, podiums: results.filter((result) => result.position <= 3).length, points: results.reduce((total, result) => total + Number(result.points), 0) } }).sort((a, b) => b.points - a.points || b.wins - a.wins || a.user.name.localeCompare(b.user.name)); let rank = 0; let previousPoints: number | null = null; const standings = sorted.map((standing, index) => { if (standing.points !== previousPoints) rank = index + 1; previousPoints = standing.points; return { ...standing, position: rank } }); return { ...item, isOrganizer: item.organizerId === user.id, createdAt: item.createdAt.toISOString(), updatedAt: item.updatedAt.toISOString(), members: item.members.map((member) => ({ ...member, respondedAt: member.respondedAt?.toISOString() ?? null })), events: item.events.map((event) => ({ ...event, playedOn: event.playedOn.toISOString().slice(0, 10), createdAt: event.createdAt.toISOString(), updatedAt: event.updatedAt.toISOString(), results: event.results.map((result) => ({ ...result, points: Number(result.points) })) })), standings } }) })
+})
+
+app.post('/api/users/me/tournament-series', async (request, response) => {
+  const auth = getRequestUser(response.locals); const user = await prisma.user.findUnique({ where: { authUserId: auth.id }, select: { id: true, name: true } }); if (!user) return response.status(404).json({ error: 'User not found' })
+  let input; try { input = parseSeries(request.body) } catch (error) { if (error instanceof TournamentSeriesError) return response.status(400).json({ error: error.message }); throw error }
+  if (input.inviteeIds.includes(user.id)) return response.status(400).json({ error: 'You are already included as organiser' })
+  const friendships = await prisma.friendship.findMany({ where: { status: FriendshipStatus.ACCEPTED, OR: input.inviteeIds.flatMap((id) => [{ requesterId: user.id, addresseeId: id }, { requesterId: id, addresseeId: user.id }]) }, select: { requesterId: true, addresseeId: true } }); const friendIds = new Set(friendships.map((friendship) => friendship.requesterId === user.id ? friendship.addresseeId : friendship.requesterId))
+  const activeInvitees = await prisma.user.findMany({ where: { id: { in: input.inviteeIds }, status: UserStatus.ACTIVE, authUserId: { not: null } }, select: { id: true } })
+  const activeIds = new Set(activeInvitees.map((invitee) => invitee.id))
+  if (input.inviteeIds.some((id) => !friendIds.has(id) || !activeIds.has(id))) return response.status(400).json({ error: 'Every series member must be an active accepted friend' })
+  const created = await prisma.tournamentSeries.create({ data: { organizerId: user.id, name: input.name, description: input.description, members: { create: [{ userId: user.id, status: KnockoutParticipantStatus.ACCEPTED, respondedAt: new Date() }, ...input.inviteeIds.map((userId) => ({ userId }))] } }, select: { id: true } })
+  await prisma.notification.createMany({ data: input.inviteeIds.map((recipientId) => ({ recipientId, category: NotificationCategory.SOCIAL, eventType: 'TOURNAMENT_SERIES_INVITATION', title: 'Tournament series invitation', message: `${user.name} invited you to ${input.name}.`, action: NotificationAction.FRIENDS, actionTargetId: created.id, dedupeKey: `series:${created.id}:invite:${recipientId}` })), skipDuplicates: true })
+  response.status(201).json(created)
+})
+
+app.patch('/api/users/me/tournament-series/:seriesId/invitation', async (request, response) => {
+  const auth = getRequestUser(response.locals); const user = await prisma.user.findUnique({ where: { authUserId: auth.id }, select: { id: true } }); if (!user) return response.status(404).json({ error: 'User not found' }); const member = await prisma.tournamentSeriesMember.findUnique({ where: { seriesId_userId: { seriesId: request.params.seriesId, userId: user.id } }, include: { series: true } }); if (!member || member.status !== KnockoutParticipantStatus.INVITED || member.series.status !== TournamentSeriesStatus.DRAFT) return response.status(400).json({ error: 'This invitation can no longer be updated' }); const status = request.body?.action === 'accept' ? KnockoutParticipantStatus.ACCEPTED : request.body?.action === 'decline' ? KnockoutParticipantStatus.DECLINED : null; if (!status) return response.status(400).json({ error: 'Choose accept or decline' }); await prisma.tournamentSeriesMember.update({ where: { seriesId_userId: { seriesId: request.params.seriesId, userId: user.id } }, data: { status, respondedAt: new Date() } }); response.status(200).json({ status })
+})
+
+app.post('/api/users/me/tournament-series/:seriesId/events', async (request, response) => {
+  const auth = getRequestUser(response.locals); const user = await prisma.user.findUnique({ where: { authUserId: auth.id }, select: { id: true } }); if (!user) return response.status(404).json({ error: 'User not found' }); const series = await prisma.tournamentSeries.findUnique({ where: { id: request.params.seriesId }, select: { organizerId: true, status: true } }); if (!series) return response.status(404).json({ error: 'Series not found' }); if (series.organizerId !== user.id) return response.status(403).json({ error: 'Only the organiser can add events' }); let input; try { input = parseSeriesEvent(request.body) } catch (error) { if (error instanceof TournamentSeriesError) return response.status(400).json({ error: error.message }); throw error }; const event = await prisma.tournamentSeriesEvent.create({ data: { seriesId: request.params.seriesId, ...input }, select: { id: true } }); if (series.status === TournamentSeriesStatus.DRAFT) await prisma.tournamentSeries.update({ where: { id: request.params.seriesId }, data: { status: TournamentSeriesStatus.ACTIVE } }); response.status(201).json(event)
+})
+
+app.put('/api/users/me/tournament-series/:seriesId/events/:eventId/results', async (request, response) => {
+  const auth = getRequestUser(response.locals); const user = await prisma.user.findUnique({ where: { authUserId: auth.id }, select: { id: true } }); if (!user) return response.status(404).json({ error: 'User not found' }); const series = await prisma.tournamentSeries.findUnique({ where: { id: request.params.seriesId }, select: { organizerId: true, members: { where: { status: KnockoutParticipantStatus.ACCEPTED }, select: { userId: true } } } }); if (!series) return response.status(404).json({ error: 'Series not found' }); if (series.organizerId !== user.id) return response.status(403).json({ error: 'Only the organiser can record results' }); const tournamentEvent = await prisma.tournamentSeriesEvent.findFirst({ where: { id: request.params.eventId, seriesId: request.params.seriesId }, select: { id: true } }); if (!tournamentEvent) return response.status(404).json({ error: 'Tournament event not found' }); let results; try { results = parseSeriesResults(request.body?.results) } catch (error) { if (error instanceof TournamentSeriesError) return response.status(400).json({ error: error.message }); throw error }; const accepted = new Set(series.members.map((member) => member.userId)); if (results.some((result) => !accepted.has(result.userId))) return response.status(400).json({ error: 'Results can include accepted series members only' }); await prisma.$transaction([prisma.tournamentSeriesResult.deleteMany({ where: { eventId: tournamentEvent.id } }), prisma.tournamentSeriesResult.createMany({ data: results.map((result) => ({ ...result, eventId: tournamentEvent.id, seriesId: request.params.seriesId })) })]); response.status(200).json({ saved: results.length })
+})
+
+app.patch('/api/users/me/tournament-series/:seriesId/status', async (request, response) => {
+  const auth = getRequestUser(response.locals)
+  const user = await prisma.user.findUnique({ where: { authUserId: auth.id }, select: { id: true } })
+  if (!user) return response.status(404).json({ error: 'User not found' })
+  const series = await prisma.tournamentSeries.findUnique({ where: { id: request.params.seriesId }, select: { organizerId: true, status: true } })
+  if (!series) return response.status(404).json({ error: 'Series not found' })
+  if (series.organizerId !== user.id) return response.status(403).json({ error: 'Only the organiser can update this series' })
+  const next = request.body?.status
+  if (next !== TournamentSeriesStatus.COMPLETED && next !== TournamentSeriesStatus.CANCELLED) return response.status(400).json({ error: 'Choose completed or cancelled' })
+  if (series.status === TournamentSeriesStatus.COMPLETED || series.status === TournamentSeriesStatus.CANCELLED) return response.status(400).json({ error: 'This series is already closed' })
+  await prisma.tournamentSeries.update({ where: { id: request.params.seriesId }, data: { status: next } })
+  response.status(200).json({ status: next })
+})
 
 app.get('/api/users/me/knockout-competitions', async (_request, response) => {
   const authenticatedUser = getRequestUser(response.locals)

@@ -143,55 +143,57 @@ enum NotificationAction {
 }
 
 model User {
-  id                     String                 @id @default(uuid()) @db.Uuid
-  authUserId             String?                @unique @db.Uuid
-  name                   String
-  email                  String                 @unique
-  role                   UserRole               @default(PLAYER)
-  status                 UserStatus             @default(ACTIVE)
-  profileDiscoverable    Boolean                @default(true)
-  friendRequestsEnabled  Boolean                @default(true)
-  showHandicapToFriends  Boolean                @default(true)
-  showProfileToFriends   Boolean                @default(true)
-  shareRoundActivity     Boolean                @default(true)
-  bio                    String?                @db.VarChar(280)
-  location               String?                @db.VarChar(100)
-  profileImagePath       String?                @db.VarChar(500)
-  profileImageName       String?                @db.VarChar(255)
-  profileImageMimeType   String?                @db.VarChar(100)
-  profileImageSize       Int?
-  profileImageUploadedAt DateTime?              @db.Timestamptz(3)
+  id                        String                   @id @default(uuid()) @db.Uuid
+  authUserId                String?                  @unique @db.Uuid
+  name                      String
+  email                     String                   @unique
+  role                      UserRole                 @default(PLAYER)
+  status                    UserStatus               @default(ACTIVE)
+  profileDiscoverable       Boolean                  @default(true)
+  friendRequestsEnabled     Boolean                  @default(true)
+  showHandicapToFriends     Boolean                  @default(true)
+  showProfileToFriends      Boolean                  @default(true)
+  shareRoundActivity        Boolean                  @default(true)
+  bio                       String?                  @db.VarChar(280)
+  location                  String?                  @db.VarChar(100)
+  profileImagePath          String?                  @db.VarChar(500)
+  profileImageName          String?                  @db.VarChar(255)
+  profileImageMimeType      String?                  @db.VarChar(100)
+  profileImageSize          Int?
+  profileImageUploadedAt    DateTime?                @db.Timestamptz(3)
   statisticsDashboardConfig Json?
-  homeClubId             String?                @db.Uuid
-  handicapIndex          Decimal?               @db.Decimal(4, 1)
-  createdAt              DateTime               @default(now()) @db.Timestamptz(3)
-  updatedAt              DateTime               @default(now()) @updatedAt @db.Timestamptz(3)
-  homeClub               Club?                  @relation(fields: [homeClubId], references: [id], onDelete: SetNull)
-  rounds                 Round[]
-  liveRoundDraft         LiveRoundDraft?
-  submissions            Submission[]
-  sentSubmissionMessages SubmissionMessage[]    @relation("SubmissionMessageSender")
-  adminAuditLogs         AdminAuditLog[]        @relation("AdminAuditActor")
-  reviewedScorecards     ScorecardReview[]      @relation("ScorecardReviewer")
-  coursePreferences      UserCoursePreference[]
-  sentFriendships        Friendship[]           @relation("FriendshipRequester")
-  receivedFriendships    Friendship[]           @relation("FriendshipAddressee")
-  playerGoals            PlayerGoal[]
-  roundPlayingPartners   RoundPlayingPartner[]
-  createdChallenges      PlayerChallenge[]      @relation("ChallengeCreator")
-  receivedChallenges     PlayerChallenge[]      @relation("ChallengeOpponent")
-  receivedRoundShares    RoundShare[]           @relation("RoundShareRecipient")
-  ownedFriendGroups      FriendGroup[]          @relation("FriendGroupOwner")
-  friendGroupMemberships FriendGroupMember[]
-  friendGroupMessages     FriendGroupMessage[]
-  notifications          Notification[]
-  organizedKnockouts     KnockoutCompetition[]  @relation("KnockoutOrganizer")
-  wonKnockouts           KnockoutCompetition[]  @relation("KnockoutChampion")
-  knockoutEntries        KnockoutParticipant[]
-  knockoutMatchesAsOne   KnockoutMatch[]        @relation("KnockoutPlayerOne")
-  knockoutMatchesAsTwo   KnockoutMatch[]        @relation("KnockoutPlayerTwo")
-  knockoutMatchWins      KnockoutMatch[]        @relation("KnockoutMatchWinner")
-  golfClubs              GolfClub[]
+  homeClubId                String?                  @db.Uuid
+  handicapIndex             Decimal?                 @db.Decimal(4, 1)
+  createdAt                 DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+  homeClub                  Club?                    @relation(fields: [homeClubId], references: [id], onDelete: SetNull)
+  rounds                    Round[]
+  liveRoundDraft            LiveRoundDraft?
+  submissions               Submission[]
+  sentSubmissionMessages    SubmissionMessage[]      @relation("SubmissionMessageSender")
+  adminAuditLogs            AdminAuditLog[]          @relation("AdminAuditActor")
+  reviewedScorecards        ScorecardReview[]        @relation("ScorecardReviewer")
+  coursePreferences         UserCoursePreference[]
+  sentFriendships           Friendship[]             @relation("FriendshipRequester")
+  receivedFriendships       Friendship[]             @relation("FriendshipAddressee")
+  playerGoals               PlayerGoal[]
+  roundPlayingPartners      RoundPlayingPartner[]
+  createdChallenges         PlayerChallenge[]        @relation("ChallengeCreator")
+  receivedChallenges        PlayerChallenge[]        @relation("ChallengeOpponent")
+  receivedRoundShares       RoundShare[]             @relation("RoundShareRecipient")
+  ownedFriendGroups         FriendGroup[]            @relation("FriendGroupOwner")
+  friendGroupMemberships    FriendGroupMember[]
+  friendGroupMessages       FriendGroupMessage[]
+  notifications             Notification[]
+  organizedKnockouts        KnockoutCompetition[]    @relation("KnockoutOrganizer")
+  wonKnockouts              KnockoutCompetition[]    @relation("KnockoutChampion")
+  knockoutEntries           KnockoutParticipant[]
+  knockoutMatchesAsOne      KnockoutMatch[]          @relation("KnockoutPlayerOne")
+  knockoutMatchesAsTwo      KnockoutMatch[]          @relation("KnockoutPlayerTwo")
+  knockoutMatchWins         KnockoutMatch[]          @relation("KnockoutMatchWinner")
+  golfClubs                 GolfClub[]
+  organizedTournamentSeries TournamentSeries[]       @relation("TournamentSeriesOrganizer")
+  tournamentSeriesEntries   TournamentSeriesMember[]
 
   @@index([status, createdAt])
 }
@@ -247,18 +249,25 @@ enum KnockoutMatchStatus {
   COMPLETED
 }
 
+enum TournamentSeriesStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
 model PlayerChallenge {
-  id          String          @id @default(uuid()) @db.Uuid
-  creatorId   String          @db.Uuid
-  opponentId  String          @db.Uuid
-  metric      ChallengeMetric
-  status      ChallengeStatus @default(PENDING)
-  startsOn    DateTime        @db.Date
-  endsOn      DateTime        @db.Date
-  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
-  creator     User            @relation("ChallengeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  opponent    User            @relation("ChallengeOpponent", fields: [opponentId], references: [id], onDelete: Cascade)
+  id         String          @id @default(uuid()) @db.Uuid
+  creatorId  String          @db.Uuid
+  opponentId String          @db.Uuid
+  metric     ChallengeMetric
+  status     ChallengeStatus @default(PENDING)
+  startsOn   DateTime        @db.Date
+  endsOn     DateTime        @db.Date
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime        @updatedAt @db.Timestamptz(3)
+  creator    User            @relation("ChallengeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  opponent   User            @relation("ChallengeOpponent", fields: [opponentId], references: [id], onDelete: Cascade)
 
   @@index([creatorId, status, endsOn])
   @@index([opponentId, status, endsOn])
@@ -320,6 +329,63 @@ model KnockoutMatch {
   @@index([playerTwoId, status])
 }
 
+model TournamentSeries {
+  id          String                   @id @default(uuid()) @db.Uuid
+  organizerId String                   @db.Uuid
+  name        String                   @db.VarChar(100)
+  description String?                  @db.VarChar(500)
+  status      TournamentSeriesStatus   @default(DRAFT)
+  createdAt   DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime                 @updatedAt @db.Timestamptz(3)
+  organizer   User                     @relation("TournamentSeriesOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  members     TournamentSeriesMember[]
+  events      TournamentSeriesEvent[]
+
+  @@index([organizerId, createdAt])
+  @@index([status, updatedAt])
+}
+
+model TournamentSeriesMember {
+  seriesId    String                    @db.Uuid
+  userId      String                    @db.Uuid
+  status      KnockoutParticipantStatus @default(INVITED)
+  respondedAt DateTime?                 @db.Timestamptz(3)
+  series      TournamentSeries          @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  user        User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  results     TournamentSeriesResult[]
+
+  @@id([seriesId, userId])
+  @@index([userId, status])
+}
+
+model TournamentSeriesEvent {
+  id        String                   @id @default(uuid()) @db.Uuid
+  seriesId  String                   @db.Uuid
+  name      String                   @db.VarChar(100)
+  playedOn  DateTime                 @db.Date
+  course    String?                  @db.VarChar(160)
+  notes     String?                  @db.VarChar(500)
+  createdAt DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime                 @updatedAt @db.Timestamptz(3)
+  series    TournamentSeries         @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  results   TournamentSeriesResult[]
+
+  @@index([seriesId, playedOn])
+}
+
+model TournamentSeriesResult {
+  eventId  String                 @db.Uuid
+  seriesId String                 @db.Uuid
+  userId   String                 @db.Uuid
+  position Int
+  points   Decimal                @db.Decimal(7, 2)
+  event    TournamentSeriesEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member   TournamentSeriesMember @relation(fields: [seriesId, userId], references: [seriesId, userId], onDelete: Cascade)
+
+  @@id([eventId, userId])
+  @@index([seriesId, userId])
+}
+
 model PlayerGoal {
   id          String         @id @default(uuid()) @db.Uuid
   userId      String         @db.Uuid
@@ -369,20 +435,20 @@ model Friendship {
 }
 
 model FriendGroup {
-  id        String              @id @default(uuid()) @db.Uuid
-  ownerId   String              @db.Uuid
-  name      String              @db.VarChar(80)
-  description String?           @db.VarChar(500)
-  imagePath String?             @db.VarChar(500)
-  imageName String?             @db.VarChar(255)
-  imageMimeType String?         @db.VarChar(50)
-  imageSize Int?
-  imageUploadedAt DateTime?     @db.Timestamptz(3)
-  createdAt DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime            @updatedAt @db.Timestamptz(3)
-  owner     User                @relation("FriendGroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members   FriendGroupMember[]
-  messages  FriendGroupMessage[]
+  id              String               @id @default(uuid()) @db.Uuid
+  ownerId         String               @db.Uuid
+  name            String               @db.VarChar(80)
+  description     String?              @db.VarChar(500)
+  imagePath       String?              @db.VarChar(500)
+  imageName       String?              @db.VarChar(255)
+  imageMimeType   String?              @db.VarChar(50)
+  imageSize       Int?
+  imageUploadedAt DateTime?            @db.Timestamptz(3)
+  createdAt       DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime             @updatedAt @db.Timestamptz(3)
+  owner           User                 @relation("FriendGroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members         FriendGroupMember[]
+  messages        FriendGroupMessage[]
 
   @@index([ownerId, createdAt])
 }
@@ -552,56 +618,56 @@ model UserCoursePreference {
 }
 
 model Round {
-  id                 String               @id @default(uuid()) @db.Uuid
-  userId             String               @db.Uuid
-  teeId              String               @db.Uuid
-  datePlayed         DateTime             @db.Date
-  timePlayed         String?              @db.VarChar(5)
-  category           RoundCategory        @default(CASUAL)
-  participation      RoundParticipation   @default(INDIVIDUAL)
-  scoringFormat      RoundScoringFormat   @default(STROKE_PLAY)
-  holeCount          Int                  @default(18)
-  nineHoleSegment    NineHoleSegment?
-  playingHandicap    Int?
-  stablefordPoints   Int?
-  competitionName    String?              @db.VarChar(120)
-  competitionFormat  String?              @db.VarChar(100)
-  gameFormat         String?               @db.VarChar(100)
-  gameResult         RoundGameResult?
-  matchPlayOpponentName String?           @db.VarChar(80)
-  matchPlayFinalScore String?              @db.VarChar(20)
-  matchPlayHoles     Json?
-  teamCompetition    Json?
-  guestPlayerNames   String[]              @default([])
-  numberOfPlayers    Int?
-  notes              String?              @db.VarChar(2000)
-  scorecardPhotoPath String?               @db.VarChar(500)
-  scorecardPhotoName String?               @db.VarChar(255)
-  scorecardPhotoMimeType String?           @db.VarChar(50)
-  scorecardPhotoSize Int?
-  scorecardPhotoUploadedAt DateTime?       @db.Timestamptz(3)
-  grossScore         Int?
-  adjustedGrossScore Int?
-  isCapped           Boolean              @default(false)
-  weatherCondition   WeatherCondition?
+  id                       String                @id @default(uuid()) @db.Uuid
+  userId                   String                @db.Uuid
+  teeId                    String                @db.Uuid
+  datePlayed               DateTime              @db.Date
+  timePlayed               String?               @db.VarChar(5)
+  category                 RoundCategory         @default(CASUAL)
+  participation            RoundParticipation    @default(INDIVIDUAL)
+  scoringFormat            RoundScoringFormat    @default(STROKE_PLAY)
+  holeCount                Int                   @default(18)
+  nineHoleSegment          NineHoleSegment?
+  playingHandicap          Int?
+  stablefordPoints         Int?
+  competitionName          String?               @db.VarChar(120)
+  competitionFormat        String?               @db.VarChar(100)
+  gameFormat               String?               @db.VarChar(100)
+  gameResult               RoundGameResult?
+  matchPlayOpponentName    String?               @db.VarChar(80)
+  matchPlayFinalScore      String?               @db.VarChar(20)
+  matchPlayHoles           Json?
+  teamCompetition          Json?
+  guestPlayerNames         String[]              @default([])
+  numberOfPlayers          Int?
+  notes                    String?               @db.VarChar(2000)
+  scorecardPhotoPath       String?               @db.VarChar(500)
+  scorecardPhotoName       String?               @db.VarChar(255)
+  scorecardPhotoMimeType   String?               @db.VarChar(50)
+  scorecardPhotoSize       Int?
+  scorecardPhotoUploadedAt DateTime?             @db.Timestamptz(3)
+  grossScore               Int?
+  adjustedGrossScore       Int?
+  isCapped                 Boolean               @default(false)
+  weatherCondition         WeatherCondition?
   /// Manual override; automated club-wide PCC calculation is out of scope.
-  pccAdjustment      Decimal              @default(0) @db.Decimal(2, 1)
-  scoreDifferential  Decimal?             @db.Decimal(4, 1)
-  user               User                 @relation(fields: [userId], references: [id])
-  tee                Tee                  @relation(fields: [teeId], references: [id])
+  pccAdjustment            Decimal               @default(0) @db.Decimal(2, 1)
+  scoreDifferential        Decimal?              @db.Decimal(4, 1)
+  user                     User                  @relation(fields: [userId], references: [id])
+  tee                      Tee                   @relation(fields: [teeId], references: [id])
   /// Explicitly determined by the application's handicap rules configuration.
-  isAcceptable       Boolean
+  isAcceptable             Boolean
   /// Uses the product's simplified best 8 of up to 20 recent acceptable rounds.
-  usedInHandicapCalc Boolean              @default(false)
-  createdAt          DateTime             @default(now()) @db.Timestamptz(3)
-  holeScores         HoleScore[]
-  scorecardStatus    RoundScorecardStatus @default(VERIFIED)
-  scorecardReview    ScorecardReview?
-  correctionRequests Submission[]
-  playingPartners    RoundPlayingPartner[]
-  guestPlayers       RoundGuestPlayer[]
-  shares             RoundShare[]
-  friendGroupMessages FriendGroupMessage[]
+  usedInHandicapCalc       Boolean               @default(false)
+  createdAt                DateTime              @default(now()) @db.Timestamptz(3)
+  holeScores               HoleScore[]
+  scorecardStatus          RoundScorecardStatus  @default(VERIFIED)
+  scorecardReview          ScorecardReview?
+  correctionRequests       Submission[]
+  playingPartners          RoundPlayingPartner[]
+  guestPlayers             RoundGuestPlayer[]
+  shares                   RoundShare[]
+  friendGroupMessages      FriendGroupMessage[]
 
   @@index([userId, datePlayed, createdAt])
 }
@@ -632,14 +698,14 @@ model RoundShare {
 }
 
 model RoundPlayingPartner {
-  id        String   @id @default(uuid()) @db.Uuid
-  roundId   String   @db.Uuid
-  userId    String   @db.Uuid
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
-  result     RoundGameResult?
-  tagRemovedAt DateTime? @db.Timestamptz(3)
-  round     Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String           @id @default(uuid()) @db.Uuid
+  roundId      String           @db.Uuid
+  userId       String           @db.Uuid
+  createdAt    DateTime         @default(now()) @db.Timestamptz(3)
+  result       RoundGameResult?
+  tagRemovedAt DateTime?        @db.Timestamptz(3)
+  round        Round            @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([roundId, userId])
   @@index([userId, createdAt])
