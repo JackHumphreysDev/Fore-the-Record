@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.52.0 - 2026-09-24
+
+### User-facing changes
+
+- Added a private golf bag to Profile with a maximum of 14 active clubs in the player's preferred order.
+- Added driver, fairway wood, hybrid, iron, wedge, putter, and other club types with optional brand, model, nickname, loft, shaft flex, and carry distance details.
+- Added club editing, reordering, archiving, restoring, and confirmation-gated permanent deletion without changing any round or Handicap Index.
+
+### Developer and admin changes
+
+- Added player-owned golf-club records with active ordering, archive state, database constraints, and cascading account cleanup.
+- Added authenticated ownership boundaries, server-enforced active-bag limits, strict validation, and exact-set reordering.
+- Added a database migration, strict client response validation, private Profile controls, and server/client regression coverage.
+
 ## 0.51.0 - 2026-09-24
 
 ### User-facing changes

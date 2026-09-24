@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'golf-bag-management',
+    publishedAt: '2026-09-24',
+    title: 'Keep your golf bag on the record',
+    summary: 'Build a private list of the clubs you currently carry and keep them in the same order as your real bag.',
+    highlights: [
+      'Add up to 14 active drivers, woods, hybrids, irons, wedges, putters, and other clubs.',
+      'Save optional equipment details including brand, model, nickname, loft, shaft flex, and carry distance.',
+      'Reorder your active setup and archive older equipment without losing its details.',
+      'Your bag stays private and never changes a round, statistic, or Handicap Index.',
+    ],
+  },
+  {
     id: 'knockout-competitions',
     publishedAt: '2026-09-24',
     title: 'Settle it through the knockout draw',
