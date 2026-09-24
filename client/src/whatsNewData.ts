@@ -8,6 +8,18 @@ export type WhatsNewEntry = {
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    id: 'knockout-competitions',
+    publishedAt: '2026-09-24',
+    title: 'Settle it through the knockout draw',
+    summary: 'Invite accepted friends into a private Match Play competition and follow every fixture until one champion remains.',
+    highlights: [
+      'Create a named competition for two to 16 players and let every invited friend accept or decline before the draw.',
+      'Start an automatic bracket with required byes already advanced into the right next-round positions.',
+      'Record decisive results such as 1 up or 3 & 2 and move each winner forward automatically.',
+      'Follow upcoming matches, completed results, cancellations, and the eventual champion without changing any Handicap Index.',
+    ],
+  },
+  {
     id: 'custom-statistics-dashboard',
     publishedAt: '2026-09-24',
     title: 'Build a dashboard around your game',

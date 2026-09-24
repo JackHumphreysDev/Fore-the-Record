@@ -80,6 +80,16 @@ const {
   friendshipDeleteMock,
   friendshipDeleteManyMock,
   friendGroupFindManyMock,
+  knockoutCompetitionFindManyMock,
+  knockoutCompetitionFindUniqueMock,
+  knockoutCompetitionCreateMock,
+  knockoutCompetitionUpdateMock,
+  knockoutParticipantFindUniqueMock,
+  knockoutParticipantUpdateMock,
+  knockoutMatchCreateManyMock,
+  knockoutMatchFindFirstMock,
+  knockoutMatchFindUniqueMock,
+  knockoutMatchUpdateMock,
   roundPlayingPartnerFindManyMock,
   roundPlayingPartnerUpdateManyMock,
   roundGuestPlayerFindManyMock,
@@ -175,6 +185,16 @@ const {
   friendshipDeleteMock: vi.fn(),
   friendshipDeleteManyMock: vi.fn(),
   friendGroupFindManyMock: vi.fn(),
+  knockoutCompetitionFindManyMock: vi.fn(),
+  knockoutCompetitionFindUniqueMock: vi.fn(),
+  knockoutCompetitionCreateMock: vi.fn(),
+  knockoutCompetitionUpdateMock: vi.fn(),
+  knockoutParticipantFindUniqueMock: vi.fn(),
+  knockoutParticipantUpdateMock: vi.fn(),
+  knockoutMatchCreateManyMock: vi.fn(),
+  knockoutMatchFindFirstMock: vi.fn(),
+  knockoutMatchFindUniqueMock: vi.fn(),
+  knockoutMatchUpdateMock: vi.fn(),
   roundPlayingPartnerFindManyMock: vi.fn(),
   roundPlayingPartnerUpdateManyMock: vi.fn(),
   roundGuestPlayerFindManyMock: vi.fn(),
@@ -253,6 +273,22 @@ vi.mock('../src/database.js', () => ({
     },
     friendGroup: {
       findMany: friendGroupFindManyMock,
+    },
+    knockoutCompetition: {
+      findMany: knockoutCompetitionFindManyMock,
+      findUnique: knockoutCompetitionFindUniqueMock,
+      create: knockoutCompetitionCreateMock,
+      update: knockoutCompetitionUpdateMock,
+    },
+    knockoutParticipant: {
+      findUnique: knockoutParticipantFindUniqueMock,
+      update: knockoutParticipantUpdateMock,
+    },
+    knockoutMatch: {
+      createMany: knockoutMatchCreateManyMock,
+      findFirst: knockoutMatchFindFirstMock,
+      findUnique: knockoutMatchFindUniqueMock,
+      update: knockoutMatchUpdateMock,
     },
     roundPlayingPartner: {
       findMany: roundPlayingPartnerFindManyMock,
@@ -502,6 +538,17 @@ beforeEach(() => {
   friendshipDeleteManyMock.mockResolvedValue({ count: 0 })
   friendGroupFindManyMock.mockReset()
   friendGroupFindManyMock.mockResolvedValue([])
+  knockoutCompetitionFindManyMock.mockReset()
+  knockoutCompetitionFindManyMock.mockResolvedValue([])
+  knockoutCompetitionFindUniqueMock.mockReset()
+  knockoutCompetitionCreateMock.mockReset()
+  knockoutCompetitionUpdateMock.mockReset()
+  knockoutParticipantFindUniqueMock.mockReset()
+  knockoutParticipantUpdateMock.mockReset()
+  knockoutMatchCreateManyMock.mockReset()
+  knockoutMatchFindFirstMock.mockReset()
+  knockoutMatchFindUniqueMock.mockReset()
+  knockoutMatchUpdateMock.mockReset()
   playerGoalFindManyMock.mockReset()
   playerGoalFindManyMock.mockResolvedValue([])
   playerGoalUpsertMock.mockReset()
@@ -3111,6 +3158,96 @@ describe('friend connections API', () => {
       where: { id: friendshipId },
       data: { status: 'ACCEPTED' },
     })
+  })
+})
+
+describe('knockout competition routes', () => {
+  const organizerId = '11111111-1111-4111-8111-111111111111'
+  const friendId = '22222222-2222-4222-8222-222222222222'
+  const thirdId = '33333333-3333-4333-8333-333333333333'
+  const competitionId = '44444444-4444-4444-8444-444444444444'
+  const matchId = '55555555-5555-4555-8555-555555555555'
+
+  it('creates invitations only for active accepted friends', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: organizerId, name: 'Jack Player' })
+    friendshipFindManyMock.mockResolvedValueOnce([{ requesterId: organizerId, addresseeId: friendId }])
+    userFindManyMock.mockResolvedValueOnce([{ id: friendId }])
+    knockoutCompetitionCreateMock.mockResolvedValueOnce({ id: competitionId, name: 'Summer Cup' })
+
+    const response = await request(app).post('/api/users/me/knockout-competitions').send({ name: ' Summer  Cup ', inviteeIds: [friendId] })
+
+    expect(response.status).toBe(201)
+    expect(response.body).toEqual({ id: competitionId })
+    expect(knockoutCompetitionCreateMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ organizerId, name: 'Summer Cup', participants: { create: [expect.objectContaining({ userId: organizerId, status: 'ACCEPTED', seed: 1 }), { userId: friendId, status: 'INVITED', seed: 2 }] } }) }))
+    expect(notificationCreateManyMock).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ recipientId: friendId, eventType: 'KNOCKOUT_INVITATION' })] }))
+  })
+
+  it('rejects a competitor who is not an active accepted friend', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: organizerId, name: 'Jack Player' })
+    friendshipFindManyMock.mockResolvedValueOnce([])
+    userFindManyMock.mockResolvedValueOnce([{ id: friendId }])
+
+    const response = await request(app).post('/api/users/me/knockout-competitions').send({ name: 'Summer Cup', inviteeIds: [friendId] })
+
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({ error: 'Every competitor must be an active accepted friend' })
+    expect(knockoutCompetitionCreateMock).not.toHaveBeenCalled()
+  })
+
+  it('lets an invited player accept before the draw', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: friendId, name: 'Tiger Player' })
+    knockoutParticipantFindUniqueMock.mockResolvedValueOnce({ status: 'INVITED', competition: { organizerId, name: 'Summer Cup', status: 'INVITING' } })
+    knockoutParticipantUpdateMock.mockResolvedValueOnce({})
+
+    const response = await request(app).patch(`/api/users/me/knockout-competitions/${competitionId}/invitation`).send({ action: 'accept' })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ status: 'ACCEPTED' })
+    expect(knockoutParticipantUpdateMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'ACCEPTED', respondedAt: expect.any(Date) }) }))
+  })
+
+  it('starts an automatic draw after every invitation is answered', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: organizerId, name: 'Jack Player' })
+    knockoutCompetitionFindUniqueMock.mockResolvedValueOnce({ organizerId, name: 'Summer Cup', status: 'INVITING', participants: [{ userId: organizerId, status: 'ACCEPTED' }, { userId: friendId, status: 'ACCEPTED' }, { userId: thirdId, status: 'ACCEPTED' }] })
+    knockoutMatchCreateManyMock.mockResolvedValueOnce({ count: 3 })
+    knockoutCompetitionUpdateMock.mockResolvedValueOnce({})
+
+    const response = await request(app).post(`/api/users/me/knockout-competitions/${competitionId}/start`)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ status: 'ACTIVE' })
+    expect(knockoutMatchCreateManyMock).toHaveBeenCalledWith({ data: expect.arrayContaining([expect.objectContaining({ competitionId, roundNumber: 1, status: 'COMPLETED', resultLabel: 'Bye' }), expect.objectContaining({ competitionId, roundNumber: 2, position: 1 })]) })
+  })
+
+  it('records a final result and names the champion atomically', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: organizerId, name: 'Jack Player' })
+    knockoutCompetitionFindUniqueMock.mockResolvedValueOnce({ organizerId, name: 'Summer Cup', status: 'ACTIVE' })
+    knockoutMatchFindFirstMock.mockResolvedValueOnce({ id: matchId, roundNumber: 1, position: 1, status: 'READY', playerOneId: organizerId, playerTwoId: friendId })
+    knockoutMatchFindUniqueMock.mockResolvedValueOnce(null)
+    knockoutMatchUpdateMock.mockResolvedValueOnce({})
+    knockoutCompetitionUpdateMock.mockResolvedValueOnce({})
+
+    const response = await request(app).patch(`/api/users/me/knockout-competitions/${competitionId}/matches/${matchId}`).send({ winnerId: friendId, winningMargin: 3, holesRemaining: 2 })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ winnerId: friendId, resultLabel: '3 & 2', competitionStatus: 'COMPLETED' })
+    expect(knockoutCompetitionUpdateMock).toHaveBeenCalledWith({ where: { id: competitionId }, data: { status: 'COMPLETED', championId: friendId } })
+    expect(prismaTransactionMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('advances a winner into the correct next-round position', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: organizerId, name: 'Jack Player' })
+    knockoutCompetitionFindUniqueMock.mockResolvedValueOnce({ organizerId, name: 'Summer Cup', status: 'ACTIVE' })
+    knockoutMatchFindFirstMock.mockResolvedValueOnce({ id: matchId, roundNumber: 1, position: 2, status: 'READY', playerOneId: friendId, playerTwoId: thirdId })
+    knockoutMatchFindUniqueMock.mockResolvedValueOnce({ id: '66666666-6666-4666-8666-666666666666', playerOneId: organizerId, playerTwoId: null })
+    knockoutMatchUpdateMock.mockResolvedValue({})
+
+    const response = await request(app).patch(`/api/users/me/knockout-competitions/${competitionId}/matches/${matchId}`).send({ winnerId: thirdId, winningMargin: 2, holesRemaining: 1 })
+
+    expect(response.status).toBe(200)
+    expect(response.body.competitionStatus).toBe('ACTIVE')
+    expect(knockoutMatchUpdateMock).toHaveBeenLastCalledWith({ where: { id: '66666666-6666-4666-8666-666666666666' }, data: { playerTwoId: thirdId, status: 'READY' } })
+    expect(knockoutCompetitionUpdateMock).not.toHaveBeenCalled()
   })
 })
 

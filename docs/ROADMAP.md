@@ -50,7 +50,7 @@ This roadmap records agreed future work. Items are planned requirements, not com
 44. Notification Centre. Completed in `0.48.0`.
 45. Profile Customisation. Completed in `0.49.0`.
 46. Custom Statistics Dashboard. Completed in `0.50.0`.
-47. Knockout Competitions.
+47. Knockout Competitions. Completed in `0.51.0`.
 48. Golf Bag and Club Management.
 49. Tournament Series.
 50. Calendar and Upcoming Rounds.
@@ -58,6 +58,12 @@ This roadmap records agreed future work. Items are planned requirements, not com
 52. Custom domain and production email, once the domain is available.
 
 The order may change as product needs become clearer, but security and data ownership must be implemented before administrative editing tools.
+
+## Knockout Competitions — completed in 0.51.0
+
+Players can create a named private knockout competition containing the organiser and up to 15 active accepted friends. Invitees accept or decline before the draw, and the organiser can start only after every invitation is answered and at least two players have accepted. A draw supports any field from two to 16 players and advances required byes automatically.
+
+The complete Match Play bracket shows waiting, ready, and completed fixtures. Only the organiser can record a decisive result such as **1 up** or **3 & 2**, after which the server advances the winner into the correct next-round position. The final result names the champion. Invitations, responses, the completed draw, results, champion, and cancellation changes use the private Notification Centre. Cancelled competitions retain their recorded history, while knockout results remain separate from round scorecards and never alter a player’s Handicap Index.
 
 ## Custom Statistics Dashboard — completed in 0.50.0
 

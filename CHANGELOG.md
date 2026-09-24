@@ -14,6 +14,20 @@ The project follows the release process in [`docs/VERSIONING.md`](docs/VERSIONIN
 
 - No unreleased changes yet.
 
+## 0.51.0 - 2026-09-24
+
+### User-facing changes
+
+- Added private named knockout competitions for an organiser and up to 15 accepted friends, including invitation acceptance and decline controls.
+- Added automatic 2–16 player Match Play brackets with byes, upcoming fixtures, recorded winning margins, automatic winner progression, and a final champion.
+- Added organiser-only start, result, and cancellation controls plus social notifications for invitations, responses, draws, results, champions, and cancellations.
+
+### Developer and admin changes
+
+- Added competition, participant, and match records with cascading ownership, unique draw positions, constrained Match Play results, and preserved cancelled history.
+- Added authenticated membership boundaries, accepted-friend and active-account validation, server-owned draw generation, and atomic result progression.
+- Added strict client response validation, bracket calculation tests, API authorization and progression coverage, release notes, and database migration documentation.
+
 ## 0.50.0 - 2026-09-24
 
 ### User-facing changes
