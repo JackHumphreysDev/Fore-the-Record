@@ -30,8 +30,9 @@
 .friend-group-image-controls small { color: var(--ink-muted); }
 .friend-group-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .friend-group-ranking { margin: 16px 0; padding: 0; display: grid; gap: 8px; list-style: none; }
-.friend-group-ranking li { padding: 12px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
-.friend-group-ranking li > span:nth-child(2) { display: grid; gap: 3px; }
+.friend-group-ranking li { padding: 12px; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.friend-group-ranking li > span:nth-child(3) { display: grid; gap: 3px; }
+.friend-group-ranking .profile-avatar, .friend-group-members .profile-avatar, .friend-group-message-list .profile-avatar { width: 36px; height: 36px; }
 .friend-group-ranking small { color: var(--ink-muted); }
 .friend-group-position { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--forest); font-weight: 800; }
 .friend-group-messages { margin: 24px 0; padding-top: 20px; border-top: 1px solid var(--line); }
@@ -42,7 +43,7 @@
 .friend-group-messages textarea, .friend-group-messages select { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: var(--paper); font: inherit; text-transform: none; }
 .friend-group-message-list { display: grid; gap: 9px; }
 .friend-group-message-list article { padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
-.friend-group-message-list article > div { display: flex; justify-content: space-between; gap: 12px; }
+.friend-group-message-list article > div { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
 .friend-group-message-list time, .friend-group-message-round { color: var(--ink-muted); font-size: 10px; }
 .friend-group-message-list p { margin: 9px 0; white-space: pre-wrap; line-height: 1.5; }
 .friend-group-message-list button { padding: 7px 10px; }
@@ -457,7 +458,10 @@
 .friend-profile-picker { display: grid; gap: .35rem; max-width: 28rem; margin: 1rem 0; }
 .friend-profile-picker select { min-height: 2.75rem; border: 1px solid rgba(214, 205, 181, .2); border-radius: .5rem; padding: .6rem; background: #161b19; color: inherit; }
 .friend-profile-rounds { display: grid; gap: .75rem; margin-bottom: 1.5rem; }
-.friend-profile-rounds > header { display: flex; justify-content: space-between; gap: 1rem; }
+.friend-profile-rounds > header { display: flex; align-items: center; gap: 1rem; }
+.friend-profile-rounds > header > div { display: grid; gap: .2rem; }
+.friend-profile-rounds > header small, .friend-profile-bio { color: var(--ink-muted); }
+.friend-profile-bio { margin: 0; line-height: 1.55; }
 .shared-scorecard-photo { display: block; width: min(100%, 42rem); max-height: 38rem; object-fit: contain; border-radius: .6rem; margin: 1rem 0; }
 .shared-hole-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-bottom: 1rem; }
 .shared-hole-grid span { display: grid; gap: .2rem; padding: .55rem; background: rgba(255,255,255,.04); border-radius: .4rem; }

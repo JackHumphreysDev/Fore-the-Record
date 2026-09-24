@@ -70,6 +70,8 @@ The Profile screen also includes a private achievements honours board. Thirty-se
 
 The private Notification Centre brings friend and challenge activity, shared rounds, support updates, scorecard-review decisions, group activity, and achievements into one newest-first inbox. Its navigation badge and read state follow the signed-in player across devices, and each entry opens the relevant part of the record without exposing another player's private information.
 
+Players can personalise their record with an optional profile picture, short bio, and location. A separate visibility choice controls whether accepted friends can see those details across friend profiles and private groups without changing Handicap Index privacy. Profile pictures remain in private storage and are opened only through short-lived links; replacing, removing, or deleting the account also cleans up the stored image.
+
 The application features are still under development. Core profile, authentication, course catalogue, scorecard, round-history, handicap, support, social, privacy, goal, milestone, and administrator workflows are implemented. Authenticated API requests derive ownership from the verified Supabase session rather than trusting a browser-supplied profile ID.
 
 Round Entry supports casual rounds, individual competitions, complete team competitions, and games with friends. A team card records the player's team and every opposing team over all 18 holes, then calculates Gross Strokes or Stableford Points leaderboards with Front 9, Back 9, totals, and tied positions. Team records remain outside the Handicap Index. Structured competition and social-game formats can include accepted-friend links, guest names, and a Won/Lost/Tied result. A linked friend can remove their tag, but the round is never copied to their record and never affects their handicap. Individual cards can use Stroke play or Stableford scoring. Stableford stores the Playing Handicap used, allocates strokes by the approved hole indexes, calculates every hole's net score and points, and supports explicit picked-up holes. A pickup records zero points and no invented gross score; Net Double Bogey is used only for handicap processing. Manually supplied course definitions remain provisional until administrator approval.
@@ -86,7 +88,7 @@ The production application is deployed on Vercel. The current RapidAPI allowance
 
 ## Roadmap and releases
 
-The current application version is `0.48.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
+The current application version is `0.49.0`. Fore the Record uses a shared application version and keeps user-facing release notes separate from developer-only changes:
 
 - [Product roadmap](docs/ROADMAP.md)
 - [Versioning and release process](docs/VERSIONING.md)
