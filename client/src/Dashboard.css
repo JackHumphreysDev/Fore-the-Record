@@ -28,6 +28,34 @@
 .dashboard-heading p { margin: 6px 0; color: var(--ink-muted); }
 .dashboard-primary, .dashboard-card button, .dashboard-shell .round-primary-button { background: var(--forest); color: var(--paper); border: 1px solid var(--forest); padding: 11px 16px; min-height: 44px; font-size: 14px; border-radius: 3px; }
 .dashboard-primary { flex-shrink: 0; }
+/* Shared action defaults; navigation and selectable rows have specific styles. */
+.dashboard-shell :where(main) button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--forest); background: var(--forest); color: var(--paper); font-family: var(--ledger-sans); font-size: 14px; font-weight: 600; line-height: 1.4; cursor: pointer; }
+.dashboard-shell main button:disabled { opacity: .55; cursor: not-allowed; }
+.dashboard-shell main button:hover:not(:disabled) { filter: brightness(.94); }
+.dashboard-shell main :is(.secondary-button, .is-secondary, .round-secondary-button) { background: var(--paper); color: var(--forest); border-color: var(--line-strong); }
+.dashboard-shell main :is(.is-danger, .danger-button) { background: var(--danger); color: var(--paper); border-color: var(--danger); }
+.dashboard-shell .golf-club-form { background: var(--paper); color: var(--forest); border: 1px solid var(--line); }
+.dashboard-shell .golf-club-form :is(input, select) { background: var(--paper-bright); color: var(--forest-deep); border: 1px solid var(--line); min-height: 44px; font-size: 14px; }
+.dashboard-shell .golf-club-form input::placeholder { color: var(--ink-muted); opacity: 1; }
+.dashboard-shell .golf-club-form-actions { flex-wrap: wrap; }
+.dashboard-shell .custom-statistics-card-controls button { width: 44px; height: 44px; padding: 0; background: var(--paper); color: var(--forest); border-color: var(--line); }
+.dashboard-shell .season-reviews { background: var(--paper); color: var(--forest-deep); border: 1px solid var(--line); border-radius: 3px; gap: 24px; padding: clamp(20px, 3vw, 32px); }
+.dashboard-shell .season-reviews-heading h2 { font: 400 clamp(28px, 3vw, 38px)/1.15 var(--ledger-serif); }
+.dashboard-shell .season-review-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); }
+.dashboard-shell .season-review-filters label { min-width: 0; font-size: 12px; }
+.dashboard-shell .season-review-filters select { width: 100%; min-width: 0; min-height: 44px; background: var(--paper-bright); color: var(--forest-deep); border: 1px solid var(--line); font-size: 14px; }
+.dashboard-shell .season-reviews :is(.season-reviews-heading > p, .season-review-title > p, .season-review-filters p, .season-review-notables header p, .season-review-note) { color: var(--ink-muted); font-size: 14px; line-height: 1.6; }
+.dashboard-shell .season-review-title { gap: 20px; border-color: var(--line); }
+.dashboard-shell .season-review-title span { color: var(--forest-soft); }
+.dashboard-shell .season-review-title strong { color: var(--forest-deep); font-weight: 400; }
+.dashboard-shell .season-reviews :is(.season-review-metrics, .season-review-highlights, .season-review-notables) article { min-width: 0; background: var(--paper-bright); border: 1px solid var(--line); border-radius: 3px; gap: 8px; padding: 18px; }
+.dashboard-shell .season-reviews :is(.season-review-metrics, .season-review-highlights, .season-review-notables) article span { color: var(--forest-soft); font-size: 11px; }
+.dashboard-shell .season-reviews :is(.season-review-metrics, .season-review-highlights, .season-review-notables) article strong { color: var(--forest-deep); font-weight: 400; overflow-wrap: anywhere; }
+.dashboard-shell .season-reviews :is(.season-review-metrics, .season-review-highlights, .season-review-notables) article small { color: var(--ink-muted); font-size: 13px; line-height: 1.5; }
+.dashboard-shell .season-review-notables header { gap: 16px; }
+.dashboard-shell .season-review-notables header h3 { font: 400 26px/1.25 var(--ledger-serif); }
+.dashboard-shell .season-review-notables button { margin-top: 8px; }
+.dashboard-shell .season-review-note { border-color: var(--line); }
 .dashboard-tabs { display: flex; flex-wrap: wrap; gap: 4px 18px; border-bottom: 1px solid var(--line); margin: 0 0 24px; }
 .dashboard-shell .dashboard-tabs button { border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: var(--ink-muted); padding: 12px 8px; min-height: 44px; font-size: 14px; font-weight: 500; white-space: nowrap; }
 .dashboard-shell .dashboard-tabs button[aria-current="page"] { border-bottom-color: var(--brass); color: var(--forest-deep); font-weight: 700; }
@@ -162,7 +190,7 @@
 .dashboard-shell .friends-page form button { min-height: 44px; padding: 10px 14px; background: var(--forest); color: var(--paper); border: 1px solid var(--line); border-radius: 3px; }
 .dashboard-shell .friends-page form button:disabled { opacity: .55; cursor: not-allowed; }
 .competition-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.competition-tiles button { text-align: left; color: var(--forest); }
+.competition-tiles button { text-align: left; color: var(--forest); background: var(--paper); }
 .competition-tiles button:hover { background: #e9eadf; }
 .dashboard-create-disclosure { margin: 20px 0; border: 1px solid var(--line); padding: 16px; }
 .dashboard-create-disclosure > summary { cursor: pointer; color: var(--forest); font-weight: 700; min-height: 24px; }
@@ -189,6 +217,7 @@
   .dashboard-shell .round-entry-layout { grid-template-columns: minmax(0, 1fr) 240px; }
 }
 @media (max-width: 900px) {
+  .dashboard-shell .season-review-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-shell { padding: 0 20px; }
   .dashboard-shell > .site-header { position: sticky; top: 0; width: calc(100% + 40px); height: auto; margin: 0 -20px; padding: 10px 20px; border-right: 0; border-bottom: 1px solid var(--line); flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; overflow: visible; gap: 0; }
   .dashboard-shell .brand-logo { width: 120px; height: 54px; }
@@ -209,6 +238,9 @@
   .dashboard-shell .round-summary .round-handicap-preview { display: none; }
 }
 @media (max-width: 600px) {
+  .dashboard-shell .season-review-filters { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-shell .season-review-notables header { display: grid; align-items: start; }
+  .dashboard-shell .season-reviews :is(.season-review-metrics, .season-review-highlights, .season-review-notables) article { padding: 12px; }
   .dashboard-shell { padding-inline: 16px; }
   .dashboard-shell > .site-header { width: calc(100% + 32px); margin-inline: -16px; padding-inline: 16px; }
   .dashboard-heading { align-items: flex-start; flex-direction: column; gap: 10px; padding-bottom: 18px; }
