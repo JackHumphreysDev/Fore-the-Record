@@ -1,4 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { DashboardTabs, DashboardPanel } from './DashboardTabs.tsx'
+import type { FriendsDestination } from './dashboardDestinations.ts'
 import { authenticatedFetch } from './api.ts'
 import {
   buildFriendSearchPath,
@@ -25,7 +27,7 @@ import KnockoutCompetitions from './KnockoutCompetitions.tsx'
 import TournamentSeries from './TournamentSeries.tsx'
 import TournamentSeriesResults from './TournamentSeriesResults.tsx'
 
-type FriendsProps = { profileId: string; onOpenRound: (roundId: string) => void }
+type FriendsProps = { profileId: string; initialDestination?: FriendsDestination; onOpenRound: (roundId: string) => void }
 
 async function readError(response: Response, fallback: string) {
   const body: unknown = await response.json().catch(() => null)
@@ -86,7 +88,10 @@ function activityScoreLabel(
   return grossScore === null ? 'Score unavailable' : `Gross ${grossScore}`
 }
 
-function Friends({ profileId, onOpenRound }: FriendsProps) {
+function Friends({ profileId, initialDestination, onOpenRound }: FriendsProps) {
+  const [friendsTab, setFriendsTab] = useState<string>(initialDestination?.tab ?? 'activity')
+  const [activityTab, setActivityTab] = useState('feed')
+  const [competitionTab, setCompetitionTab] = useState<string>(initialDestination?.competition ?? 'overview')
   const [data, setData] = useState<FriendsResponse | null>(null)
   const [search, setSearch] = useState('')
   const [results, setResults] = useState<FriendSearchPlayer[]>([])
@@ -301,16 +306,16 @@ function Friends({ profileId, onOpenRound }: FriendsProps) {
 
   return (
     <section className="friends-page" aria-labelledby="friends-title">
-      <header className="friends-heading">
-        <p className="eyebrow"><span aria-hidden="true" /> Player connections</p>
-        <h1 id="friends-title">Friends.</h1>
-        <p>
-          Find players by name, use their home club to identify the right
-          account, exchange requests, and follow the verified rounds friends
-          choose to share.
-        </p>
-      </header>
-
+      <header className="dashboard-heading"><div><p className="form-kicker">Player connections</p><h1 id="friends-title">Your golfing circle.</h1><p>Rounds, friendly rivalry and the people you play with.</p></div><button type="button" className="dashboard-primary" onClick={() => setFriendsTab('players')}>+ Find players</button></header>
+      <DashboardTabs label="Friends views" value={friendsTab} onChange={setFriendsTab} tabs={[
+        { id: 'activity', label: 'Activity' }, { id: 'players', label: `Players${data?.incoming.length ? ` (${data.incoming.length} requests)` : ''}` },
+        { id: 'competitions', label: 'Competitions' }, { id: 'shared', label: 'Shared rounds' },
+      ]} />
+      <DashboardPanel active={friendsTab === 'activity'}>
+        <div className="friends-summary-strip"><span>{data ? data.friends.length : '—'} friends</span><span>{activity ? activity.pagination.total : '—'} shared rounds</span><button type="button" onClick={() => setFriendsTab('players')}>{data ? data.incoming.length : '—'} incoming requests →</button></div>
+        <DashboardTabs label="Activity views" value={activityTab} onChange={setActivityTab} tabs={[{ id: 'feed', label: 'Latest activity' }, { id: 'tags', label: `Tagged rounds (${roundTags.length})` }, { id: 'partners', label: 'Playing partners' }]} />
+        <DashboardPanel active={activityTab === 'feed'}>
+        <div className="friends-dashboard-grid">
       <section className="friend-activity" aria-labelledby="friend-activity-title">
         <div className="friend-activity-heading">
           <div>
@@ -369,6 +374,9 @@ function Friends({ profileId, onOpenRound }: FriendsProps) {
         )}
       </section>
 
+        <aside className="dashboard-card"><h2>Your players</h2><p>Find a playing partner by name and home club.</p><button type="button" onClick={() => setFriendsTab('players')}>Find players →</button><hr /><h2>Friendly competition</h2><p>Challenges, knockouts, tournament series and group leaderboards.</p><button type="button" onClick={() => setFriendsTab('competitions')}>Explore competitions →</button></aside>
+        </div></DashboardPanel>
+        <DashboardPanel active={activityTab === 'tags'}>
       <section className="friend-section round-tags" aria-labelledby="round-tags-title">
         <h2 id="round-tags-title">Rounds you were tagged in</h2>
         <p className="round-tags-intro">A tag records who played together. It does not copy the round to your history or affect your handicap.</p>
@@ -383,15 +391,24 @@ function Friends({ profileId, onOpenRound }: FriendsProps) {
         )}
       </section>
 
-      <PlayingPartnersHistory profileId={profileId} onOpenRound={onOpenRound} />
+        </DashboardPanel>
+        <DashboardPanel active={activityTab === 'partners'}><PlayingPartnersHistory profileId={profileId} onOpenRound={onOpenRound} /></DashboardPanel>
+      </DashboardPanel>
 
-      <ChallengesBoard profileId={profileId} friends={data?.friends ?? []} />
-      <KnockoutCompetitions profileId={profileId} friends={data?.friends ?? []} />
-      <TournamentSeries profileId={profileId} friends={data?.friends ?? []} />
-      <TournamentSeriesResults profileId={profileId} />
-      <FriendGroups profileId={profileId} friends={data?.friends ?? []} />
-      <SharedRounds profileId={profileId} friends={data?.friends ?? []} />
-
+      <DashboardPanel active={friendsTab === 'competitions'}>
+        <DashboardTabs label="Competition types" value={competitionTab} onChange={setCompetitionTab} tabs={[
+          { id: 'overview', label: 'Explore' }, { id: 'challenges', label: 'Challenges' }, { id: 'knockouts', label: 'Knockouts' }, { id: 'series', label: 'Tournament series' }, { id: 'groups', label: 'Group leaderboards' },
+        ]} />
+        <DashboardPanel active={competitionTab === 'overview'}><div className="competition-tiles">
+          {[['challenges', 'Challenges', 'A friendly contest over a date range.'], ['knockouts', 'Knockouts', 'Head-to-head match play with your friends.'], ['series', 'Tournament series', 'Multiple events, one overall table.'], ['groups', 'Group leaderboards', 'Compare verified rounds within your group.']].map(([id, title, description]) => <button type="button" className="dashboard-card" key={id} onClick={() => setCompetitionTab(id)}><h2>{title}</h2><p>{description}</p><span>Open →</span></button>)}
+        </div></DashboardPanel>
+        <DashboardPanel active={competitionTab === 'challenges'}><ChallengesBoard profileId={profileId} friends={data?.friends ?? []} /></DashboardPanel>
+        <DashboardPanel active={competitionTab === 'knockouts'}><KnockoutCompetitions profileId={profileId} friends={data?.friends ?? []} /></DashboardPanel>
+        <DashboardPanel active={competitionTab === 'series'}><TournamentSeries profileId={profileId} friends={data?.friends ?? []} /><TournamentSeriesResults profileId={profileId} /></DashboardPanel>
+        <DashboardPanel active={competitionTab === 'groups'}><FriendGroups profileId={profileId} friends={data?.friends ?? []} /></DashboardPanel>
+      </DashboardPanel>
+      <DashboardPanel active={friendsTab === 'shared'}><SharedRounds profileId={profileId} friends={data?.friends ?? []} /></DashboardPanel>
+      <DashboardPanel active={friendsTab === 'players'}>
       <form className="friend-search" onSubmit={runSearch} noValidate>
         <label>
           Player name
@@ -502,6 +519,7 @@ function Friends({ profileId, onOpenRound }: FriendsProps) {
           ) : null}
         </div>
       ) : null}
+      </DashboardPanel>
     </section>
   )
 }

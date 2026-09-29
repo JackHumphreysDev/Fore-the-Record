@@ -10,7 +10,6 @@ import {
 } from './adminApi.ts'
 import AuthScreen from './AuthScreen.tsx'
 import brandLogo from './assets/fore-the-record-logo.png'
-import ledgerGreen from './assets/ledger-green-engraving.png'
 import CourseSearch from './CourseSearch.tsx'
 import Friends from './Friends.tsx'
 import HomeClubSelector from './HomeClubSelector.tsx'
@@ -23,6 +22,7 @@ import CustomStatisticsDashboard from './CustomStatisticsDashboard.tsx'
 import PersonalMilestones from './PersonalMilestones.tsx'
 import NotificationCentre from './NotificationCentre.tsx'
 import ProfileAvatar from './ProfileAvatar.tsx'
+import { friendsNotificationDestination, type FriendsDestination } from './dashboardDestinations.ts'
 import { isNotificationUnreadCount, type NotificationAction } from './notificationsApi.ts'
 import PlayerGoals from './PlayerGoals.tsx'
 import GolfBag from './GolfBag.tsx'
@@ -36,6 +36,10 @@ import { isSubmissionUnreadCountResponse } from './submissionApi.ts'
 import { getSupabaseClient } from './supabase.ts'
 import WhatsNew from './WhatsNew.tsx'
 import './LedgerTheme.css'
+import './Dashboard.css'
+import { DashboardTabs, DashboardPanel } from './DashboardTabs.tsx'
+import ProfileOverview from './ProfileOverview.tsx'
+import HandicapProgressionChart from './HandicapProgressionChart.tsx'
 
 const AdminPortal = lazy(() => import('./AdminPortal.tsx'))
 
@@ -136,6 +140,13 @@ function App() {
   const [authSetup] = useState(getAuthSetup)
   const profileRequestNumber = useRef(0)
   const [activeView, setActiveView] = useState<ActiveView>('profile')
+  const [profileTab, setProfileTab] = useState('overview')
+  const [roundsTab, setRoundsTab] = useState('entry')
+  const [goalsTab, setGoalsTab] = useState('dashboard')
+  const [statisticsTab, setStatisticsTab] = useState('dashboard')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [friendsDestination, setFriendsDestination] = useState<FriendsDestination>({ tab: 'activity', competition: 'overview' })
+  useEffect(() => { window.scrollTo(0, 0) }, [activeView])
   const [historyFocusRoundId, setHistoryFocusRoundId] = useState('')
   const [supportInitialType, setSupportInitialType] =
     useState<SubmissionType>('IDEA')
@@ -415,8 +426,11 @@ function App() {
     setNotificationUnreadCount(0)
   }
 
-  function openNotificationDestination(action: NotificationAction, targetId: string | null) {
-    if (action === 'FRIENDS' || action === 'GROUPS') setActiveView('friends')
+  function openNotificationDestination(action: NotificationAction, targetId: string | null, eventType: string) {
+    if (action === 'FRIENDS' || action === 'GROUPS') {
+      setFriendsDestination(friendsNotificationDestination(action, eventType))
+      setActiveView('friends')
+    }
     if (action === 'SUPPORT') {
       setSupportInitialType('IDEA')
       setActiveView('support')
@@ -425,7 +439,11 @@ function App() {
       setHistoryFocusRoundId(targetId ?? '')
       setActiveView('history')
     }
-    if (action === 'ACHIEVEMENTS') setActiveView('profile')
+    if (action === 'ACHIEVEMENTS') {
+      setProfileTab('goals')
+      setGoalsTab('badges')
+      setActiveView('profile')
+    }
   }
 
   async function signOut() {
@@ -523,19 +541,27 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell dashboard-shell">
+      <a className="dashboard-skip-link" href="#main-content">Skip to content</a>
       <header className="site-header">
         <a
           className="brand"
           href="#profile"
           aria-label="Fore the Record home"
-          onClick={() => setActiveView('profile')}
+          onClick={() => { setActiveView('profile'); setMobileMenuOpen(false) }}
         >
           <img className="brand-logo" src={brandLogo} alt="" />
         </a>
 
-        <div className="site-header-navigation">
-          <nav className="site-nav" aria-label="Primary navigation">
+        <div className="mobile-header-actions">
+          <button type="button" className="mobile-notifications" aria-label={notificationUnreadCount ? `Notifications, ${notificationUnreadCount} unread` : 'Notifications'} onClick={() => { setActiveView('notifications'); setMobileMenuOpen(false) }}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+            {notificationUnreadCount > 0 ? <span>{notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}</span> : null}
+          </button>
+          <button type="button" aria-expanded={mobileMenuOpen} aria-controls="primary-navigation" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>{mobileMenuOpen ? 'Close menu' : 'Menu'}</button>
+        </div>
+        <div className={`site-header-navigation ${mobileMenuOpen ? 'is-open' : ''}`}>
+          <nav id="primary-navigation" className="site-nav" aria-label="Primary navigation" onClick={() => setMobileMenuOpen(false)}>
             <button
               type="button"
               aria-current={activeView === 'profile' ? 'page' : undefined}
@@ -570,7 +596,7 @@ function App() {
             <button
               type="button"
               aria-current={activeView === 'friends' ? 'page' : undefined}
-              onClick={() => setActiveView('friends')}
+              onClick={() => { setFriendsDestination({ tab: 'activity', competition: 'overview' }); setActiveView('friends') }}
             >
               Friends
             </button>
@@ -579,7 +605,7 @@ function App() {
               aria-current={activeView === 'notifications' ? 'page' : undefined}
               onClick={() => setActiveView('notifications')}
             >
-              Notifications
+              <svg className="nav-bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>Notifications
               {notificationUnreadCount > 0 ? (
                 <span className="nav-unread-count" aria-label={`${notificationUnreadCount} unread notifications`}>
                   {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
@@ -628,7 +654,10 @@ function App() {
                 ) : null}
               </button>
             ) : null}
+            <button type="button" aria-current={activeView === 'settings' ? 'page' : undefined} onClick={() => setActiveView('settings')}>Settings</button>
           </nav>
+          <button type="button" className="sidebar-account" onClick={() => setActiveView('settings')}><span aria-hidden="true">{profile.name.slice(0, 1).toUpperCase()}</span><strong>{profile.name}</strong></button>
+          <button type="button" className="sidebar-signout" onClick={() => void signOut()}>Sign out</button>
           <p className="site-edition" aria-hidden="true">
             Your game,
             <span>in focus</span>
@@ -636,151 +665,41 @@ function App() {
         </div>
       </header>
 
-      <main>
+      <main id="main-content">
         {activeView === 'profile' ? (
-          <>
-            <section className="profile-layout concept-profile" id="profile">
-              <div className="profile-dossier">
-                <div className="ledger-rule">
-                  <span>01</span>
-                  <i />
-                  <strong>Player dossier</strong>
-                </div>
-
-                <div className="profile-dossier-hero">
-                  <div>
-                    <h1>
-                      Your game,
-                      <span>in profile.</span>
-                    </h1>
-                    <p>The details behind every round, kept clear and current.</p>
-                  </div>
-                  <div className="profile-landscape" aria-hidden="true">
-                    <span />
-                    <img src={ledgerGreen} alt="" />
-                  </div>
-                </div>
-
-                <div className="player-signature">
-                  <ProfileAvatar userId={profile.id} name={profile.name} hasImage={profile.profileImage !== null} imageVersion={profile.profileImage?.uploadedAt} />
-                  <i />
-                  <strong>{profile.name}</strong>
-                </div>
-
-                {profile.bio || profile.location ? (
-                  <div className="profile-custom-details">
-                    {profile.bio ? <p>{profile.bio}</p> : null}
-                    {profile.location ? <span>{profile.location}</span> : null}
-                  </div>
-                ) : null}
-
-                <p className="profile-table-label">Player details</p>
-                <dl className="profile-record">
-                  <div>
-                    <dt>Full name</dt>
-                    <dd>{profile.name}</dd>
-                  </div>
-                  <div>
-                    <dt>Email address</dt>
-                    <dd>{profile.email}</dd>
-                  </div>
-                  <div>
-                    <dt>Home club</dt>
-                    <dd>{profile.homeClub?.name ?? 'Not set yet'}</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <aside className="profile-index" aria-label="Handicap Index">
-                <div className="ledger-rule">
-                  <span>02</span>
-                  <i />
-                  <strong>Handicap Index</strong>
-                </div>
-                <strong className="profile-index-value">
-                  {profile.handicapIndex === null
-                    ? '—'
-                    : profile.handicapIndex.toFixed(1)}
-                </strong>
-                <p className="profile-index-caption">Your current official record</p>
-                <dl className="profile-index-details">
-                  <div>
-                    <dt>Home club</dt>
-                    <dd>{profile.homeClub?.name ?? 'Not set'}</dd>
-                  </div>
-                  <div>
-                    <dt>Member since</dt>
-                    <dd>
-                      {new Intl.DateTimeFormat('en-GB', {
-                        year: 'numeric',
-                      }).format(new Date(profile.createdAt))}
-                    </dd>
-                  </div>
-                </dl>
-                <button
-                  className="profile-edit-button"
-                  type="button"
-                  onClick={() => setActiveView('settings')}
-                >
-                  <span>Edit profile</span>
-                  <strong aria-hidden="true">→</strong>
-                </button>
-              </aside>
-            </section>
-
-            <section className="profile-dashboard" aria-label="Your playing record">
-              <header>
-                <p className="form-kicker">The record continues</p>
-                <h2>Your playing record.</h2>
-                <p>
-                  Goals, milestones and performance detail sit beneath the
-                  same clubhouse-ledger cover.
-                </p>
-              </header>
-              <div className="profile-dashboard-grid">
-                <div className="profile-dashboard-column">
-                  <PerformanceSummary
-                    profileId={profile.id}
-                    handicapIndex={profile.handicapIndex}
-                  />
-                  <PlayerGoals profileId={profile.id} />
-                </div>
-                <div className="profile-dashboard-column">
-                  <PersonalMilestones profileId={profile.id} />
-                  <HomeClubSelector
-                    homeClubId={profile.homeClubId}
-                    homeClub={profile.homeClub}
-                    onHomeClubUpdated={updateHomeClub}
-                    onGoToCourses={() => setActiveView('courses')}
-                  />
-                </div>
-              </div>
-              <GolfBag profileId={profile.id} />
-              <AchievementsBadges
-                profileId={profile.id}
-                onOpenRound={(roundId) => {
-                  setHistoryFocusRoundId(roundId)
-                  setActiveView('history')
-                }}
-              />
-              <div className="profile-actions">
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => setActiveView('settings')}
-                >
-                  Account settings
-                </button>
-                <button
-                  className="profile-sign-out"
-                  type="button"
-                  onClick={() => void signOut()}
-                >
-                  Sign out
-                </button>
-              </div>
-            </section>
-          </>
+          <section className="profile-workspace" id="profile">
+            <header className="dashboard-heading">
+              <div><p className="form-kicker">{profile.name} / Player overview</p><h1>Your game, at a glance.</h1></div>
+              <button type="button" className="dashboard-primary" onClick={() => { setRoundsTab('entry'); setActiveView('rounds') }}>+ Record round</button>
+            </header>
+            <DashboardTabs label="Profile views" value={profileTab} onChange={setProfileTab} tabs={[
+              { id: 'overview', label: 'Overview' }, { id: 'goals', label: 'Goals & achievements' },
+              { id: 'bag', label: 'Golf bag' }, { id: 'account', label: 'Account' },
+            ]} />
+            <DashboardPanel active={profileTab === 'overview'}>
+              <ProfileOverview key={profileTab} profile={profile} onGoals={() => setProfileTab('goals')} onAccount={() => setProfileTab('account')}
+                onHistory={(roundId) => { setHistoryFocusRoundId(roundId ?? ''); setActiveView('history') }} />
+            </DashboardPanel>
+            <DashboardPanel active={profileTab === 'goals'}>
+              <DashboardTabs label="Goals and achievements" value={goalsTab} onChange={setGoalsTab} tabs={[
+                { id: 'dashboard', label: 'Goals' }, { id: 'milestones', label: 'Milestones' }, { id: 'badges', label: 'Achievements' },
+              ]} />
+              <DashboardPanel active={goalsTab === 'dashboard'}><PlayerGoals profileId={profile.id} /></DashboardPanel>
+              <DashboardPanel active={goalsTab === 'milestones'}><PersonalMilestones profileId={profile.id} /></DashboardPanel>
+              <DashboardPanel active={goalsTab === 'badges'}><AchievementsBadges profileId={profile.id} onOpenRound={(roundId) => { setHistoryFocusRoundId(roundId); setActiveView('history') }} /></DashboardPanel>
+            </DashboardPanel>
+            <DashboardPanel active={profileTab === 'bag'}><GolfBag profileId={profile.id} /></DashboardPanel>
+            <DashboardPanel active={profileTab === 'account'}>
+              <div className="dashboard-card"><h2>Player details</h2>
+                <ProfileAvatar userId={profile.id} name={profile.name} hasImage={profile.profileImage !== null} imageVersion={profile.profileImage?.uploadedAt} />
+                <dl className="dashboard-details">
+                <div><dt>Name</dt><dd>{profile.name}</dd></div><div><dt>Email</dt><dd>{profile.email}</dd></div>
+                <div><dt>Location</dt><dd>{profile.location || 'Not set'}</dd></div><div><dt>About you</dt><dd>{profile.bio || 'Not set'}</dd></div>
+                <div><dt>Member since</dt><dd>{new Intl.DateTimeFormat('en-GB', { year: 'numeric' }).format(new Date(profile.createdAt))}</dd></div>
+              </dl><button type="button" onClick={() => setActiveView('settings')}>Edit profile & account settings →</button></div>
+              <HomeClubSelector homeClubId={profile.homeClubId} homeClub={profile.homeClub} onHomeClubUpdated={updateHomeClub} onGoToCourses={() => setActiveView('courses')} />
+            </DashboardPanel>
+          </section>
         ) : activeView === 'settings' ? (
           <AccountSettings
             profile={profile}
@@ -792,6 +711,7 @@ function App() {
         ) : activeView === 'friends' ? (
           <Friends
             profileId={profile.id}
+            initialDestination={friendsDestination}
             onOpenRound={(roundId) => {
               setHistoryFocusRoundId(roundId)
               setActiveView('history')
@@ -805,48 +725,36 @@ function App() {
             }}
           />
         ) : activeView === 'rounds' ? (
-          <>
-            <CustomStatisticsDashboard profileId={profile.id} handicapIndex={profile.handicapIndex} />
-            <SeasonYearReviews
-              profileId={profile.id}
-              onOpenRound={(roundId) => {
-                setHistoryFocusRoundId(roundId)
-                setActiveView('history')
-              }}
-            />
-            <PerformanceInsights
-              profileId={profile.id}
-              onOpenRound={(roundId) => {
-                setHistoryFocusRoundId(roundId)
-                setActiveView('history')
-              }}
-            />
-            <PerformanceAnalysis profileId={profile.id} />
-            <RoundComparison
-              profileId={profile.id}
-              onOpenRound={(roundId) => {
-                setHistoryFocusRoundId(roundId)
-                setActiveView('history')
-              }}
-            />
-            <CoursePersonalBests profileId={profile.id} />
-            <RoundEntry
-              profile={profile}
-              onGoToCourses={() => setActiveView('courses')}
-              onGoToProfile={() => setActiveView('profile')}
-              onGoToHistory={() => {
-                setHistoryFocusRoundId('')
-                setActiveView('history')
-              }}
-              onRoundLogged={updateHandicapIndex}
-            />
-          </>
+          <section className="rounds-workspace">
+            <header className="dashboard-heading"><div><p className="form-kicker">Your rounds</p><h1>From first tee to final score.</h1></div></header>
+            <DashboardTabs label="Rounds views" value={roundsTab} onChange={setRoundsTab} tabs={[
+              { id: 'entry', label: 'Record round' }, { id: 'statistics', label: 'Statistics' }, { id: 'season', label: 'Season review' },
+              { id: 'compare', label: 'Compare rounds' }, { id: 'records', label: 'Course records' },
+            ]} />
+            <DashboardPanel active={roundsTab === 'entry'}>
+              <RoundEntry profile={profile} onGoToCourses={() => setActiveView('courses')} onGoToProfile={() => setActiveView('profile')}
+                onGoToHistory={() => { setHistoryFocusRoundId(''); setActiveView('history') }} onRoundLogged={updateHandicapIndex} />
+            </DashboardPanel>
+            <DashboardPanel active={roundsTab === 'statistics'}>
+              <DashboardTabs label="Statistics views" value={statisticsTab} onChange={setStatisticsTab} tabs={[
+                { id: 'dashboard', label: 'My statistics' }, { id: 'handicap', label: 'Handicap journey' },
+                { id: 'analysis', label: 'Performance analysis' }, { id: 'insights', label: 'Insights' },
+              ]} />
+              <DashboardPanel active={statisticsTab === 'dashboard'}><CustomStatisticsDashboard profileId={profile.id} handicapIndex={profile.handicapIndex} /></DashboardPanel>
+              <DashboardPanel active={statisticsTab === 'handicap'}><PerformanceSummary profileId={profile.id} handicapIndex={profile.handicapIndex} /><HandicapProgressionChart profileId={profile.id} /></DashboardPanel>
+              <DashboardPanel active={statisticsTab === 'analysis'}><PerformanceAnalysis profileId={profile.id} /></DashboardPanel>
+              <DashboardPanel active={statisticsTab === 'insights'}><PerformanceInsights profileId={profile.id} onOpenRound={(roundId) => { setHistoryFocusRoundId(roundId); setActiveView('history') }} /></DashboardPanel>
+            </DashboardPanel>
+            <DashboardPanel active={roundsTab === 'season'}><SeasonYearReviews profileId={profile.id} onOpenRound={(roundId) => { setHistoryFocusRoundId(roundId); setActiveView('history') }} /></DashboardPanel>
+            <DashboardPanel active={roundsTab === 'compare'}><RoundComparison profileId={profile.id} onOpenRound={(roundId) => { setHistoryFocusRoundId(roundId); setActiveView('history') }} /></DashboardPanel>
+            <DashboardPanel active={roundsTab === 'records'}><CoursePersonalBests profileId={profile.id} /></DashboardPanel>
+          </section>
         ) : activeView === 'history' ? (
           <RoundHistory
             profile={profile}
             focusedRoundId={historyFocusRoundId}
             onGoToProfile={() => setActiveView('profile')}
-            onLogRound={() => setActiveView('rounds')}
+            onLogRound={() => { setRoundsTab('entry'); setActiveView('rounds') }}
           />
         ) : activeView === 'support' ? (
           <Support
