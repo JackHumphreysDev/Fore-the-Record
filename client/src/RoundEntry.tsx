@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useState, type FormEvent } from 'react'
+import { roundDetailsDateErrors, roundEntryErrorStep } from './roundEntrySteps.ts'
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
 import ledgerGreen from './assets/ledger-green-engraving.png'
 import {
@@ -22,7 +23,6 @@ import {
   type WeatherCondition,
 } from './roundRecordValidation.ts'
 import './RoundEntry.css'
-import HandicapProgressionChart from './HandicapProgressionChart.tsx'
 import { calculateRoundScoreTotals } from './roundScorecardTotals.ts'
 import { ROUND_NOTES_MAX_LENGTH } from './roundNotesApi.ts'
 import {
@@ -343,6 +343,15 @@ function RoundEntry({
     weatherCondition: 'DRY',
     notes: '',
   })
+  const [entryStep, setEntryStep] = useState(0)
+  const stepHeading = useRef<HTMLHeadingElement>(null)
+  const previousStep = useRef(entryStep)
+  useEffect(() => {
+    if (previousStep.current === entryStep) return
+    previousStep.current = entryStep
+    stepHeading.current?.focus({ preventScroll: true })
+    stepHeading.current?.scrollIntoView({ block: 'start' })
+  }, [entryStep])
   const [errors, setErrors] = useState<RoundFormErrors>({})
   const [courseSearchError, setCourseSearchError] = useState('')
   const [submitError, setSubmitError] = useState('')
@@ -1053,7 +1062,16 @@ function RoundEntry({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!profile) {
+    if (!profile) return
+    if (liveMode === 'standard' && entryStep < 2) {
+      if (!selectedTee) { setErrors({ teeId: 'Choose a saved tee' }); return }
+      const dateErrors = roundDetailsDateErrors(form.datePlayed, form.timePlayed, getToday())
+      if (entryStep === 1 && Object.values(dateErrors).some(Boolean)) {
+        setErrors(dateErrors)
+        return
+      }
+      setErrors({})
+      setEntryStep(entryStep + 1)
       return
     }
 
@@ -1244,9 +1262,13 @@ function RoundEntry({
 
     if (Object.keys(nextErrors).length > 0 || !selectedTee) {
       setErrors(nextErrors)
+      if (liveMode === 'standard') {
+        setEntryStep(roundEntryErrorStep(nextErrors))
+      }
       return
     }
 
+    if (liveMode === 'standard' && entryStep === 2) { setErrors({}); setEntryStep(3); return }
     setIsSubmitting(true)
     setSubmitError('')
 
@@ -1587,6 +1609,7 @@ function RoundEntry({
               type="button"
               onClick={() => {
                 setConfirmation(null)
+                setEntryStep(0)
                 setForm((current) => ({
                   ...current,
                   category: 'CASUAL',
@@ -1631,28 +1654,10 @@ function RoundEntry({
 
   return (
     <section className="rounds-page" id="rounds">
-      <header className="rounds-hero">
-        <div>
-          <p className="eyebrow">
-            <span aria-hidden="true" /> Round entry
-          </p>
-          <h1>
-            Every round,
-            <span>on the record.</span>
-          </h1>
-        </div>
-        <p>
-          Record a casual score, a competition, or a game with friends.
-          Only complete individual cards can affect your Handicap Index.
-        </p>
-        <div className="rounds-hero-engraving" aria-hidden="true">
-          <span />
-          <img src={ledgerGreen} alt="" />
-        </div>
-      </header>
-
-      <HandicapProgressionChart profileId={profile.id} />
-
+      <nav className="round-stepper" aria-label="Round entry steps">
+        {['Course & tee', 'Round details', 'Scorecard', 'Review'].map((label, index) => <button key={label} type="button" aria-current={entryStep === index ? 'step' : undefined} disabled={index > entryStep || isSubmitting} onClick={() => setEntryStep(index)}><span>{index + 1}</span>{label}</button>)}
+      </nav>
+      <div hidden={entryStep !== 0}>
       <form className="round-course-search" onSubmit={handleCourseSearch} noValidate>
         <div>
           <label>
@@ -1753,17 +1758,19 @@ function RoundEntry({
         </div>
       ) : null}
 
+      </div>
       {!isSearching && teeOptions.length > 0 ? (
         <div className="round-entry-layout">
           <form className="round-entry-form" onSubmit={handleSubmit} noValidate>
             <div className="round-form-heading">
               <div>
                 <p className="form-kicker">Score details</p>
-                <h2>How did you play?</h2>
+                <h2 ref={stepHeading} tabIndex={-1}>{['Where did you play?', 'Round details', 'How did you play?', 'Review your round'][entryStep]}</h2>
               </div>
               <span>{profile.name}</span>
             </div>
 
+            <div hidden={entryStep !== 0}>
             <div className="round-field">
               <label htmlFor="round-tee">Course and tee</label>
               <select
@@ -1793,6 +1800,8 @@ function RoundEntry({
               ) : null}
             </div>
 
+            </div>
+            <div hidden={entryStep !== 1}>
             <fieldset className="round-choice-fieldset">
               <legend>Round type</legend>
               <div className="round-choice-options">
@@ -2074,8 +2083,10 @@ function RoundEntry({
               </div>
             </div>
 
+            </div>
             {!isTeamRound ? (
               <>
+              <div hidden={entryStep !== 1}>
               <fieldset className="round-choice-fieldset">
                 <legend>Holes played</legend>
                 <div className="round-choice-options">
@@ -2143,6 +2154,8 @@ function RoundEntry({
                 </div>
               ) : null}
 
+              </div>
+              <div hidden={entryStep !== 2}>
               {hasPickedUpHole ? (
                 <div className="round-scorecard-notice">
                   No gross total is required because at least one Stableford hole was picked up. A Net Double Bogey replacement will be used only for handicap processing.
@@ -2430,18 +2443,27 @@ function RoundEntry({
                 ))}
               </div>
             </fieldset>
+              </div>
               </>
             ) : (
-              <TeamCompetitionEntry
+              <div hidden={entryStep !== 2}><TeamCompetitionEntry
                 value={teamCompetitionDraft}
                 onChange={(value) => {
                   setTeamCompetitionDraft(value)
                   setErrors((current) => ({ ...current, teamCompetition: undefined }))
                 }}
                 error={errors.teamCompetition}
-              />
+              /></div>
             )}
 
+            <div hidden={entryStep !== 3}>
+              <dl className="dashboard-details round-review-summary">
+                <div><dt>Course</dt><dd>{selectedTee?.clubName} · {selectedTee?.teeName}</dd></div>
+                <div><dt>Played</dt><dd>{form.datePlayed} · {form.timePlayed}</dd></div>
+                <div><dt>Round</dt><dd>{form.category === 'COMPETITION' ? 'Competition' : form.category === 'SOCIAL_GAME' ? 'Game with friends' : 'Casual'} · {isTeamRound ? 'Team' : `${form.holeCount} holes`}</dd></div>
+                <div><dt>{isTeamRound ? 'Team entry' : isStableford ? 'Stableford points' : 'Gross total'}</dt><dd>{isTeamRound ? 'Review the teams and scores in step 3' : isStableford ? stablefordTotals.total ?? '—' : form.grossScore}</dd></div>
+              </dl>
+              <p>Check your course, date and score before saving. Use Back to make changes.</p>
             <div className="round-field round-notes-field">
               <label htmlFor="round-notes">Round notes <span>Optional</span></label>
               <textarea
@@ -2461,6 +2483,8 @@ function RoundEntry({
               {errors.notes ? <span className="round-field-error">{errors.notes}</span> : null}
             </div>
 
+            </div>
+            {Object.values(errors).some(Boolean) ? <p className="round-field-error" role="alert">Check the highlighted fields before continuing.</p> : null}
             {submitError ? (
               <div className="round-submit-error" role="alert">
                 <span aria-hidden="true">!</span>
@@ -2468,6 +2492,8 @@ function RoundEntry({
               </div>
             ) : null}
 
+            <div className="round-wizard-actions">
+              {entryStep > 0 ? <button type="button" className="round-secondary-button" disabled={isSubmitting} onClick={() => setEntryStep(entryStep - 1)}>← Back</button> : null}
             <button
               className="round-primary-button"
               type="submit"
@@ -2476,6 +2502,7 @@ function RoundEntry({
               <span>
                 {isSubmitting
                   ? 'Saving round…'
+                  : entryStep < 3 ? ['Continue to round details', 'Continue to scorecard', 'Review round'][entryStep]
                   : isTeamRound
                     ? 'Save team competition'
                     : 'Record this round'}
@@ -2484,10 +2511,11 @@ function RoundEntry({
                 <path d="M5 12h14m-5-5 5 5-5 5" />
               </svg>
             </button>
+            </div>
           </form>
 
           <aside className="round-summary" aria-live="polite">
-            <p className="round-summary-label">Selected tee</p>
+            <p className="round-summary-label">Round summary</p>
             <h2>{selectedTee?.clubName}</h2>
             <p className="round-summary-course">
               {selectedTee?.courseName} · {selectedTee?.teeName}
@@ -2508,6 +2536,7 @@ function RoundEntry({
               </div>
             </dl>
 
+            <img className="round-summary-engraving" src={ledgerGreen} alt="" aria-hidden="true" />
             <div className="round-handicap-preview">
               <small>Current Handicap Index</small>
               <strong>

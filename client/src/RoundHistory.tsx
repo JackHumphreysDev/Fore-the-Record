@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { DashboardTabs } from './DashboardTabs.tsx'
+import HandicapProgressionChart from './HandicapProgressionChart.tsx'
 import { authenticatedFetch } from './api.ts'
 import ledgerGreen from './assets/ledger-green-engraving.png'
 import {
@@ -222,6 +224,20 @@ function RoundHistory({
   onGoToProfile,
   onLogRound,
 }: RoundHistoryProps) {
+  const [historyTab, setHistoryTab] = useState('rounds')
+  const [detailTab, setDetailTab] = useState('overview')
+  const [selectedRoundId, setSelectedRoundId] = useState('')
+  const detailBackButton = useRef<HTMLButtonElement>(null)
+  const returnToRoundButton = useRef<HTMLElement | null>(null)
+  const moveDetailFocus = useRef(false)
+  useEffect(() => {
+    if (!moveDetailFocus.current) return
+    moveDetailFocus.current = false
+    if (selectedRoundId) detailBackButton.current?.focus()
+    else returnToRoundButton.current?.focus()
+  }, [selectedRoundId])
+  const [page, setPage] = useState(1)
+  const [moreFilters, setMoreFilters] = useState(false)
   const [rounds, setRounds] = useState<HistoryRound[]>([])
   const [isLoading, setIsLoading] = useState(Boolean(profile))
   const [loadError, setLoadError] = useState('')
@@ -245,13 +261,35 @@ function RoundHistory({
     key: Key,
     value: RoundHistoryFilters[Key],
   ) {
+    if (!canLeaveNote()) return
+    setSelectedRoundId('')
+    setPage(1)
     setExpandedRoundId('')
     setFilters((current) => ({ ...current, [key]: value }))
   }
 
   function clearFilters() {
+    if (!canLeaveNote()) return
+    setSelectedRoundId('')
+    setPage(1)
     setExpandedRoundId('')
     setFilters({ ...EMPTY_ROUND_HISTORY_FILTERS })
+  }
+
+  function canLeaveNote() {
+    if (noteSaving) return false
+    if (editingNoteRoundId && noteDraft !== (rounds.find((round) => round.id === editingNoteRoundId)?.notes ?? '') && !window.confirm('Discard your unsaved round note?')) return false
+    stopEditingNote()
+    return true
+  }
+
+  function selectRound(roundId: string) {
+    if (!canLeaveNote()) return
+    if (roundId && document.activeElement instanceof HTMLElement) returnToRoundButton.current = document.activeElement
+    moveDetailFocus.current = true
+    setSelectedRoundId(roundId)
+    setDetailTab('overview')
+    setExpandedRoundId('')
   }
 
   function startEditingNote(round: HistoryRound) {
@@ -337,10 +375,13 @@ function RoundHistory({
           throw new Error('The round history returned was incomplete.')
         }
 
+        if (controller.signal.aborted) return
         setRounds(body)
+        setSelectedRoundId(focusedRoundId || '')
         if (focusedRoundId && body.some((round) => round.id === focusedRoundId)) {
           setFilters({ ...EMPTY_ROUND_HISTORY_FILTERS })
           setExpandedRoundId(focusedRoundId)
+          setDetailTab('scorecard')
           window.requestAnimationFrame(() => {
             document.getElementById(`history-round-${focusedRoundId}`)?.scrollIntoView({
               behavior: 'smooth',
@@ -405,8 +446,7 @@ function RoundHistory({
             <span aria-hidden="true" /> Round history
           </p>
           <h1>
-            Every score.
-            <span>In perspective.</span>
+            Your playing record.
           </h1>
         </div>
         <p>
@@ -465,6 +505,8 @@ function RoundHistory({
 
       {!isLoading && !loadError && rounds.length > 0 ? (
         <>
+          <DashboardTabs label="History views" value={historyTab} onChange={(value) => { if (canLeaveNote()) setHistoryTab(value) }} tabs={[{ id: 'rounds', label: 'Rounds' }, { id: 'trends', label: 'Handicap trend' }]} />
+          <div hidden={historyTab !== 'rounds'}>
           <section className="history-overview" aria-label="History overview">
             <div className="history-player">
               <p className="form-kicker">Player record</p>
@@ -517,7 +559,8 @@ function RoundHistory({
               </div>
             </header>
 
-            <div className="history-filter-grid">
+            <button type="button" className="more-filters-toggle" aria-expanded={moreFilters} onClick={() => setMoreFilters(!moreFilters)}>{moreFilters ? 'Fewer filters' : 'More filters'}</button>
+            <div className={`history-filter-grid ${moreFilters ? 'is-expanded' : ''}`}>
               <label className="history-filter-search">
                 Club, course, tee, format, player, or note
                 <input
@@ -606,11 +649,23 @@ function RoundHistory({
               <button type="button" onClick={clearFilters}>Clear filters</button>
             </div>
           ) : (
-          <ol className="history-list" aria-label={`${profile.name}'s filtered rounds`}>
-            {filteredRounds.map((round) => (
+          <div className={`history-workspace ${selectedRoundId ? 'has-selection' : ''}`}>
+          <section className="history-master" aria-label="Round list">
+            <div className="history-table-labels" aria-hidden="true"><span>Date / course</span><span>Score</span><span>Status</span></div>
+            <ol className="history-compact-list">
+              {filteredRounds.slice((page - 1) * 8, page * 8).map((round) => <li key={round.id}><button type="button" aria-pressed={selectedRoundId === round.id} onClick={() => selectRound(round.id)}>
+                <span><time>{formatRoundDate(round.datePlayed)}</time><strong>{round.tee.course.club.name}</strong><small>{round.tee.teeName} · {getRoundTypeLabel(round)}</small></span>
+                <strong>{round.participation === 'TEAM' ? 'Team' : round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints ?? '—'} pts` : round.grossScore ?? '—'}</strong>
+                <span>{getRoundStatus(round)} <span aria-hidden="true">→</span></span>
+              </button></li>)}
+            </ol>
+            <div className="dashboard-pagination"><button type="button" disabled={page <= 1 || noteSaving} onClick={() => { if (canLeaveNote()) { setPage(page - 1); setSelectedRoundId('') } }}>Previous</button><span>{page} / {Math.max(1, Math.ceil(filteredRounds.length / 8))}</span><button type="button" disabled={page * 8 >= filteredRounds.length || noteSaving} onClick={() => { if (canLeaveNote()) { setPage(page + 1); setSelectedRoundId('') } }}>Next</button></div>
+          </section>
+          {selectedRoundId ? <ol className="history-list history-detail" aria-label="Selected round details">
+            {filteredRounds.filter((round) => round.id === selectedRoundId).map((round) => (
               <li key={round.id} id={`history-round-${round.id}`}>
                 <article className="history-round-card">
-                  <div className="history-round-number" aria-hidden="true">
+                  <div className="history-round-number" hidden aria-hidden="true">
                     <span>Round</span>
                     <strong>
                       {String(
@@ -620,6 +675,7 @@ function RoundHistory({
                   </div>
 
                   <div className="history-round-details">
+                    <button ref={detailBackButton} type="button" className="history-close-detail" onClick={() => selectRound('')}>← Back to rounds / Close</button>
                     <header className="history-round-header">
                       <time dateTime={round.datePlayed.slice(0, 10)}>
                         {formatRoundDate(round.datePlayed)}
@@ -675,6 +731,10 @@ function RoundHistory({
                       </p>
                     ) : null}
 
+                    <DashboardTabs label="Round detail views" value={detailTab} onChange={(value) => { if (canLeaveNote()) { setDetailTab(value); setExpandedRoundId(value === 'scorecard' ? round.id : '') } }} tabs={[
+                      { id: 'overview', label: 'Overview' }, { id: 'scorecard', label: 'Scorecard' }, { id: 'notes', label: 'Notes' }, ...(round.participation === 'INDIVIDUAL' ? [{ id: 'photos', label: 'Photos' }] : []),
+                    ]} />
+                    <div hidden={detailTab !== 'overview'}>
                     <dl className="history-round-metrics">
                       {round.participation === 'TEAM' ? (
                         <>
@@ -729,6 +789,8 @@ function RoundHistory({
 
                     {round.teamCompetition ? <TeamCompetitionCard competition={round.teamCompetition} /> : null}
 
+                    </div>
+                    <div hidden={detailTab !== 'notes'}>
                     <section className="history-round-notes" aria-label="Private round note">
                       <header>
                         <div>
@@ -771,7 +833,8 @@ function RoundHistory({
                       )}
                     </section>
 
-                    {round.participation === 'INDIVIDUAL' ? (
+                    </div>
+                    {detailTab === 'photos' && round.participation === 'INDIVIDUAL' ? (
                       <ScorecardPhoto
                         roundId={round.id}
                         photo={round.scorecardPhoto}
@@ -785,19 +848,6 @@ function RoundHistory({
                       />
                     ) : null}
 
-                    <button
-                      className="history-scorecard-toggle"
-                      type="button"
-                      aria-expanded={expandedRoundId === round.id}
-                      aria-controls={`history-scorecard-${round.id}`}
-                      onClick={() => setExpandedRoundId(
-                        expandedRoundId === round.id ? '' : round.id,
-                      )}
-                    >
-                      {expandedRoundId === round.id
-                        ? 'Hide scorecard'
-                        : 'View scorecard'}
-                    </button>
                     {expandedRoundId === round.id ? (
                       <div id={`history-scorecard-${round.id}`}>
                         <RoundScorecard round={round} />
@@ -807,8 +857,11 @@ function RoundHistory({
                 </article>
               </li>
             ))}
-          </ol>
+          </ol> : <div className="dashboard-card history-select-prompt"><h2>A closer look at your round.</h2><p>Select a round to see the scorecard, notes and photos.</p></div>}
+          </div>
           )}
+          </div>
+          {historyTab === 'trends' ? <HandicapProgressionChart profileId={profile.id} /> : null}
         </>
       ) : null}
     </section>

@@ -17,7 +17,7 @@ const labels: Record<NotificationCategory, string> = {
 
 type Props = {
   profileId: string
-  onNavigate: (action: NotificationAction, targetId: string | null) => void
+  onNavigate: (action: NotificationAction, targetId: string | null, eventType: string) => void
   onUnreadChanged: () => void
 }
 
@@ -49,11 +49,11 @@ export default function NotificationCentre({ profileId, onNavigate, onUnreadChan
     return token
   }
 
-  async function openNotification(id: string, action: NotificationAction, targetId: string | null) {
+  async function openNotification(id: string, action: NotificationAction, targetId: string | null, eventType: string) {
     try {
       await markNotificationRead(await accessToken(), id)
       onUnreadChanged()
-      onNavigate(action, targetId)
+      onNavigate(action, targetId, eventType)
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : 'We could not update that notification.')
     }
@@ -122,7 +122,7 @@ export default function NotificationCentre({ profileId, onNavigate, onUnreadChan
               <h2>{notification.title}</h2>
               <p>{notification.message}</p>
             </div>
-            <button type="button" onClick={() => void openNotification(notification.id, notification.action, notification.actionTargetId)}>
+            <button type="button" onClick={() => void openNotification(notification.id, notification.action, notification.actionTargetId, notification.eventType)}>
               Open <span aria-hidden="true">→</span>
             </button>
           </article>
