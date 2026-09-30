@@ -133,7 +133,7 @@ npm run db:deploy --workspace server
 
 ## Deployment
 
-The current production application is available at [fore-the-record.vercel.app](https://fore-the-record.vercel.app). The custom domain `foretherecord.co.uk` is prepared in this branch and becomes the canonical URL after the Cloudflare DNS, Vercel domain, and Supabase authentication steps in [the custom-domain guide](docs/CUSTOM-DOMAIN.md) have been completed and verified.
+The production application is available at [foretherecord.co.uk](https://foretherecord.co.uk). The previous [Vercel URL](https://fore-the-record.vercel.app) remains available during the transition. The Cloudflare DNS, Vercel domain, and Supabase authentication settings are recorded in [the custom-domain guide](docs/CUSTOM-DOMAIN.md).
 
 Vercel builds the Vite client and serves the Express API through the `/api` route. The following environment variables must be configured for both Preview and Production deployments:
 
