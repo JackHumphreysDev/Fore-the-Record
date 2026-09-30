@@ -1,6 +1,6 @@
 # Custom domain cutover: foretherecord.co.uk
 
-Status: repository configuration prepared on `codex/custom-domain`. Both domains are attached to the correct Vercel project: the apex serves Production, and `www` redirects permanently to the apex. Both Cloudflare CNAME records were saved on 30 September 2026, and Vercel reports **Valid Configuration** for both hosts. The apex website loads over HTTPS; `www` redirects to the apex and preserves path and query string. Supabase authentication settings and account-flow acceptance checks are pending.
+Status: repository configuration prepared on `codex/custom-domain`. Both domains are attached to the correct Vercel project: the apex serves Production, and `www` redirects permanently to the apex. Both Cloudflare CNAME records were saved on 30 September 2026, and Vercel reports **Valid Configuration** for both hosts. The apex website loads over HTTPS; `www` redirects to the apex and preserves path and query string. Supabase's Site URL and redirect allowlist were updated on 1 October 2026. Account-flow acceptance checks remain pending.
 
 `foretherecord.co.uk` is registered with Cloudflare. Use `https://foretherecord.co.uk` as the canonical website and future iOS API origin. Point `www.foretherecord.co.uk` at Vercel too; the host-specific permanent redirect in `vercel.json` sends it to the apex hostname while retaining the path. Keep `https://fore-the-record.vercel.app` available during transition.
 
@@ -27,7 +27,7 @@ Set the web records to **DNS only** (grey cloud) for this Vercel setup. Cloudfla
 
 ## 3. Supabase authentication
 
-After Vercel confirms the apex domain and HTTPS, set Supabase Auth's production **Site URL** to `https://foretherecord.co.uk`. Add `https://foretherecord.co.uk/**` to its redirect allowlist. Keep the old `https://fore-the-record.vercel.app/**` and local development redirect during transition. Email confirmation, password reset and email change currently derive their return URLs from `window.location.origin`; administrator invitations derive their return URL from the request origin. Verify each flow from the new hostname.
+Supabase Auth's production **Site URL** is `https://foretherecord.co.uk`. Its redirect allowlist contains `https://foretherecord.co.uk/**`, the old `https://fore-the-record.vercel.app/**`, and `http://localhost:5173/**`; all were verified after reloading the dashboard. Email confirmation, password reset and email change currently derive their return URLs from `window.location.origin`; administrator invitations derive their return URL from the request origin. Verify each flow from the new hostname.
 
 The domain alone does not configure outbound email. A verified SMTP sender and its Cloudflare DNS records are a separate step before inviting real users at scale. For the iOS app, add only the native callback/Universal Link configuration actually chosen for that app; it is not part of this web-domain cutover.
 
