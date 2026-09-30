@@ -111,8 +111,8 @@ The signed-in **What's New** section explains useful changes in non-technical la
 In the Supabase dashboard:
 
 1. Enable the Email authentication provider and keep email confirmation required.
-2. Set the production Site URL to `https://fore-the-record.vercel.app`.
-3. Add `http://localhost:5173/**` and `https://fore-the-record.vercel.app/**` to the allowed redirect URLs.
+2. Set the production Site URL to `https://foretherecord.co.uk` after the custom domain is verified and live.
+3. Add `http://localhost:5173/**`, `https://foretherecord.co.uk/**`, and `https://fore-the-record.vercel.app/**` to the allowed redirect URLs during the transition. Add `https://www.foretherecord.co.uk/**` only if authentication can begin on that hostname before its redirect to the canonical domain.
 4. Configure a production SMTP provider before inviting real users; Supabase's default sender is intended only for limited testing and has a low project-wide email limit.
 
 Keep email confirmation enabled. Existing-profile claiming relies on a verified email address to prove ownership, so disabling confirmation would make that flow insecure. If Supabase reports that too many emails were requested, wait for the testing allowance to reset or finish the custom SMTP setup below.
@@ -133,7 +133,7 @@ npm run db:deploy --workspace server
 
 ## Deployment
 
-The production application is available at [fore-the-record.vercel.app](https://fore-the-record.vercel.app).
+The current production application is available at [fore-the-record.vercel.app](https://fore-the-record.vercel.app). The custom domain `foretherecord.co.uk` is prepared in this branch and becomes the canonical URL after the Cloudflare DNS, Vercel domain, and Supabase authentication steps in [the custom-domain guide](docs/CUSTOM-DOMAIN.md) have been completed and verified.
 
 Vercel builds the Vite client and serves the Express API through the `/api` route. The following environment variables must be configured for both Preview and Production deployments:
 
