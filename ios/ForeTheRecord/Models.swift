@@ -181,6 +181,38 @@ struct LiveDraftResponse: Codable {
     let draft: LiveDraft?
 }
 
+struct HistoryRound: Decodable, Identifiable {
+    struct Tee: Decodable {
+        struct Course: Decodable {
+            let name: String
+            let club: Club
+        }
+        let teeName: String
+        let course: Course
+    }
+    let id: String
+    let datePlayed: String
+    let grossScore: Int?
+    let holeCount: Int
+    let scorecardStatus: String
+    let tee: Tee
+}
+
+struct FriendRecord: Decodable, Identifiable {
+    struct Player: Decodable {
+        let name: String
+        let handicapIndex: Double?
+    }
+    let id: String
+    let player: Player
+}
+
+struct FriendsResponse: Decodable {
+    let friends: [FriendRecord]
+    let incoming: [FriendRecord]
+    let outgoing: [FriendRecord]
+}
+
 struct Coordinate: Codable, Equatable {
     let latitude: Double
     let longitude: Double

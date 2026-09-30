@@ -21,6 +21,10 @@ struct RootView: View {
                     else { PlayingView() }
                 }
                 .tabItem { Label("Play", systemImage: "figure.golf") }
+                HistoryView()
+                    .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                FriendsView()
+                    .tabItem { Label("Friends", systemImage: "person.2") }
                 AccountView()
                     .tabItem { Label("Account", systemImage: "person.crop.circle") }
             }
@@ -375,6 +379,90 @@ struct AccountView: View {
                 Button("Sign out and remove local data", role: .destructive) { store.signOut() }
             } message: {
                 Text("Sync your round first if you want to keep edits made on this iPhone.")
+            }
+        }
+    }
+}
+
+struct HistoryView: View {
+    @EnvironmentObject private var store: RoundStore
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !store.message.isEmpty {
+                    Text(store.message).foregroundStyle(.orange)
+                }
+                if store.history.isEmpty {
+                    ContentUnavailableView("No rounds yet", systemImage: "list.bullet.rectangle",
+                                           description: Text("Submitted rounds will appear here."))
+                }
+                ForEach(store.history) { round in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(round.tee.course.name).font(.headline)
+                        Text("\(round.tee.course.club.name) · \(round.tee.teeName)")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        HStack {
+                            Text(String(round.datePlayed.prefix(10)))
+                            Spacer()
+                            Text(round.grossScore.map { "\($0) strokes" } ?? "Score pending")
+                            Text("· \(round.holeCount) holes")
+                        }
+                        .font(.caption)
+                    }
+                    .padding(.vertical, 5)
+                }
+            }
+            .navigationTitle("History")
+            .refreshable { await store.loadHistory() }
+            .task { await store.loadHistory() }
+        }
+    }
+}
+
+struct FriendsView: View {
+    @EnvironmentObject private var store: RoundStore
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !store.message.isEmpty {
+                    Text(store.message).foregroundStyle(.orange)
+                }
+                if let friends = store.friends {
+                    if friends.friends.isEmpty && friends.incoming.isEmpty && friends.outgoing.isEmpty {
+                        ContentUnavailableView("No friends yet", systemImage: "person.2",
+                                               description: Text("Use the website to find and add friends."))
+                    }
+                    friendSection("Friends", friends.friends)
+                    friendSection("Incoming requests", friends.incoming)
+                    friendSection("Sent requests", friends.outgoing)
+                } else {
+                    ProgressView("Loading friends…")
+                }
+                Link("Manage friends on website", destination: URL(string: "https://foretherecord.co.uk")!)
+            }
+            .navigationTitle("Friends")
+            .refreshable { await store.loadFriends() }
+            .task { await store.loadFriends() }
+        }
+    }
+
+    @ViewBuilder
+    private func friendSection(_ title: String, _ people: [FriendRecord]) -> some View {
+        if !people.isEmpty {
+            Section(title) {
+                ForEach(people) { item in
+                    HStack {
+                        Text(item.player.name)
+                        Spacer()
+                        if let handicap = item.player.handicapIndex {
+                            Text(String(format: "HI %.1f", handicap))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
         }
     }

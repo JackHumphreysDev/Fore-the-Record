@@ -169,6 +169,14 @@ struct APIClient {
         try await call(endpoint("api/users/me/live-round"), token: token, as: LiveDraftResponse.self).draft?.state
     }
 
+    func history(token: String) async throws -> [HistoryRound] {
+        try await call(endpoint("api/users/me/rounds"), token: token, as: [HistoryRound].self)
+    }
+
+    func friends(token: String) async throws -> FriendsResponse {
+        try await call(endpoint("api/users/me/friends"), token: token, as: FriendsResponse.self)
+    }
+
     func saveDraft(_ state: LiveRoundState, token: String) async throws {
         let body = try JSONEncoder().encode(["state": state])
         let _: LiveDraftResponse = try await call(endpoint("api/users/me/live-round"), method: "PUT",

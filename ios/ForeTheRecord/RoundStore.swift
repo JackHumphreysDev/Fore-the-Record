@@ -5,6 +5,8 @@ final class RoundStore: ObservableObject {
     @Published var session: Session? = Keychain.load()
     @Published var draft: LiveRoundState?
     @Published var courses: [CatalogueCourse] = []
+    @Published var history: [HistoryRound] = []
+    @Published var friends: FriendsResponse?
     @Published var busy = false
     @Published var message = ""
     @Published var syncStatus = "Saved on this iPhone"
@@ -77,6 +79,8 @@ final class RoundStore: ObservableObject {
         draft = nil
         pins = [:]
         courses = []
+        history = []
+        friends = nil
         message = ""
     }
 
@@ -90,6 +94,24 @@ final class RoundStore: ObservableObject {
             let token = try await token(for: client)
             courses = try await client.searchCourses(query, token: token)
             message = courses.isEmpty ? "No courses found. Try the club name." : ""
+        } catch { message = error.localizedDescription }
+    }
+
+    func loadHistory() async {
+        guard let client, session != nil else { return }
+        do {
+            let token = try await token(for: client)
+            history = try await client.history(token: token)
+            message = ""
+        } catch { message = error.localizedDescription }
+    }
+
+    func loadFriends() async {
+        guard let client, session != nil else { return }
+        do {
+            let token = try await token(for: client)
+            friends = try await client.friends(token: token)
+            message = ""
         } catch { message = error.localizedDescription }
     }
 
@@ -202,7 +224,11 @@ final class RoundStore: ObservableObject {
 
     private func loadLocal() {
         if let storage, let data = try? Data(contentsOf: storage) {
-            draft = try? JSONDecoder().decode(LiveRoundState.self, from: data)
+            let stored = try? JSONDecoder().decode(LiveRoundState.self, from: data)
+            if let stored, stored.holeEntries.indices.contains(stored.currentHoleIndex),
+               stored.holeEntries.count == stored.form.holeCount {
+                draft = stored
+            }
         }
         if let pinsStorage, let data = try? Data(contentsOf: pinsStorage) {
             pins = (try? JSONDecoder().decode([String: GreenPins].self, from: data)) ?? [:]
