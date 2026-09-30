@@ -1,18 +1,25 @@
 # Custom domain cutover: foretherecord.co.uk
 
-Status: repository configuration prepared on `codex/custom-domain`; external Cloudflare, Vercel and Supabase settings require authenticated access and have **not** been verified. This document is the cutover checklist, not evidence that the new URL is live.
+Status: repository configuration prepared on `codex/custom-domain`. Both domains are attached to the correct Vercel project: the apex serves Production, and `www` redirects permanently to the apex. Vercel still reports **Invalid Configuration** until Cloudflare DNS is updated. Supabase authentication settings are also pending. The new URL is not yet live.
 
 `foretherecord.co.uk` is registered with Cloudflare. Use `https://foretherecord.co.uk` as the canonical website and future iOS API origin. Point `www.foretherecord.co.uk` at Vercel too; the host-specific permanent redirect in `vercel.json` sends it to the apex hostname while retaining the path. Keep `https://fore-the-record.vercel.app` available during transition.
 
 ## 1. Vercel project
 
-The repository is linked to the Vercel project named `fore-the-record` (local project ID `prj_BoPNhsHKUQrChsgwR2HXMqkogRkd`). In that exact project's **Settings → Domains**, add `foretherecord.co.uk` to Production and add `www.foretherecord.co.uk` as well. Do not use the `--force` option or reassign a domain from another project without inspecting why it is there. For each hostname, copy the exact DNS value shown by Vercel. It may also request a TXT ownership record.
+The repository is linked to the Vercel project named `fore-the-record` (local project ID `prj_BoPNhsHKUQrChsgwR2HXMqkogRkd`). In that project's **Settings → Domains**, `foretherecord.co.uk` is connected to Production and `www.foretherecord.co.uk` has a 308 redirect to the apex. Both currently await DNS validation. Do not use the `--force` option or reassign a domain from another project without inspecting why it is there.
 
 Use the existing Vercel project and deployment. No additional Vercel project, Vercel domain purchase, or Vercel nameserver change is needed. The project retains its existing Supabase and database environment variables.
 
 ## 2. Cloudflare DNS
 
-In Cloudflare **DNS → Records**, create the apex A record (`@`) with the IP shown for the apex hostname in Vercel. Create the `www` CNAME with the target shown for that hostname. Add a TXT verification record if Vercel requests one. Avoid conflicting A/AAAA/CNAME records for the same host; preserve unrelated MX, SPF, DKIM, DMARC and other email records.
+In Cloudflare **DNS → Records**, create these exact records shown by Vercel on 30 September 2026:
+
+| Type | Name | Target | Proxy |
+| --- | --- | --- | --- |
+| CNAME | `@` | `46ef121c80d26d5a.vercel-dns-017.com` | DNS only |
+| CNAME | `www` | `46ef121c80d26d5a.vercel-dns-017.com` | DNS only |
+
+Cloudflare's CNAME flattening supports the apex CNAME. Vercel currently requests no TXT ownership record; add one only if its domain screen later shows it. Avoid conflicting A/AAAA/CNAME records for either host; preserve unrelated MX, SPF, DKIM, DMARC and other email records.
 
 Set the web records to **DNS only** (grey cloud) for this Vercel setup. Cloudflare remains the registrar and DNS provider; Vercel serves HTTPS and application traffic. Do not enable Cloudflare redirects, caching rules or proxying for these hosts during the cutover. Review the Cloudflare/Vercel combination before changing that later.
 
@@ -34,7 +41,7 @@ Merge/deploy the branch to Production only after the domain and DNS records are 
 - A player can start, save, resume and submit a draft. History and profile still load. Existing `vercel.app` access remains available while old links expire.
 - Installed browser copies from the old origin are treated as separate installs; communicate that users should sign in or reinstall from the new domain.
 
-Useful read-only checks after configuration: `dig +short foretherecord.co.uk A`, `dig +short www.foretherecord.co.uk CNAME`, and `curl -I https://foretherecord.co.uk/`. Compare DNS results with **Vercel's actual displayed values**, not an example IP in documentation. Do not publish the domain as the primary production URL in user-facing copy until these checks pass.
+Useful read-only checks after configuration: `dig +short foretherecord.co.uk CNAME`, `dig +short www.foretherecord.co.uk CNAME`, and `curl -I https://foretherecord.co.uk/`. Cloudflare may flatten the apex response to A/AAAA records; Vercel's **Valid Configuration** status and successful HTTPS check are the decisive signals. Do not publish the domain as the primary production URL in user-facing copy until these checks pass.
 
 ## Rollback
 
