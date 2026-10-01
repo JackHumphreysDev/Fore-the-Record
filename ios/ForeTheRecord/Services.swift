@@ -35,6 +35,7 @@ enum NetworkError: LocalizedError {
     case notConfigured
     case invalidResponse
     case conflict
+    case http(Int, String)
     case server(String)
 
     var errorDescription: String? {
@@ -42,6 +43,7 @@ enum NetworkError: LocalizedError {
         case .notConfigured: "Enter the Supabase URL and publishable key first."
         case .invalidResponse: "The server returned an unexpected response."
         case .conflict: "This live round changed on another device."
+        case .http(_, let message): message
         case .server(let message): message
         }
     }
@@ -103,7 +105,7 @@ struct APIClient {
             let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             let message = object?["error"] as? String ?? object?["msg"] as? String ??
                           object?["message"] as? String ?? "Request failed (HTTP \(http.statusCode))."
-            throw NetworkError.server(message)
+            throw NetworkError.http(http.statusCode, message)
         }
         return try JSONDecoder().decode(T.self, from: data)
     }
@@ -190,6 +192,21 @@ struct APIClient {
                                                          token: token, body: body, as: LiveDraftResponse.self)
         guard let draft = response.draft else { throw NetworkError.invalidResponse }
         return draft
+    }
+
+    func submitRound(_ submission: RoundSubmission, token: String) async throws -> String {
+        let body = try JSONEncoder().encode(submission)
+        let response: SubmittedRoundResponse = try await call(endpoint("api/rounds"), method: "POST",
+                                                              token: token, body: body, as: SubmittedRoundResponse.self)
+        return response.round.id
+    }
+
+    func submittedRoundId(draftId: String, token: String) async throws -> String? {
+        guard UUID(uuidString: draftId) != nil else { throw NetworkError.invalidResponse }
+        let response: RoundSubmissionStatus = try await call(
+            endpoint("api/users/me/live-round/submissions/\(draftId)"), token: token,
+            as: RoundSubmissionStatus.self)
+        return response.roundId
     }
 }
 

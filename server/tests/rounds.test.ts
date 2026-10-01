@@ -129,7 +129,7 @@ describe('POST /api/rounds', () => {
       upAndDownResult: 'NOT_ATTEMPTED',
     }))
     userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: 12.4 })
-    liveRoundDraftFindFirstMock.mockResolvedValueOnce({ id: liveRoundDraftId })
+    liveRoundDraftFindFirstMock.mockResolvedValueOnce({ id: liveRoundDraftId, revision: 2 })
     teeFindUniqueMock.mockResolvedValueOnce({
       courseRating: 73.1,
       slopeRating: 137,
@@ -171,6 +171,7 @@ describe('POST /api/rounds', () => {
       userId,
       teeId,
       liveRoundDraftId,
+      expectedDraftRevision: 2,
       datePlayed: '2026-08-30',
       grossScore: 90,
       weatherCondition: 'DRY',
@@ -193,12 +194,13 @@ describe('POST /api/rounds', () => {
     expect(transactionMock).toHaveBeenCalledOnce()
     expect(liveRoundDraftFindFirstMock).toHaveBeenCalledWith({
       where: { id: liveRoundDraftId, userId, teeId },
-      select: { id: true },
+      select: { id: true, revision: true },
     })
-    expect(liveRoundDraftDeleteMock).toHaveBeenCalledWith({ where: { id: liveRoundDraftId } })
+    expect(liveRoundDraftDeleteMock).toHaveBeenCalledWith({ where: { id: liveRoundDraftId, revision: 2 } })
     expect(roundCreateMock).toHaveBeenCalledWith({
       data: {
         userId,
+        sourceLiveRoundDraftId: liveRoundDraftId,
         teeId,
         datePlayed,
         timePlayed: null,
@@ -253,6 +255,50 @@ describe('POST /api/rounds', () => {
       where: { id: userId },
       data: { handicapIndex: 13.9 },
     })
+  })
+
+  it('rejects a stale revision without creating a round', async () => {
+    const holeScores = Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1, par: 4, strokeIndex: index + 1, strokesTaken: 4,
+    }))
+    userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: null })
+    teeFindUniqueMock.mockResolvedValueOnce({ courseRating: 72, slopeRating: 113, par: 72, holes: [] })
+    liveRoundDraftFindFirstMock.mockResolvedValueOnce({ id: liveRoundDraftId, revision: 3 })
+    const response = await request(app).post('/api/rounds').send({
+      teeId, liveRoundDraftId, expectedDraftRevision: 2,
+      datePlayed: '2026-08-30', grossScore: 72, weatherCondition: 'DRY', holeScores,
+    })
+    expect(response.status).toBe(409)
+    expect(roundCreateMock).not.toHaveBeenCalled()
+    expect(liveRoundDraftDeleteMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a duplicate source draft without deleting another draft', async () => {
+    const holeScores = Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1, par: 4, strokeIndex: index + 1, strokesTaken: 4,
+    }))
+    userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: null })
+    teeFindUniqueMock.mockResolvedValueOnce({ courseRating: 72, slopeRating: 113, par: 72, holes: [] })
+    liveRoundDraftFindFirstMock.mockResolvedValueOnce({ id: liveRoundDraftId, revision: 2 })
+    roundCreateMock.mockRejectedValueOnce({ code: 'P2002' })
+    const response = await request(app).post('/api/rounds').send({
+      teeId, liveRoundDraftId, expectedDraftRevision: 2,
+      datePlayed: '2026-08-30', grossScore: 72, weatherCondition: 'DRY', holeScores,
+    })
+    expect(response.status).toBe(409)
+    expect(liveRoundDraftDeleteMock).not.toHaveBeenCalled()
+  })
+
+  it('requires a source draft when checking its revision', async () => {
+    const holeScores = Array.from({ length: 18 }, (_, index) => ({
+      holeNumber: index + 1, par: 4, strokeIndex: index + 1, strokesTaken: 4,
+    }))
+    const response = await request(app).post('/api/rounds').send({
+      teeId, expectedDraftRevision: 2,
+      datePlayed: '2026-08-30', grossScore: 72, weatherCondition: 'DRY', holeScores,
+    })
+    expect(response.status).toBe(400)
+    expect(transactionMock).not.toHaveBeenCalled()
   })
 
   it('caps a complete scorecard at net double bogey', async () => {
@@ -428,6 +474,7 @@ describe('POST /api/rounds', () => {
     expect(roundCreateMock).toHaveBeenCalledWith({
       data: {
         userId,
+        sourceLiveRoundDraftId: null,
         teeId,
         datePlayed,
         timePlayed: '13:30',

@@ -19,6 +19,9 @@ final class RoundStore: ObservableObject {
     @Published var busy = false
     @Published var message = ""
     @Published var syncStatus = "Saved on this iPhone"
+    @Published var submitting = false
+    @Published var submissionPendingVerification = false
+    @Published var lastSubmittedRoundId: String?
     @Published var hasConflict = false
     @Published var accountCopy: LiveRoundState?
     @Published var supabaseURL = configuration("supabaseURL", bundleKey: "SupabaseURL")
@@ -27,10 +30,12 @@ final class RoundStore: ObservableObject {
     @Published var pins: [String: GreenPins] = [:]
     private var editSerial = 0
     private var serverRevision = 0
+    private var serverDraftId: String?
     private var syncTask: Task<Void, Never>?
     private var syncing = false
     private var pendingSync = false
     private var accountRevision = 0
+    private var accountDraftId: String?
     private var sessionEpoch = 0
 
     private var client: APIClient? {
@@ -106,8 +111,13 @@ final class RoundStore: ObservableObject {
         session = nil
         draft = nil
         serverRevision = 0
+        serverDraftId = nil
+        lastSubmittedRoundId = nil
+        submitting = false
+        submissionPendingVerification = false
         hasConflict = false
         accountCopy = nil
+        accountDraftId = nil
         pins = [:]
         courses = []
         history = []
@@ -183,6 +193,7 @@ final class RoundStore: ObservableObject {
             if let existing {
                 draft = existing.state
                 serverRevision = existing.revision
+                serverDraftId = existing.id
                 saveLocal()
                 message = "Resumed the live round already saved to your account."
                 return
@@ -198,6 +209,7 @@ final class RoundStore: ObservableObject {
                                          segment: segment == "ALL" ? "FRONT_NINE" : segment,
                                          scoringFormat: scoringFormat, playingHandicap: playingHandicap)
             serverRevision = 0
+            serverDraftId = nil
             editSerial += 1
             saveLocal()
             message = ""
@@ -218,6 +230,7 @@ final class RoundStore: ObservableObject {
             guard sessionEpoch == epoch else { return }
             draft = accountDraft?.state
             serverRevision = accountDraft?.revision ?? 0
+            serverDraftId = accountDraft?.id
             if draft != nil { saveLocal(); syncStatus = "Saved to account" }
         } catch {
             if sessionEpoch == epoch { message = error.localizedDescription }
@@ -225,7 +238,7 @@ final class RoundStore: ObservableObject {
     }
 
     func setScore(_ score: Int?) {
-        guard var current = draft else { return }
+        guard !submitting, !submissionPendingVerification, var current = draft else { return }
         current.holeEntries[current.currentHoleIndex].strokesTaken = score.map(String.init) ?? ""
         current.holeEntries[current.currentHoleIndex].pickedUp = false
         draft = current
@@ -235,7 +248,8 @@ final class RoundStore: ObservableObject {
     }
 
     func setPickedUp(_ pickedUp: Bool) {
-        guard var current = draft, current.form.scoringFormat == "STABLEFORD" else { return }
+        guard !submitting, !submissionPendingVerification, var current = draft,
+              current.form.scoringFormat == "STABLEFORD" else { return }
         current.holeEntries[current.currentHoleIndex].pickedUp = pickedUp
         if pickedUp { current.holeEntries[current.currentHoleIndex].strokesTaken = "" }
         draft = current
@@ -245,7 +259,7 @@ final class RoundStore: ObservableObject {
     }
 
     func setPutts(_ value: Int?) {
-        guard var current = draft else { return }
+        guard !submitting, !submissionPendingVerification, var current = draft else { return }
         current.holeEntries[current.currentHoleIndex].putts = value.map(String.init) ?? ""
         draft = current
         editSerial += 1
@@ -254,7 +268,7 @@ final class RoundStore: ObservableObject {
     }
 
     func setPenaltyStrokes(_ value: Int?) {
-        guard var current = draft else { return }
+        guard !submitting, !submissionPendingVerification, var current = draft else { return }
         current.holeEntries[current.currentHoleIndex].penaltyStrokes = value.map(String.init) ?? ""
         draft = current
         editSerial += 1
@@ -263,7 +277,8 @@ final class RoundStore: ObservableObject {
     }
 
     func setHole(_ index: Int) {
-        guard var current = draft, current.holeEntries.indices.contains(index) else { return }
+        guard !submitting, !submissionPendingVerification, var current = draft,
+              current.holeEntries.indices.contains(index) else { return }
         current.currentHoleIndex = index
         draft = current
         editSerial += 1
@@ -272,7 +287,7 @@ final class RoundStore: ObservableObject {
     }
 
     func sync() async {
-        guard !hasConflict, let client, session != nil else { return }
+        guard !hasConflict, !submitting, !submissionPendingVerification, let client, session != nil else { return }
         if syncing { pendingSync = true; return }
         let epoch = sessionEpoch
         syncing = true
@@ -289,6 +304,7 @@ final class RoundStore: ObservableObject {
                 let saved = try await client.saveDraft(current, expectedRevision: sentRevision, token: token)
                 guard sessionEpoch == epoch else { return }
                 serverRevision = saved.revision
+                serverDraftId = saved.id
                 saveLocal()
                 if editSerial == sentSerial {
                     syncStatus = "Saved to account"
@@ -304,6 +320,7 @@ final class RoundStore: ObservableObject {
                     guard sessionEpoch == epoch else { return }
                     accountCopy = latest?.state
                     accountRevision = latest?.revision ?? 0
+                    accountDraftId = latest?.id
                     hasConflict = true
                     syncStatus = "Sync conflict · scores kept on this iPhone"
                     message = latest == nil
@@ -329,8 +346,10 @@ final class RoundStore: ObservableObject {
         syncTask?.cancel()
         draft = accountCopy
         serverRevision = accountRevision
+        serverDraftId = accountDraftId
         hasConflict = false
         self.accountCopy = nil
+        accountDraftId = nil
         editSerial += 1
         saveLocal()
         syncStatus = "Saved to account"
@@ -340,10 +359,91 @@ final class RoundStore: ObservableObject {
     func keepIPhoneCopy() async {
         guard hasConflict else { return }
         serverRevision = accountRevision
+        serverDraftId = accountDraftId
         hasConflict = false
         accountCopy = nil
+        accountDraftId = nil
         saveLocal()
         await sync()
+    }
+
+    func submitRound() async {
+        guard !submitting, !hasConflict, !syncing, let client, session != nil,
+              let current = draft else {
+            message = "Wait for syncing to finish, then review your card before submitting."
+            return
+        }
+        guard current.canSubmitNatively else {
+            message = "Complete every hole on a casual Stroke Play or Stableford card before submitting."
+            return
+        }
+        guard let draftId = serverDraftId,
+              let submission = current.submission(draftId: draftId, revision: serverRevision) else {
+            message = "Sync the card and check its scores before submitting."
+            return
+        }
+        let epoch = sessionEpoch
+        submitting = true
+        submissionPendingVerification = true
+        syncTask?.cancel()
+        saveLocal()
+        syncStatus = "Submitting"
+        defer { if sessionEpoch == epoch { submitting = false } }
+        do {
+            let token = try await token(for: client)
+            if let existingId = try await client.submittedRoundId(draftId: draftId, token: token) {
+                guard sessionEpoch == epoch else { return }
+                finishSubmission(roundId: existingId)
+                return
+            }
+            let roundId = try await client.submitRound(submission, token: token)
+            guard sessionEpoch == epoch else { return }
+            finishSubmission(roundId: roundId)
+        } catch {
+            guard sessionEpoch == epoch else { return }
+            var statusChecked = false
+            do {
+                let token = try await token(for: client)
+                let roundId = try await client.submittedRoundId(draftId: draftId, token: token)
+                statusChecked = true
+                if let roundId {
+                    guard sessionEpoch == epoch else { return }
+                    finishSubmission(roundId: roundId)
+                    return
+                }
+            } catch { /* Keep the local card when submission status cannot be confirmed. */ }
+            if case NetworkError.http(400, let detail) = error {
+                submissionPendingVerification = false
+                saveLocal()
+                syncStatus = "Saved on this iPhone · review needed"
+                message = detail
+            } else if case NetworkError.conflict = error, statusChecked {
+                submissionPendingVerification = false
+                saveLocal()
+                syncStatus = "Saved on this iPhone · sync conflict"
+                message = "The account card changed. Close review, tap Sync, and choose which card to keep."
+            } else {
+                syncStatus = "Saved on this iPhone · submission unconfirmed"
+                submissionPendingVerification = true
+                message = "The round is still on this iPhone. Reconnect and try Submit again; it will check for a saved round first."
+            }
+        }
+    }
+
+    private func finishSubmission(roundId: String) {
+        if let storage { try? FileManager.default.removeItem(at: storage) }
+        draft = nil
+        serverDraftId = nil
+        serverRevision = 0
+        submissionPendingVerification = false
+        lastSubmittedRoundId = roundId
+        syncStatus = "Round saved to your account"
+        message = "Round saved to History."
+    }
+
+    func dismissSubmission() {
+        lastSubmittedRoundId = nil
+        message = ""
     }
 
     private func scheduleSync() {
@@ -381,7 +481,9 @@ final class RoundStore: ObservableObject {
     private func saveLocal() {
         guard let draft, let storage else { return }
         do {
-            let data = try JSONEncoder().encode(StoredRound(state: draft, revision: serverRevision))
+            let data = try JSONEncoder().encode(StoredRound(state: draft, revision: serverRevision,
+                                                            draftId: serverDraftId,
+                                                            submissionPendingVerification: submissionPendingVerification))
             try data.write(to: storage, options: [.atomic, .completeFileProtection])
             syncStatus = "Saved on this iPhone"
         } catch {
@@ -394,6 +496,8 @@ final class RoundStore: ObservableObject {
         draft = nil
         pins = [:]
         serverRevision = 0
+        serverDraftId = nil
+        submissionPendingVerification = false
         if let storage, let data = try? Data(contentsOf: storage) {
             let envelope = try? JSONDecoder().decode(StoredRound.self, from: data)
             let legacy = envelope == nil ? try? JSONDecoder().decode(LiveRoundState.self, from: data) : nil
@@ -402,6 +506,8 @@ final class RoundStore: ObservableObject {
                stored.holeEntries.count == stored.form.holeCount {
                 draft = stored
                 serverRevision = envelope?.revision ?? 0
+                serverDraftId = envelope?.draftId
+                submissionPendingVerification = envelope?.submissionPendingVerification ?? false
             }
         }
         if let pinsStorage, let data = try? Data(contentsOf: pinsStorage) {

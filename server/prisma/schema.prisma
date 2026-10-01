@@ -619,6 +619,7 @@ model UserCoursePreference {
 
 model Round {
   id                       String                @id @default(uuid()) @db.Uuid
+  sourceLiveRoundDraftId   String?               @unique @db.Uuid
   userId                   String                @db.Uuid
   teeId                    String                @db.Uuid
   datePlayed               DateTime              @db.Date

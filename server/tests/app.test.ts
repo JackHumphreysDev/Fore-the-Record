@@ -646,6 +646,32 @@ describe('live round drafts', () => {
     })
   })
 
+  it('finds only the signed-in player\'s completed round for a consumed draft', async () => {
+    const draftId = '44444444-4444-4444-8444-444444444444'
+    const roundId = '33333333-3333-4333-8333-333333333333'
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    roundFindFirstMock.mockResolvedValueOnce({ id: roundId })
+    const response = await request(app).get(`/api/users/me/live-round/submissions/${draftId}`)
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ roundId })
+    expect(roundFindFirstMock).toHaveBeenCalledWith({
+      where: { userId, sourceLiveRoundDraftId: draftId },
+      select: { id: true },
+    })
+  })
+
+  it('does not reveal a completed round from another account or an invalid draft ID', async () => {
+    const draftId = '44444444-4444-4444-8444-444444444444'
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    roundFindFirstMock.mockResolvedValueOnce(null)
+    const missing = await request(app).get(`/api/users/me/live-round/submissions/${draftId}`)
+    expect(missing.status).toBe(200)
+    expect(missing.body).toEqual({ roundId: null })
+    const invalid = await request(app).get('/api/users/me/live-round/submissions/not-a-uuid')
+    expect(invalid.status).toBe(400)
+    expect(roundFindFirstMock).toHaveBeenCalledTimes(1)
+  })
+
   it('upserts one validated draft for the signed-in player', async () => {
     const now = new Date('2026-09-23T10:00:00.000Z')
     userFindUniqueMock.mockResolvedValueOnce({ id: userId })

@@ -1,6 +1,6 @@
 # Custom domain and native iOS app with live GPS rounds
 
-Status: implementation started on the iOS feature branch. The native pilot in `ios/` includes sign-in, course selection, score entry, read-only History and Friends, a MapKit GPS view, personal pins and local draft storage. Verified course geometry, conflict-safe sync, native submission and release preparation remain planned.
+Status: implementation started. The native pilot in `ios/` includes sign-in, course selection, score entry, read-only History and Friends, a MapKit GPS view, personal pins, local draft storage, revision-checked sync, and casual individual round submission. Verified course geometry, broader format support, physical-device validation and release preparation remain planned.
 Prepared: 29 September 2026; revised for native iOS on 30 September 2026.
 Baseline: `main`, commit `4deffe9` (PR #79), application version `0.53.0`.
 

@@ -172,6 +172,59 @@ struct LiveRoundState: Codable {
         }
     }
 
+    var canSubmitNatively: Bool {
+        form.category == "CASUAL" && form.participation == "INDIVIDUAL" &&
+        scorecardStatus == "available" && (holeEntries.count == 9 || holeEntries.count == 18) &&
+        holeEntries.count == form.holeCount && completed == holeEntries.count &&
+        (form.scoringFormat == "STROKE_PLAY" || form.scoringFormat == "STABLEFORD")
+    }
+
+    func submission(draftId: String, revision: Int) -> RoundSubmission? {
+        guard canSubmitNatively, UUID(uuidString: draftId) != nil, revision >= 0,
+              UUID(uuidString: tee.id) != nil else { return nil }
+        let expectedNumbers = form.holeCount == 18 ? Array(1...18) :
+            (form.nineHoleSegment == "BACK_NINE" ? Array(10...18) : Array(1...9))
+        guard holeEntries.map(\.holeNumber).sorted() == expectedNumbers,
+              Set(holeEntries.compactMap { Int($0.strokeIndex) }).count == form.holeCount else { return nil }
+        let handicap = form.scoringFormat == "STABLEFORD" ? Int(form.playingHandicap) : nil
+        if form.scoringFormat == "STABLEFORD" && (handicap.map { !(-20...54).contains($0) } ?? true) { return nil }
+        var holes: [SubmittedHole] = []
+        for hole in holeEntries {
+            guard let par = Int(hole.par), (2...7).contains(par),
+                  let strokeIndex = Int(hole.strokeIndex), (1...18).contains(strokeIndex),
+                  hole.pickedUp || (hole.score.map { (1...30).contains($0) } ?? false),
+                  !hole.pickedUp || form.scoringFormat == "STABLEFORD",
+                  let putts = optionalStat(hole.putts), let penalties = optionalStat(hole.penaltyStrokes),
+                  let bunkers = optionalStat(hole.bunkerVisits),
+                  ["", "HIT", "MISSED_LEFT", "MISSED_RIGHT", "NOT_APPLICABLE"].contains(hole.fairwayResult),
+                  ["", "YES", "NO"].contains(hole.greenInRegulation),
+                  ["", "NOT_ATTEMPTED", "SUCCESSFUL", "UNSUCCESSFUL"].contains(hole.upAndDownResult) else { return nil }
+            let yardage = Int(hole.yardage)
+            if !hole.yardage.isEmpty && (yardage.map { $0 <= 0 } ?? true) { return nil }
+            holes.append(SubmittedHole(holeNumber: hole.holeNumber, par: par, strokeIndex: strokeIndex,
+                                       strokesTaken: hole.pickedUp ? nil : hole.score, pickedUp: hole.pickedUp,
+                                       yardage: yardage, putts: putts, penaltyStrokes: penalties,
+                                       bunkerVisits: bunkers,
+                                       fairwayResult: hole.fairwayResult.isEmpty ? nil : hole.fairwayResult,
+                                       greenInRegulation: hole.greenInRegulation.isEmpty ? nil : hole.greenInRegulation == "YES",
+                                       upAndDownResult: hole.upAndDownResult.isEmpty ? nil : hole.upAndDownResult))
+        }
+        return RoundSubmission(teeId: tee.id, liveRoundDraftId: draftId,
+                               expectedDraftRevision: revision, datePlayed: form.datePlayed,
+                               timePlayed: form.timePlayed, notes: form.notes,
+                               grossScore: holes.contains(where: \.pickedUp) ? nil : gross,
+                               scoringFormat: form.scoringFormat, holeCount: form.holeCount,
+                               nineHoleSegment: form.holeCount == 9 ? form.nineHoleSegment : nil,
+                               playingHandicap: handicap, weatherCondition: form.weatherCondition,
+                               holeScores: holes)
+    }
+
+    private func optionalStat(_ value: String) -> Int?? {
+        if value.isEmpty { return .some(nil) }
+        guard let number = Int(value), (0...9).contains(number) else { return nil }
+        return .some(number)
+    }
+
     static func start(course: CatalogueCourse, tee: CatalogueTee, card: ScorecardResponse,
                       segment: String, scoringFormat: String, playingHandicap: String) -> LiveRoundState {
         let date = Date()
@@ -203,6 +256,50 @@ struct LiveDraftResponse: Codable {
 struct StoredRound: Codable {
     let state: LiveRoundState
     let revision: Int
+    let draftId: String?
+    let submissionPendingVerification: Bool?
+}
+
+struct SubmittedHole: Encodable {
+    let holeNumber: Int
+    let par: Int
+    let strokeIndex: Int
+    let strokesTaken: Int?
+    let pickedUp: Bool
+    let yardage: Int?
+    let putts: Int?
+    let penaltyStrokes: Int?
+    let bunkerVisits: Int?
+    let fairwayResult: String?
+    let greenInRegulation: Bool?
+    let upAndDownResult: String?
+}
+
+struct RoundSubmission: Encodable {
+    let teeId: String
+    let liveRoundDraftId: String
+    let expectedDraftRevision: Int
+    let datePlayed: String
+    let timePlayed: String
+    let category = "CASUAL"
+    let participation = "INDIVIDUAL"
+    let notes: String
+    let grossScore: Int?
+    let scoringFormat: String
+    let holeCount: Int
+    let nineHoleSegment: String?
+    let playingHandicap: Int?
+    let weatherCondition: String
+    let holeScores: [SubmittedHole]
+}
+
+struct SubmittedRoundResponse: Decodable {
+    struct Round: Decodable { let id: String }
+    let round: Round
+}
+
+struct RoundSubmissionStatus: Decodable {
+    let roundId: String?
 }
 
 struct HistoryRound: Decodable, Identifiable {
