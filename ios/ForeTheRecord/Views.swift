@@ -154,7 +154,7 @@ struct HomeView: View {
                         Text("Open Play to choose a course and start your card.")
                             .foregroundStyle(.white.opacity(0.8))
                     }
-                    Text("Scores are saved on this iPhone as you play. Use Sync to keep your account draft up to date.")
+                    Text("Scores are saved on this iPhone as you play and synced to your account when connected.")
                         .font(.footnote)
                         .foregroundStyle(.white.opacity(0.75))
                 }
@@ -170,6 +170,8 @@ struct StartRoundView: View {
     @EnvironmentObject private var store: RoundStore
     @State private var search = ""
     @State private var segment = "ALL"
+    @State private var scoringFormat = "STROKE_PLAY"
+    @State private var playingHandicap = ""
 
     var body: some View {
         List {
@@ -193,13 +195,24 @@ struct StartRoundView: View {
                     Text("Back 9").tag("BACK_NINE")
                 }
                 .pickerStyle(.segmented)
+                Picker("Scoring", selection: $scoringFormat) {
+                    Text("Stroke play").tag("STROKE_PLAY")
+                    Text("Stableford").tag("STABLEFORD")
+                }
+                if scoringFormat == "STABLEFORD" {
+                    TextField("Playing Handicap", text: $playingHandicap)
+                        .keyboardType(.numbersAndPunctuation)
+                }
             }
             if !store.message.isEmpty { Text(store.message).foregroundStyle(.orange) }
             ForEach(store.courses) { course in
                 Section("\(course.club.name) · \(course.name)") {
                     ForEach(course.tees) { tee in
                         Button {
-                            Task { await store.start(course: course, tee: tee, segment: segment) }
+                            Task {
+                                await store.start(course: course, tee: tee, segment: segment,
+                                                  scoringFormat: scoringFormat, playingHandicap: playingHandicap)
+                            }
                         } label: {
                             HStack {
                                 Text(tee.teeName)
@@ -272,6 +285,27 @@ struct PlayingView: View {
     private func scoreView(_ draft: LiveRoundState) -> some View {
         ScrollView {
             VStack(spacing: 24) {
+                if store.hasConflict {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Choose which card to keep")
+                            .font(.headline)
+                        Text(store.message)
+                            .font(.subheadline)
+                        if store.accountCopy != nil {
+                            Button("Use account card") { store.useAccountCopy() }
+                            Button("Keep this iPhone card") {
+                                Task { await store.keepIPhoneCopy() }
+                            }
+                        } else {
+                            Button("Save this iPhone card as a new account draft") {
+                                Task { await store.keepIPhoneCopy() }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(.orange.opacity(0.15), in: RoundedRectangle(cornerRadius: 18))
+                }
                 VStack(spacing: 8) {
                     Text("STROKES").font(.caption.weight(.bold)).tracking(2)
                     HStack(spacing: 28) {
@@ -310,8 +344,51 @@ struct PlayingView: View {
                 HStack {
                     summary("Gross", "\(draft.gross)")
                     summary("To par", draft.scoreToPar > 0 ? "+\(draft.scoreToPar)" : "\(draft.scoreToPar)")
+                    if let points = draft.stablefordPoints { summary("Points", "\(points)") }
                 }
                 .frame(maxWidth: .infinity)
+
+                if draft.form.scoringFormat == "STABLEFORD" {
+                    Toggle("Picked up", isOn: Binding(
+                        get: { store.draft?.currentHole.pickedUp ?? false },
+                        set: { store.setPickedUp($0) }
+                    ))
+                    .padding()
+                    .background(.white, in: RoundedRectangle(cornerRadius: 18))
+                }
+
+                DisclosureGroup("Optional hole details") {
+                    HStack {
+                        Text("Putts")
+                        Spacer()
+                        TextField("—", text: Binding(
+                            get: { store.draft?.currentHole.putts ?? "" },
+                            set: { value in
+                                if value.isEmpty { store.setPutts(nil) }
+                                else if let number = Int(value), (0...9).contains(number) { store.setPutts(number) }
+                            }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 75)
+                    }
+                    HStack {
+                        Text("Penalty strokes")
+                        Spacer()
+                        TextField("—", text: Binding(
+                            get: { store.draft?.currentHole.penaltyStrokes ?? "" },
+                            set: { value in
+                                if value.isEmpty { store.setPenaltyStrokes(nil) }
+                                else if let number = Int(value), (0...9).contains(number) { store.setPenaltyStrokes(number) }
+                            }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 75)
+                    }
+                }
+                .padding()
+                .background(.white, in: RoundedRectangle(cornerRadius: 18))
 
                 DisclosureGroup("Full scorecard") {
                     ForEach(Array(draft.holeEntries.enumerated()), id: \.element.id) { index, hole in
@@ -372,7 +449,7 @@ struct AccountView: View {
                     #endif
                 }
                 Section("Data") {
-                    Text("Round drafts and personal map pins are stored on this iPhone. Scores sync only when you tap Sync.")
+                    Text("Round drafts and personal map pins are stored on this iPhone. Score edits sync to your account when connected.")
                     Text("Map imagery requires a connection. Location is used only while the GPS screen is open.")
                 }
                 Section {

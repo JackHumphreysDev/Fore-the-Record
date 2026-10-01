@@ -7535,7 +7535,7 @@ app.get('/api/users/me/live-round', async (_request, response) => {
 
   const draft = await prisma.liveRoundDraft.findUnique({
     where: { userId: profile.id },
-    select: { id: true, teeId: true, state: true, createdAt: true, updatedAt: true },
+    select: { id: true, teeId: true, state: true, revision: true, createdAt: true, updatedAt: true },
   })
   if (!draft) {
     response.status(200).json({ draft: null })
@@ -7556,17 +7556,51 @@ app.put('/api/users/me/live-round', async (request, response) => {
   })
   if (!profile) return response.status(404).json({ error: 'Profile not found' })
 
-  const state = parseLiveRoundDraftState(isRecord(request.body) ? request.body.state : null)
+  const body = isRecord(request.body) ? request.body : null
+  const state = parseLiveRoundDraftState(body?.state)
   if (!state) return response.status(400).json({ error: 'Invalid live round data' })
+  const expectedRevision = body?.expectedRevision
+  if (expectedRevision !== undefined &&
+      (!Number.isInteger(expectedRevision) || Number(expectedRevision) < 0 ||
+        Number(expectedRevision) >= 2_147_483_647)) {
+    return response.status(400).json({ error: 'Invalid live round revision' })
+  }
 
   const tee = await prisma.tee.findUnique({ where: { id: state.tee.id }, select: { id: true } })
   if (!tee) return response.status(404).json({ error: 'Tee not found' })
 
+  const select = { id: true, teeId: true, state: true, revision: true, createdAt: true, updatedAt: true } as const
+  if (expectedRevision !== undefined) {
+    try {
+      const draft = await prisma.liveRoundDraft.update({
+        where: { userId: profile.id, revision: Number(expectedRevision) },
+        data: { teeId: tee.id, state: asLiveRoundJson(state), revision: { increment: 1 } },
+        select,
+      })
+      return response.status(200).json({ draft })
+    } catch (error: unknown) {
+      if (!isRecord(error) || error.code !== 'P2025') throw error
+    }
+    if (expectedRevision === 0) {
+      try {
+        const draft = await prisma.liveRoundDraft.create({
+          data: { userId: profile.id, teeId: tee.id, state: asLiveRoundJson(state), revision: 1 },
+          select,
+        })
+        return response.status(200).json({ draft })
+      } catch (error: unknown) {
+        if (!isRecord(error) || error.code !== 'P2002') throw error
+      }
+    }
+    return response.status(409).json({ error: 'This live round changed on another device. Review both cards before syncing.' })
+  }
+
+  // Existing website clients can continue saving version-1 drafts during the iOS rollout.
   const draft = await prisma.liveRoundDraft.upsert({
     where: { userId: profile.id },
-    create: { userId: profile.id, teeId: tee.id, state: asLiveRoundJson(state) },
-    update: { teeId: tee.id, state: asLiveRoundJson(state) },
-    select: { id: true, teeId: true, state: true, createdAt: true, updatedAt: true },
+    create: { userId: profile.id, teeId: tee.id, state: asLiveRoundJson(state), revision: 1 },
+    update: { teeId: tee.id, state: asLiveRoundJson(state), revision: { increment: 1 } },
+    select,
   })
   response.status(200).json({ draft })
 })

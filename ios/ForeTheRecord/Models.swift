@@ -157,15 +157,33 @@ struct LiveRoundState: Codable {
         }
     }
 
-    static func start(course: CatalogueCourse, tee: CatalogueTee, card: ScorecardResponse, segment: String) -> LiveRoundState {
+    var stablefordPoints: Int? {
+        guard form.scoringFormat == "STABLEFORD", let handicap = Int(form.playingHandicap),
+              (-20...54).contains(handicap) else { return nil }
+        let ranked = holeEntries.sorted { (Int($0.strokeIndex) ?? 99) < (Int($1.strokeIndex) ?? 99) }
+        let ranks = Dictionary(uniqueKeysWithValues: ranked.enumerated().map { ($0.element.holeNumber, $0.offset + 1) })
+        let count = holeEntries.count
+        return holeEntries.reduce(0) { total, hole in
+            guard let rank = ranks[hole.holeNumber], let par = Int(hole.par) else { return total }
+            if hole.pickedUp { return total }
+            guard let strokes = hole.score else { return total }
+            let received = Int(floor(Double(handicap + count - rank) / Double(count)))
+            return total + max(0, 2 + par - (strokes - received))
+        }
+    }
+
+    static func start(course: CatalogueCourse, tee: CatalogueTee, card: ScorecardResponse,
+                      segment: String, scoringFormat: String, playingHandicap: String) -> LiveRoundState {
         let date = Date()
         let day = DateFormatter()
         day.dateFormat = "yyyy-MM-dd"
         let time = DateFormatter()
         time.dateFormat = "HH:mm"
-        let form = RoundForm(teeId: tee.id, datePlayed: day.string(from: date),
+        var form = RoundForm(teeId: tee.id, datePlayed: day.string(from: date),
                              timePlayed: time.string(from: date), holeCount: card.holes.count,
                              nineHoleSegment: segment)
+        form.scoringFormat = scoringFormat
+        form.playingHandicap = scoringFormat == "STABLEFORD" ? playingHandicap : ""
         return LiveRoundState(tee: RoundTee(course: course, tee: tee), form: form,
                               scorecardSource: card.source,
                               holeEntries: card.holes.map(RoundHole.init))
@@ -175,10 +193,16 @@ struct LiveRoundState: Codable {
 struct LiveDraft: Codable {
     let id: String
     let state: LiveRoundState
+    let revision: Int
 }
 
 struct LiveDraftResponse: Codable {
     let draft: LiveDraft?
+}
+
+struct StoredRound: Codable {
+    let state: LiveRoundState
+    let revision: Int
 }
 
 struct HistoryRound: Decodable, Identifiable {

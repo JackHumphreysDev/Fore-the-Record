@@ -34,12 +34,14 @@ private struct AuthResult: Decodable {
 enum NetworkError: LocalizedError {
     case notConfigured
     case invalidResponse
+    case conflict
     case server(String)
 
     var errorDescription: String? {
         switch self {
         case .notConfigured: "Enter the Supabase URL and publishable key first."
         case .invalidResponse: "The server returned an unexpected response."
+        case .conflict: "This live round changed on another device."
         case .server(let message): message
         }
     }
@@ -97,6 +99,7 @@ struct APIClient {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw NetworkError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else {
+            if http.statusCode == 409 { throw NetworkError.conflict }
             let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             let message = object?["error"] as? String ?? object?["msg"] as? String ??
                           object?["message"] as? String ?? "Request failed (HTTP \(http.statusCode))."
@@ -165,8 +168,8 @@ struct APIClient {
                               token: token, as: ScorecardResponse.self)
     }
 
-    func liveDraft(token: String) async throws -> LiveRoundState? {
-        try await call(endpoint("api/users/me/live-round"), token: token, as: LiveDraftResponse.self).draft?.state
+    func liveDraft(token: String) async throws -> LiveDraft? {
+        try await call(endpoint("api/users/me/live-round"), token: token, as: LiveDraftResponse.self).draft
     }
 
     func history(token: String) async throws -> [HistoryRound] {
@@ -177,10 +180,16 @@ struct APIClient {
         try await call(endpoint("api/users/me/friends"), token: token, as: FriendsResponse.self)
     }
 
-    func saveDraft(_ state: LiveRoundState, token: String) async throws {
-        let body = try JSONEncoder().encode(["state": state])
-        let _: LiveDraftResponse = try await call(endpoint("api/users/me/live-round"), method: "PUT",
-                                                   token: token, body: body, as: LiveDraftResponse.self)
+    func saveDraft(_ state: LiveRoundState, expectedRevision: Int, token: String) async throws -> LiveDraft {
+        struct Body: Encodable {
+            let state: LiveRoundState
+            let expectedRevision: Int
+        }
+        let body = try JSONEncoder().encode(Body(state: state, expectedRevision: expectedRevision))
+        let response: LiveDraftResponse = try await call(endpoint("api/users/me/live-round"), method: "PUT",
+                                                         token: token, body: body, as: LiveDraftResponse.self)
+        guard let draft = response.draft else { throw NetworkError.invalidResponse }
+        return draft
     }
 }
 

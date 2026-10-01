@@ -19,11 +19,18 @@ final class RoundStore: ObservableObject {
     @Published var busy = false
     @Published var message = ""
     @Published var syncStatus = "Saved on this iPhone"
+    @Published var hasConflict = false
+    @Published var accountCopy: LiveRoundState?
     @Published var supabaseURL = configuration("supabaseURL", bundleKey: "SupabaseURL")
     @Published var publishableKey = configuration("publishableKey", bundleKey: "SupabasePublishableKey")
     @Published var apiURL = configuration("apiURL", bundleKey: "APIURL")
     @Published var pins: [String: GreenPins] = [:]
     private var editSerial = 0
+    private var serverRevision = 0
+    private var syncTask: Task<Void, Never>?
+    private var syncing = false
+    private var pendingSync = false
+    private var accountRevision = 0
 
     private var client: APIClient? {
         guard let api = URL(string: apiURL), let supabase = URL(string: supabaseURL),
@@ -83,11 +90,15 @@ final class RoundStore: ObservableObject {
     }
 
     func signOut() {
+        syncTask?.cancel()
         if let storage { try? FileManager.default.removeItem(at: storage) }
         if let pinsStorage { try? FileManager.default.removeItem(at: pinsStorage) }
         Keychain.clear()
         session = nil
         draft = nil
+        serverRevision = 0
+        hasConflict = false
+        accountCopy = nil
         pins = [:]
         courses = []
         history = []
@@ -126,15 +137,22 @@ final class RoundStore: ObservableObject {
         } catch { message = error.localizedDescription }
     }
 
-    func start(course: CatalogueCourse, tee: CatalogueTee, segment: String) async {
+    func start(course: CatalogueCourse, tee: CatalogueTee, segment: String,
+               scoringFormat: String, playingHandicap: String) async {
         guard let client, session != nil else { return }
         guard draft == nil else { message = "Finish or resume your current round first."; return }
+        if scoringFormat == "STABLEFORD" &&
+            (Int(playingHandicap).map { !(-20...54).contains($0) } ?? true) {
+            message = "Enter a Playing Handicap from -20 to 54 for Stableford."
+            return
+        }
         busy = true
         defer { busy = false }
         do {
             let token = try await token(for: client)
             if let existing = try await client.liveDraft(token: token) {
-                draft = existing
+                draft = existing.state
+                serverRevision = existing.revision
                 saveLocal()
                 message = "Resumed the live round already saved to your account."
                 return
@@ -146,7 +164,9 @@ final class RoundStore: ObservableObject {
                 return
             }
             draft = LiveRoundState.start(course: course, tee: tee, card: card,
-                                         segment: segment == "ALL" ? "FRONT_NINE" : segment)
+                                         segment: segment == "ALL" ? "FRONT_NINE" : segment,
+                                         scoringFormat: scoringFormat, playingHandicap: playingHandicap)
+            serverRevision = 0
             editSerial += 1
             saveLocal()
             message = ""
@@ -160,7 +180,9 @@ final class RoundStore: ObservableObject {
         defer { busy = false }
         do {
             let token = try await token(for: client)
-            draft = try await client.liveDraft(token: token)
+            let accountDraft = try await client.liveDraft(token: token)
+            draft = accountDraft?.state
+            serverRevision = accountDraft?.revision ?? 0
             if draft != nil { saveLocal(); syncStatus = "Saved to account" }
         } catch { message = error.localizedDescription }
     }
@@ -172,6 +194,35 @@ final class RoundStore: ObservableObject {
         draft = current
         editSerial += 1
         saveLocal()
+        scheduleSync()
+    }
+
+    func setPickedUp(_ pickedUp: Bool) {
+        guard var current = draft, current.form.scoringFormat == "STABLEFORD" else { return }
+        current.holeEntries[current.currentHoleIndex].pickedUp = pickedUp
+        if pickedUp { current.holeEntries[current.currentHoleIndex].strokesTaken = "" }
+        draft = current
+        editSerial += 1
+        saveLocal()
+        scheduleSync()
+    }
+
+    func setPutts(_ value: Int?) {
+        guard var current = draft else { return }
+        current.holeEntries[current.currentHoleIndex].putts = value.map(String.init) ?? ""
+        draft = current
+        editSerial += 1
+        saveLocal()
+        scheduleSync()
+    }
+
+    func setPenaltyStrokes(_ value: Int?) {
+        guard var current = draft else { return }
+        current.holeEntries[current.currentHoleIndex].penaltyStrokes = value.map(String.init) ?? ""
+        draft = current
+        editSerial += 1
+        saveLocal()
+        scheduleSync()
     }
 
     func setHole(_ index: Int) {
@@ -180,21 +231,84 @@ final class RoundStore: ObservableObject {
         draft = current
         editSerial += 1
         saveLocal()
+        scheduleSync()
     }
 
     func sync() async {
-        guard let current = draft, let client, session != nil else { return }
-        let syncedSerial = editSerial
-        syncStatus = "Syncing"
-        do {
-            let token = try await token(for: client)
-            try await client.saveDraft(current, token: token)
-            if editSerial == syncedSerial { syncStatus = "Saved to account" }
-            else { syncStatus = "New edits saved on this iPhone" }
-            message = ""
-        } catch {
-            syncStatus = "Saved on this iPhone · sync failed"
-            message = error.localizedDescription
+        guard !hasConflict, let client, session != nil else { return }
+        if syncing { pendingSync = true; return }
+        syncing = true
+        defer { syncing = false }
+        repeat {
+            pendingSync = false
+            guard let current = draft else { return }
+            let sentSerial = editSerial
+            let sentRevision = serverRevision
+            syncStatus = "Syncing"
+            do {
+                let token = try await token(for: client)
+                let saved = try await client.saveDraft(current, expectedRevision: sentRevision, token: token)
+                serverRevision = saved.revision
+                saveLocal()
+                if editSerial == sentSerial {
+                    syncStatus = "Saved to account"
+                    message = ""
+                } else {
+                    syncStatus = "New edits saved on this iPhone"
+                    pendingSync = true
+                }
+            } catch NetworkError.conflict {
+                do {
+                    let token = try await token(for: client)
+                    let latest = try await client.liveDraft(token: token)
+                    accountCopy = latest?.state
+                    accountRevision = latest?.revision ?? 0
+                    hasConflict = true
+                    syncStatus = "Sync conflict · scores kept on this iPhone"
+                    message = latest == nil
+                        ? "The account draft was removed. Your iPhone card is still safe here."
+                        : "The account card changed elsewhere. Choose which card to keep."
+                } catch {
+                    syncStatus = "Saved on this iPhone · sync failed"
+                    message = error.localizedDescription
+                }
+                return
+            } catch {
+                syncStatus = "Saved on this iPhone · sync failed"
+                message = error.localizedDescription
+                return
+            }
+        } while pendingSync
+    }
+
+    func useAccountCopy() {
+        guard hasConflict, let accountCopy else { return }
+        syncTask?.cancel()
+        draft = accountCopy
+        serverRevision = accountRevision
+        hasConflict = false
+        self.accountCopy = nil
+        editSerial += 1
+        saveLocal()
+        syncStatus = "Saved to account"
+        message = ""
+    }
+
+    func keepIPhoneCopy() async {
+        guard hasConflict else { return }
+        serverRevision = accountRevision
+        hasConflict = false
+        accountCopy = nil
+        saveLocal()
+        await sync()
+    }
+
+    private func scheduleSync() {
+        guard !hasConflict else { return }
+        syncTask?.cancel()
+        syncTask = Task {
+            try? await Task.sleep(for: .milliseconds(800))
+            if !Task.isCancelled { await sync() }
         }
     }
 
@@ -224,7 +338,7 @@ final class RoundStore: ObservableObject {
     private func saveLocal() {
         guard let draft, let storage else { return }
         do {
-            let data = try JSONEncoder().encode(draft)
+            let data = try JSONEncoder().encode(StoredRound(state: draft, revision: serverRevision))
             try data.write(to: storage, options: [.atomic, .completeFileProtection])
             syncStatus = "Saved on this iPhone"
         } catch {
@@ -235,10 +349,13 @@ final class RoundStore: ObservableObject {
 
     private func loadLocal() {
         if let storage, let data = try? Data(contentsOf: storage) {
-            let stored = try? JSONDecoder().decode(LiveRoundState.self, from: data)
-            if let stored, stored.holeEntries.indices.contains(stored.currentHoleIndex),
+            let envelope = try? JSONDecoder().decode(StoredRound.self, from: data)
+            let legacy = envelope == nil ? try? JSONDecoder().decode(LiveRoundState.self, from: data) : nil
+            if let stored = envelope?.state ?? legacy,
+               stored.holeEntries.indices.contains(stored.currentHoleIndex),
                stored.holeEntries.count == stored.form.holeCount {
                 draft = stored
+                serverRevision = envelope?.revision ?? 0
             }
         }
         if let pinsStorage, let data = try? Data(contentsOf: pinsStorage) {

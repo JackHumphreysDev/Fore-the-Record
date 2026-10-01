@@ -16,7 +16,7 @@ const state = {
 describe('live round API validation', () => {
   it('accepts a resumable draft response', () => {
     expect(isLiveRoundDraftState(state)).toBe(true)
-    expect(isLiveRoundResponse({ draft: { id: 'draft', teeId, state, createdAt: '2026-09-23T10:00:00.000Z', updatedAt: '2026-09-23T10:00:00.000Z' } })).toBe(true)
+    expect(isLiveRoundResponse({ draft: { id: 'draft', teeId, state, revision: 1, createdAt: '2026-09-23T10:00:00.000Z', updatedAt: '2026-09-23T10:00:00.000Z' } })).toBe(true)
   })
   it('accepts no active draft and rejects team drafts', () => {
     expect(isLiveRoundResponse({ draft: null })).toBe(true)
