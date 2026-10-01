@@ -31,6 +31,7 @@ final class RoundStore: ObservableObject {
     private var syncing = false
     private var pendingSync = false
     private var accountRevision = 0
+    private var sessionEpoch = 0
 
     private var client: APIClient? {
         guard let api = URL(string: apiURL), let supabase = URL(string: supabaseURL),
@@ -44,7 +45,11 @@ final class RoundStore: ObservableObject {
         if let expiry = session.expiresAt, expiry > Date().addingTimeInterval(60) {
             return session.accessToken
         }
+        let epoch = sessionEpoch
         let renewed = try await client.refresh(session)
+        guard sessionEpoch == epoch, self.session?.userId == session.userId else {
+            throw NetworkError.server("The account changed. Sign in again to continue.")
+        }
         try Keychain.save(renewed)
         self.session = renewed
         return renewed.accessToken
@@ -79,20 +84,24 @@ final class RoundStore: ObservableObject {
         guard let client else { message = NetworkError.notConfigured.localizedDescription; return }
         busy = true
         defer { busy = false }
+        let epoch = sessionEpoch
         do {
             let result = try await client.signIn(email: email, password: password)
+            guard sessionEpoch == epoch else { return }
             try Keychain.save(result)
+            sessionEpoch += 1
             session = result
             message = ""
             loadLocal()
             await resume()
-        } catch { message = error.localizedDescription }
+        } catch {
+            if sessionEpoch == epoch { message = error.localizedDescription }
+        }
     }
 
     func signOut() {
+        sessionEpoch += 1
         syncTask?.cancel()
-        if let storage { try? FileManager.default.removeItem(at: storage) }
-        if let pinsStorage { try? FileManager.default.removeItem(at: pinsStorage) }
         Keychain.clear()
         session = nil
         draft = nil
@@ -104,42 +113,61 @@ final class RoundStore: ObservableObject {
         history = []
         friends = nil
         message = ""
+        syncStatus = "Saved on this iPhone"
+        syncing = false
+        pendingSync = false
     }
 
     func search(_ term: String) async {
         guard let client, session != nil else { return }
+        let epoch = sessionEpoch
         let query = term.trimmingCharacters(in: .whitespacesAndNewlines)
         guard query.count >= 2 else { message = "Enter at least two letters of the club name."; return }
         busy = true
         defer { busy = false }
         do {
             let token = try await token(for: client)
-            courses = try await client.searchCourses(query, token: token)
+            let found = try await client.searchCourses(query, token: token)
+            guard sessionEpoch == epoch else { return }
+            courses = found
             message = courses.isEmpty ? "No courses found. Try the club name." : ""
-        } catch { message = error.localizedDescription }
+        } catch {
+            if sessionEpoch == epoch { message = error.localizedDescription }
+        }
     }
 
     func loadHistory() async {
         guard let client, session != nil else { return }
+        let epoch = sessionEpoch
         do {
             let token = try await token(for: client)
-            history = try await client.history(token: token)
+            let loaded = try await client.history(token: token)
+            guard sessionEpoch == epoch else { return }
+            history = loaded
             message = ""
-        } catch { message = error.localizedDescription }
+        } catch {
+            if sessionEpoch == epoch { message = error.localizedDescription }
+        }
     }
 
     func loadFriends() async {
         guard let client, session != nil else { return }
+        let epoch = sessionEpoch
         do {
             let token = try await token(for: client)
-            friends = try await client.friends(token: token)
+            let loaded = try await client.friends(token: token)
+            guard sessionEpoch == epoch else { return }
+            friends = loaded
             message = ""
-        } catch { message = error.localizedDescription }
+        } catch {
+            if sessionEpoch == epoch { message = error.localizedDescription }
+        }
     }
 
     func start(course: CatalogueCourse, tee: CatalogueTee, segment: String,
                scoringFormat: String, playingHandicap: String) async {
         guard let client, session != nil else { return }
+        let epoch = sessionEpoch
         guard draft == nil else { message = "Finish or resume your current round first."; return }
         if scoringFormat == "STABLEFORD" &&
             (Int(playingHandicap).map { !(-20...54).contains($0) } ?? true) {
@@ -150,7 +178,9 @@ final class RoundStore: ObservableObject {
         defer { busy = false }
         do {
             let token = try await token(for: client)
-            if let existing = try await client.liveDraft(token: token) {
+            let existing = try await client.liveDraft(token: token)
+            guard sessionEpoch == epoch else { return }
+            if let existing {
                 draft = existing.state
                 serverRevision = existing.revision
                 saveLocal()
@@ -158,6 +188,7 @@ final class RoundStore: ObservableObject {
                 return
             }
             let card = try await client.scorecard(teeId: tee.id, segment: segment, token: token)
+            guard sessionEpoch == epoch else { return }
             let required = segment == "ALL" ? 18 : 9
             guard card.status == "available", card.holes.count == required else {
                 message = "This tee needs a complete verified scorecard before the iPhone can start a round."
@@ -171,20 +202,26 @@ final class RoundStore: ObservableObject {
             saveLocal()
             message = ""
             await sync()
-        } catch { message = error.localizedDescription }
+        } catch {
+            if sessionEpoch == epoch { message = error.localizedDescription }
+        }
     }
 
     func resume() async {
         guard draft == nil, let client, session != nil else { return }
+        let epoch = sessionEpoch
         busy = true
         defer { busy = false }
         do {
             let token = try await token(for: client)
             let accountDraft = try await client.liveDraft(token: token)
+            guard sessionEpoch == epoch else { return }
             draft = accountDraft?.state
             serverRevision = accountDraft?.revision ?? 0
             if draft != nil { saveLocal(); syncStatus = "Saved to account" }
-        } catch { message = error.localizedDescription }
+        } catch {
+            if sessionEpoch == epoch { message = error.localizedDescription }
+        }
     }
 
     func setScore(_ score: Int?) {
@@ -237,9 +274,11 @@ final class RoundStore: ObservableObject {
     func sync() async {
         guard !hasConflict, let client, session != nil else { return }
         if syncing { pendingSync = true; return }
+        let epoch = sessionEpoch
         syncing = true
-        defer { syncing = false }
+        defer { if sessionEpoch == epoch { syncing = false } }
         repeat {
+            guard sessionEpoch == epoch else { return }
             pendingSync = false
             guard let current = draft else { return }
             let sentSerial = editSerial
@@ -248,6 +287,7 @@ final class RoundStore: ObservableObject {
             do {
                 let token = try await token(for: client)
                 let saved = try await client.saveDraft(current, expectedRevision: sentRevision, token: token)
+                guard sessionEpoch == epoch else { return }
                 serverRevision = saved.revision
                 saveLocal()
                 if editSerial == sentSerial {
@@ -261,6 +301,7 @@ final class RoundStore: ObservableObject {
                 do {
                     let token = try await token(for: client)
                     let latest = try await client.liveDraft(token: token)
+                    guard sessionEpoch == epoch else { return }
                     accountCopy = latest?.state
                     accountRevision = latest?.revision ?? 0
                     hasConflict = true
@@ -269,11 +310,13 @@ final class RoundStore: ObservableObject {
                         ? "The account draft was removed. Your iPhone card is still safe here."
                         : "The account card changed elsewhere. Choose which card to keep."
                 } catch {
+                    guard sessionEpoch == epoch else { return }
                     syncStatus = "Saved on this iPhone · sync failed"
                     message = error.localizedDescription
                 }
                 return
             } catch {
+                guard sessionEpoch == epoch else { return }
                 syncStatus = "Saved on this iPhone · sync failed"
                 message = error.localizedDescription
                 return
@@ -348,6 +391,9 @@ final class RoundStore: ObservableObject {
     }
 
     private func loadLocal() {
+        draft = nil
+        pins = [:]
+        serverRevision = 0
         if let storage, let data = try? Data(contentsOf: storage) {
             let envelope = try? JSONDecoder().decode(StoredRound.self, from: data)
             let legacy = envelope == nil ? try? JSONDecoder().decode(LiveRoundState.self, from: data) : nil

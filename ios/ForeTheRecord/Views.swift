@@ -449,7 +449,7 @@ struct AccountView: View {
                     #endif
                 }
                 Section("Data") {
-                    Text("Round drafts and personal map pins are stored on this iPhone. Score edits sync to your account when connected.")
+                    Text("Round drafts and personal map pins stay on this iPhone when you sign out. They reappear only when you sign back in to the same account. Score edits sync when connected.")
                     Text("Map imagery requires a connection. Location is used only while the GPS screen is open.")
                 }
                 Section {
@@ -460,10 +460,10 @@ struct AccountView: View {
             #if DEBUG
             .sheet(isPresented: $showConnection) { ConnectionView() }
             #endif
-            .confirmationDialog("Sign out and remove local round data?", isPresented: $showSignOut) {
-                Button("Sign out and remove local data", role: .destructive) { store.signOut() }
+            .confirmationDialog("Sign out?", isPresented: $showSignOut) {
+                Button("Sign out", role: .destructive) { store.signOut() }
             } message: {
-                Text("Sync your round first if you want to keep edits made on this iPhone.")
+                Text("Your round and personal map pins will stay on this iPhone for this account.")
             }
         }
     }
