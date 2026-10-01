@@ -70,6 +70,7 @@ export type LiveRoundDraftState = {
 export type LiveRoundDraft = {
   id: string
   teeId: string
+  revision: number
   state: LiveRoundDraftState
   createdAt: string
   updatedAt: string
@@ -130,6 +131,7 @@ export function isLiveRoundDraftState(value: unknown): value is LiveRoundDraftSt
 export function isLiveRoundResponse(value: unknown): value is { draft: LiveRoundDraft | null } {
   if (!record(value) || value.draft === null) return record(value) && value.draft === null
   return record(value.draft) && typeof value.draft.id === 'string' && typeof value.draft.teeId === 'string' &&
+    Number.isInteger(value.draft.revision) && Number(value.draft.revision) >= 0 &&
     typeof value.draft.createdAt === 'string' && typeof value.draft.updatedAt === 'string' &&
     isLiveRoundDraftState(value.draft.state)
 }

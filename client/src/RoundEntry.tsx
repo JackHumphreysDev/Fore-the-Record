@@ -374,6 +374,10 @@ function RoundEntry({
   const [matchPlayDraft, setMatchPlayDraft] = useState<MatchPlayDraft>({})
   const [teamCompetitionDraft, setTeamCompetitionDraft] = useState<TeamCompetitionDraft>(emptyTeamCompetitionDraft)
   const [liveRoundId, setLiveRoundId] = useState<string | null>(null)
+  const liveRevision = useRef(0)
+  const liveSaveQueue = useRef<Promise<boolean>>(Promise.resolve(true))
+  const liveConflict = useRef(false)
+  const [hasLiveConflict, setHasLiveConflict] = useState(false)
   const [liveRoundTee, setLiveRoundTee] = useState<TeeOption | null>(null)
   const [liveCurrentHoleIndex, setLiveCurrentHoleIndex] = useState(0)
   const [liveMode, setLiveMode] = useState<'standard' | 'active' | 'review'>('standard')
@@ -548,6 +552,9 @@ function RoundEntry({
         setMatchPlayDraft(state.matchPlayDraft)
         setLiveCurrentHoleIndex(state.currentHoleIndex)
         setLiveRoundId(body.draft.id)
+        liveRevision.current = body.draft.revision
+        liveConflict.current = false
+        setHasLiveConflict(false)
         setLiveMode('active')
         setLiveSaveState('saved')
         setLiveMessage(`Resumed your live round from hole ${state.holeEntries[state.currentHoleIndex]?.holeNumber ?? 1}.`)
@@ -628,7 +635,7 @@ function RoundEntry({
   // The active-round draft writer intentionally follows all mutable scorecard state.
   // oxlint-disable react-hooks/exhaustive-deps
   useEffect(() => {
-    if (liveMode !== 'active' || !selectedTee || scorecardStatus === 'idle' || scorecardStatus === 'loading') return
+    if (liveMode !== 'active' || liveConflict.current || !selectedTee || scorecardStatus === 'idle' || scorecardStatus === 'loading') return
     const timeout = window.setTimeout(() => { void saveLiveRound(liveCurrentHoleIndex) }, 650)
     return () => window.clearTimeout(timeout)
   }, [form, holeEntries, matchPlayDraft, liveCurrentHoleIndex, liveMode, scorecardSource, scorecardStatus, selectedTee])
@@ -949,18 +956,37 @@ function RoundEntry({
   async function saveLiveRound(currentHoleIndex: number): Promise<boolean> {
     const state = buildLiveRoundState(currentHoleIndex)
     if (!state) return false
+    if (liveConflict.current) return false
+    const save = async (): Promise<boolean> => {
+      if (liveConflict.current) return false
+      return writeLiveRound(state)
+    }
+    const queued = liveSaveQueue.current.then(save, save)
+    liveSaveQueue.current = queued
+    return queued
+  }
+
+  async function writeLiveRound(state: LiveRoundDraftState): Promise<boolean> {
     setLiveSaveState('saving')
     try {
       const response = await authenticatedFetch('/api/users/me/live-round', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state }),
+        body: JSON.stringify({ state, expectedRevision: liveRevision.current }),
       })
       const body: unknown = await response.json().catch(() => null)
+      if (response.status === 409) {
+        liveConflict.current = true
+        setHasLiveConflict(true)
+        setLiveSaveState('error')
+        setLiveMessage('This card changed on another device. Your browser edits are still here. Choose which card to keep.')
+        return false
+      }
       if (!response.ok || !isLiveRoundResponse(body) || !body.draft) {
         throw new Error(await readApiError(response, 'We could not save this live round.'))
       }
       setLiveRoundId(body.draft.id)
+      liveRevision.current = body.draft.revision
       setLiveSaveState('saved')
       setLiveMessage('Progress saved.')
       return true
@@ -968,6 +994,43 @@ function RoundEntry({
       setLiveSaveState('error')
       setLiveMessage(error instanceof Error ? error.message : 'We could not save this live round.')
       return false
+    }
+  }
+
+  async function resolveLiveConflict(useBrowser: boolean) {
+    try {
+      await liveSaveQueue.current
+      const response = await authenticatedFetch('/api/users/me/live-round')
+      const body: unknown = await response.json().catch(() => null)
+      if (!response.ok || !isLiveRoundResponse(body)) throw new Error('Could not load the account card.')
+      liveRevision.current = body.draft?.revision ?? 0
+      if (useBrowser) {
+        const state = buildLiveRoundState(liveCurrentHoleIndex)
+        if (!state) return
+        liveConflict.current = false
+        setHasLiveConflict(false)
+        await writeLiveRound(state)
+        return
+      }
+      if (!body.draft) {
+        setLiveMessage('The account card was removed. Keep the browser card to save it as a new draft.')
+        return
+      }
+      const { state } = body.draft
+      setForm(state.form)
+      setLiveRoundTee(state.tee)
+      setScorecardStatus(state.scorecardStatus)
+      setScorecardSource(state.scorecardSource)
+      setHoleEntries(state.holeEntries)
+      setMatchPlayDraft(state.matchPlayDraft)
+      setLiveCurrentHoleIndex(state.currentHoleIndex)
+      setLiveRoundId(body.draft.id)
+      liveConflict.current = false
+      setHasLiveConflict(false)
+      setLiveSaveState('saved')
+      setLiveMessage('Loaded the account card.')
+    } catch (error: unknown) {
+      setLiveMessage(error instanceof Error ? error.message : 'Could not resolve the card conflict.')
     }
   }
 
@@ -1050,6 +1113,9 @@ function RoundEntry({
       return
     }
     setLiveRoundId(null)
+    liveRevision.current = 0
+    liveConflict.current = false
+    setHasLiveConflict(false)
     setLiveRoundTee(null)
     setLiveMode('standard')
     setLiveSaveState('idle')
@@ -1370,6 +1436,9 @@ function RoundEntry({
         teeLabel: `${selectedTee.clubName} · ${selectedTee.courseName} · ${selectedTee.teeName}`,
       })
       setLiveRoundId(null)
+      liveRevision.current = 0
+      liveConflict.current = false
+      setHasLiveConflict(false)
       setLiveRoundTee(null)
       setLiveMode('standard')
       setLiveSaveState('idle')
@@ -1443,6 +1512,7 @@ function RoundEntry({
         <div className={`live-save-state live-save-${liveSaveState}`}><strong>{liveSaveState === 'saving' ? 'Saving…' : liveSaveState === 'error' ? 'Save failed' : 'Progress saved'}</strong><small>{form.holeCount} holes · {form.scoringFormat === 'STABLEFORD' ? 'Stableford' : 'Stroke play'}</small></div>
       </header>
       {liveMessage ? <p className={liveSaveState === 'error' ? 'round-course-search-error' : 'live-round-message'} role={liveSaveState === 'error' ? 'alert' : 'status'}>{liveMessage}</p> : null}
+      {hasLiveConflict ? <div className="live-round-actions"><button type="button" className="round-secondary-button" onClick={() => void resolveLiveConflict(false)}>Use account card</button><button type="button" className="round-primary-button" onClick={() => void resolveLiveConflict(true)}>Keep browser card</button></div> : null}
       <div className="live-round-progress" aria-label={`${completedStrokeCount} of ${expectedHoleCount} holes completed`}><span style={{ width: `${completedStrokeCount / expectedHoleCount * 100}%` }} /></div>
       <form className="live-hole-card" onSubmit={handleSubmit} noValidate>
         <div className="live-hole-heading"><div><p className="form-kicker">Hole {hole.holeNumber} of {holeEntries[holeEntries.length - 1].holeNumber}</p><h2>Play the next one.</h2></div><div><small>Running score</small><strong>{completedStrokes || '—'}</strong><span>{completedStrokes ? `${relativeToPar > 0 ? '+' : ''}${relativeToPar} to par` : 'Awaiting score'}</span></div></div>

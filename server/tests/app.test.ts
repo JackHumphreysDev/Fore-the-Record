@@ -47,6 +47,8 @@ const {
   roundDeleteManyMock,
   liveRoundDraftFindUniqueMock,
   liveRoundDraftUpsertMock,
+  liveRoundDraftUpdateMock,
+  liveRoundDraftCreateMock,
   liveRoundDraftDeleteManyMock,
   submissionCountMock,
   submissionCreateMock,
@@ -156,6 +158,8 @@ const {
   roundDeleteManyMock: vi.fn(),
   liveRoundDraftFindUniqueMock: vi.fn(),
   liveRoundDraftUpsertMock: vi.fn(),
+  liveRoundDraftUpdateMock: vi.fn(),
+  liveRoundDraftCreateMock: vi.fn(),
   liveRoundDraftDeleteManyMock: vi.fn(),
   submissionCountMock: vi.fn(),
   submissionCreateMock: vi.fn(),
@@ -336,6 +340,8 @@ vi.mock('../src/database.js', () => ({
     liveRoundDraft: {
       findUnique: liveRoundDraftFindUniqueMock,
       upsert: liveRoundDraftUpsertMock,
+      update: liveRoundDraftUpdateMock,
+      create: liveRoundDraftCreateMock,
       deleteMany: liveRoundDraftDeleteManyMock,
     },
     submission: {
@@ -507,6 +513,8 @@ beforeEach(() => {
   roundDeleteManyMock.mockResolvedValue({ count: 0 })
   liveRoundDraftFindUniqueMock.mockReset()
   liveRoundDraftUpsertMock.mockReset()
+  liveRoundDraftUpdateMock.mockReset()
+  liveRoundDraftCreateMock.mockReset()
   liveRoundDraftDeleteManyMock.mockReset()
   liveRoundDraftDeleteManyMock.mockResolvedValue({ count: 0 })
   submissionCountMock.mockReset()
@@ -634,7 +642,7 @@ describe('live round drafts', () => {
     expect(response.body).toEqual({ draft: null })
     expect(liveRoundDraftFindUniqueMock).toHaveBeenCalledWith({
       where: { userId },
-      select: { id: true, teeId: true, state: true, createdAt: true, updatedAt: true },
+      select: { id: true, teeId: true, state: true, revision: true, createdAt: true, updatedAt: true },
     })
   })
 
@@ -642,16 +650,58 @@ describe('live round drafts', () => {
     const now = new Date('2026-09-23T10:00:00.000Z')
     userFindUniqueMock.mockResolvedValueOnce({ id: userId })
     teeFindUniqueMock.mockResolvedValueOnce({ id: teeId })
-    liveRoundDraftUpsertMock.mockResolvedValueOnce({ id: 'draft', teeId, state, createdAt: now, updatedAt: now })
+    liveRoundDraftUpsertMock.mockResolvedValueOnce({ id: 'draft', teeId, state, revision: 1, createdAt: now, updatedAt: now })
     const response = await request(app).put('/api/users/me/live-round').send({ state })
     expect(response.status).toBe(200)
     expect(response.body.draft.id).toBe('draft')
     expect(liveRoundDraftUpsertMock).toHaveBeenCalledWith({
       where: { userId },
-      create: { userId, teeId, state },
-      update: { teeId, state },
-      select: { id: true, teeId: true, state: true, createdAt: true, updatedAt: true },
+      create: { userId, teeId, state, revision: 1 },
+      update: { teeId, state, revision: { increment: 1 } },
+      select: { id: true, teeId: true, state: true, revision: true, createdAt: true, updatedAt: true },
     })
+  })
+
+  it('updates only the expected live-round revision', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    teeFindUniqueMock.mockResolvedValueOnce({ id: teeId })
+    liveRoundDraftUpdateMock.mockResolvedValueOnce({ id: 'draft', teeId, state, revision: 3 })
+    const response = await request(app).put('/api/users/me/live-round').send({ state, expectedRevision: 2 })
+    expect(response.status).toBe(200)
+    expect(response.body.draft.revision).toBe(3)
+    expect(liveRoundDraftUpdateMock).toHaveBeenCalledWith({
+      where: { userId, revision: 2 },
+      data: { teeId, state, revision: { increment: 1 } },
+      select: { id: true, teeId: true, state: true, revision: true, createdAt: true, updatedAt: true },
+    })
+  })
+
+  it('does not overwrite a draft changed on another device', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    teeFindUniqueMock.mockResolvedValueOnce({ id: teeId })
+    liveRoundDraftUpdateMock.mockRejectedValueOnce({ code: 'P2025' })
+    const response = await request(app).put('/api/users/me/live-round').send({ state, expectedRevision: 2 })
+    expect(response.status).toBe(409)
+    expect(liveRoundDraftUpsertMock).not.toHaveBeenCalled()
+  })
+
+  it('creates a first revision when no account draft exists', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    teeFindUniqueMock.mockResolvedValueOnce({ id: teeId })
+    liveRoundDraftUpdateMock.mockRejectedValueOnce({ code: 'P2025' })
+    liveRoundDraftCreateMock.mockResolvedValueOnce({ id: 'draft', teeId, state, revision: 1 })
+    const response = await request(app).put('/api/users/me/live-round').send({ state, expectedRevision: 0 })
+    expect(response.status).toBe(200)
+    expect(response.body.draft.revision).toBe(1)
+  })
+
+  it('rejects a stale first save when another device created the draft', async () => {
+    userFindUniqueMock.mockResolvedValueOnce({ id: userId })
+    teeFindUniqueMock.mockResolvedValueOnce({ id: teeId })
+    liveRoundDraftUpdateMock.mockRejectedValueOnce({ code: 'P2025' })
+    liveRoundDraftCreateMock.mockRejectedValueOnce({ code: 'P2002' })
+    const response = await request(app).put('/api/users/me/live-round').send({ state, expectedRevision: 0 })
+    expect(response.status).toBe(409)
   })
 
   it('rejects an invalid draft and deletes only the current player draft', async () => {
