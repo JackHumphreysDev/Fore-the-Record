@@ -122,6 +122,7 @@ import {
   logRound,
   parseLogRoundInput,
   RoundPlayingPartnersError,
+  RoundDraftConflictError,
   RoundReferenceNotFoundError,
 } from './rounds.js'
 import { asLiveRoundJson, parseLiveRoundDraftState } from './liveRounds.js'
@@ -7548,6 +7549,22 @@ app.get('/api/users/me/live-round', async (_request, response) => {
   })
 })
 
+app.get('/api/users/me/live-round/submissions/:draftId', async (request, response) => {
+  const draftId = request.params.draftId
+  if (!draftId || !UUID_PATTERN.test(draftId)) return response.status(400).json({ error: 'Invalid live round ID' })
+  const authenticatedUser = getRequestUser(response.locals)
+  const profile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id },
+    select: { id: true },
+  })
+  if (!profile) return response.status(404).json({ error: 'Profile not found' })
+  const round = await prisma.round.findFirst({
+    where: { userId: profile.id, sourceLiveRoundDraftId: draftId },
+    select: { id: true },
+  })
+  return response.status(200).json({ roundId: round?.id ?? null })
+})
+
 app.put('/api/users/me/live-round', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const profile = await prisma.user.findUnique({
@@ -7655,6 +7672,12 @@ app.post('/api/rounds', async (request, response) => {
 
     if (error instanceof RoundPlayingPartnersError) {
       response.status(400).json({ error: error.message })
+      return
+    }
+
+    if (error instanceof RoundDraftConflictError ||
+        (isRecord(error) && (error.code === 'P2002' || error.code === 'P2025') && input.liveRoundDraftId)) {
+      response.status(409).json({ error: 'The live round changed or was already submitted. Check its saved status before retrying.' })
       return
     }
 

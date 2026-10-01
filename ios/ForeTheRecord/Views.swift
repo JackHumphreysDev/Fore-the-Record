@@ -17,7 +17,8 @@ struct RootView: View {
                 HomeView()
                     .tabItem { Label("Home", systemImage: "house") }
                 NavigationStack {
-                    if store.draft == nil { StartRoundView() }
+                    if store.lastSubmittedRoundId != nil { RoundSavedView() }
+                    else if store.draft == nil { StartRoundView() }
                     else { PlayingView() }
                 }
                 .tabItem { Label("Play", systemImage: "figure.golf") }
@@ -233,6 +234,7 @@ struct StartRoundView: View {
 
 struct PlayingView: View {
     @EnvironmentObject private var store: RoundStore
+    @State private var showReview = false
     @State private var page = "Score"
 
     var body: some View {
@@ -271,6 +273,7 @@ struct PlayingView: View {
                         .disabled(draft.currentHoleIndex == draft.holeEntries.count - 1)
                 }
                 .buttonStyle(.bordered)
+                .disabled(store.submitting || store.submissionPendingVerification)
                 .padding()
                 Text(store.syncStatus)
                     .font(.caption)
@@ -285,6 +288,13 @@ struct PlayingView: View {
     private func scoreView(_ draft: LiveRoundState) -> some View {
         ScrollView {
             VStack(spacing: 24) {
+                if store.submissionPendingVerification {
+                    Text("Submission status is unconfirmed. Your card is saved on this iPhone. Open Review to check or retry before changing scores.")
+                        .font(.subheadline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(.orange.opacity(0.15), in: RoundedRectangle(cornerRadius: 18))
+                }
                 if store.hasConflict {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Choose which card to keep")
@@ -340,6 +350,7 @@ struct PlayingView: View {
                 .frame(maxWidth: .infinity)
                 .padding(25)
                 .background(.white, in: RoundedRectangle(cornerRadius: 20))
+                .disabled(store.submitting || store.submissionPendingVerification)
 
                 HStack {
                     summary("Gross", "\(draft.gross)")
@@ -355,6 +366,7 @@ struct PlayingView: View {
                     ))
                     .padding()
                     .background(.white, in: RoundedRectangle(cornerRadius: 18))
+                    .disabled(store.submitting || store.submissionPendingVerification)
                 }
 
                 DisclosureGroup("Optional hole details") {
@@ -389,6 +401,7 @@ struct PlayingView: View {
                 }
                 .padding()
                 .background(.white, in: RoundedRectangle(cornerRadius: 18))
+                .disabled(store.submitting || store.submissionPendingVerification)
 
                 DisclosureGroup("Full scorecard") {
                     ForEach(Array(draft.holeEntries.enumerated()), id: \.element.id) { index, hole in
@@ -407,13 +420,20 @@ struct PlayingView: View {
                 }
                 .padding()
                 .background(.white, in: RoundedRectangle(cornerRadius: 18))
+                .disabled(store.submitting || store.submissionPendingVerification)
 
                 if draft.completed == draft.holeEntries.count {
-                    Link("Review and submit on website", destination: URL(string: "https://foretherecord.co.uk")!)
-                        .font(.headline)
-                    Text("Submission is not yet available in this iPhone pilot. Your synced card can be resumed on the website.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    if draft.canSubmitNatively {
+                        Button(store.submissionPendingVerification ? "Check submission" : "Review completed round") {
+                            showReview = true
+                        }
+                            .buttonStyle(.borderedProminent)
+                    } else {
+                        Link("Finish this round on the website", destination: URL(string: "https://foretherecord.co.uk")!)
+                        Text("Native submission currently supports casual individual Stroke Play and Stableford rounds.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 if !store.message.isEmpty {
                     Text(store.message).font(.footnote).foregroundStyle(.orange)
@@ -422,6 +442,46 @@ struct PlayingView: View {
             .padding()
         }
         .background(Palette.paper)
+        .sheet(isPresented: $showReview) {
+            NavigationStack {
+                List {
+                    Section("Round") {
+                        Text("\(draft.tee.clubName) · \(draft.tee.courseName)")
+                        Text("\(draft.tee.teeName) · \(draft.holeEntries.count) holes")
+                        Text(draft.form.scoringFormat == "STABLEFORD"
+                             ? "\(draft.stablefordPoints ?? 0) Stableford points"
+                             : "\(draft.gross) strokes")
+                    }
+                    Section("Scorecard") {
+                        ForEach(draft.holeEntries) { hole in
+                            HStack {
+                                Text("Hole \(hole.holeNumber) · Par \(hole.par)")
+                                Spacer()
+                                Text(hole.pickedUp ? "Picked up" : (hole.score.map(String.init) ?? "—"))
+                            }
+                        }
+                    }
+                    Section {
+                        Button(store.submitting ? "Submitting…" :
+                               (store.submissionPendingVerification ? "Check or retry submission" : "Confirm and save round")) {
+                            Task {
+                                await store.submitRound()
+                                if store.lastSubmittedRoundId != nil { showReview = false }
+                            }
+                        }
+                        .disabled(store.submitting)
+                        if !store.message.isEmpty { Text(store.message).foregroundStyle(.orange) }
+                        Text(store.syncStatus).font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                .navigationTitle("Review round")
+                .toolbar { ToolbarItem(placement: .cancellationAction) {
+                    Button("Back") { showReview = false }
+                        .disabled(store.submitting || store.submissionPendingVerification)
+                } }
+            }
+            .interactiveDismissDisabled(store.submitting || store.submissionPendingVerification)
+        }
     }
 
     private func summary(_ label: String, _ value: String) -> some View {
@@ -430,6 +490,26 @@ struct PlayingView: View {
             Text(value).font(.title2.weight(.semibold))
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+struct RoundSavedView: View {
+    @EnvironmentObject private var store: RoundStore
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 60))
+                .foregroundStyle(Palette.forest)
+            Text("Round saved")
+                .font(.largeTitle.weight(.semibold))
+            Text("Your scorecard is in History.")
+                .foregroundStyle(.secondary)
+            Button("Done") { store.dismissSubmission() }
+                .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Palette.paper)
     }
 }
 

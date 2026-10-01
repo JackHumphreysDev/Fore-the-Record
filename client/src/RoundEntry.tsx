@@ -1347,6 +1347,7 @@ function RoundEntry({
         body: JSON.stringify({
           teeId: selectedTee.id,
           ...(liveRoundId ? { liveRoundDraftId: liveRoundId } : {}),
+          ...(liveRoundId ? { expectedDraftRevision: liveRevision.current } : {}),
           datePlayed: form.datePlayed,
           timePlayed: form.timePlayed,
           category: form.category,

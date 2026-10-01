@@ -91,6 +91,7 @@ export type RoundHoleInput = {
 type LogRoundBase = {
   userId: string
   liveRoundDraftId: string | null
+  expectedDraftRevision: number | null
   teeId: string
   datePlayed: Date
   timePlayed: string | null
@@ -150,6 +151,13 @@ export class RoundPlayingPartnersError extends Error {
   constructor() {
     super('Every linked player must be an accepted active friend')
     this.name = 'RoundPlayingPartnersError'
+  }
+}
+
+export class RoundDraftConflictError extends Error {
+  constructor() {
+    super('This live round changed on another device. Review the saved card before submitting.')
+    this.name = 'RoundDraftConflictError'
   }
 }
 
@@ -464,6 +472,12 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     : typeof value.liveRoundDraftId === 'string' && UUID_PATTERN.test(value.liveRoundDraftId)
       ? value.liveRoundDraftId
       : undefined
+  const expectedDraftRevision = value.expectedDraftRevision === undefined || value.expectedDraftRevision === null
+    ? null
+    : typeof value.expectedDraftRevision === 'number' && Number.isInteger(value.expectedDraftRevision) &&
+        value.expectedDraftRevision >= 0 && value.expectedDraftRevision < 2_147_483_647
+      ? value.expectedDraftRevision
+      : undefined
   const nineHoleSegment = holeCount === 9
     ? getNineHoleSegment(value.nineHoleSegment)
     : null
@@ -495,7 +509,9 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     (holeCount === 9 && nineHoleSegment === null) ||
     (holeCount === 18 && value.nineHoleSegment !== undefined && value.nineHoleSegment !== null) ||
     (value.timePlayed !== undefined && timePlayed === null) ||
-    liveRoundDraftId === undefined
+    liveRoundDraftId === undefined ||
+    expectedDraftRevision === undefined ||
+    (expectedDraftRevision !== null && liveRoundDraftId === null)
   ) {
     return null
   }
@@ -588,6 +604,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
     return {
       userId: value.userId,
       liveRoundDraftId,
+      expectedDraftRevision,
       teeId: value.teeId,
       datePlayed,
       timePlayed,
@@ -686,6 +703,7 @@ export function parseLogRoundInput(value: unknown): LogRoundInput | null {
   return {
     userId: value.userId,
     liveRoundDraftId,
+    expectedDraftRevision,
     teeId: value.teeId,
     datePlayed,
     timePlayed,
@@ -771,9 +789,12 @@ export async function logRound(input: LogRoundInput) {
           userId: input.userId,
           teeId: input.teeId,
         },
-        select: { id: true },
+        select: { id: true, revision: true },
       })
       if (!liveRoundDraft) throw new RoundReferenceNotFoundError('liveRound')
+      if (input.expectedDraftRevision !== null && liveRoundDraft.revision !== input.expectedDraftRevision) {
+        throw new RoundDraftConflictError()
+      }
     }
 
     if (input.playingPartnerIds.includes(input.userId)) {
@@ -821,6 +842,7 @@ export async function logRound(input: LogRoundInput) {
       const createdRound = await transaction.round.create({
         data: {
           userId: input.userId,
+          sourceLiveRoundDraftId: input.liveRoundDraftId,
           teeId: input.teeId,
           datePlayed: input.datePlayed,
           timePlayed: input.timePlayed,
@@ -881,7 +903,10 @@ export async function logRound(input: LogRoundInput) {
       })
 
       if (input.liveRoundDraftId) {
-        await transaction.liveRoundDraft.delete({ where: { id: input.liveRoundDraftId } })
+        await transaction.liveRoundDraft.delete({
+          where: { id: input.liveRoundDraftId,
+                   ...(input.expectedDraftRevision === null ? {} : { revision: input.expectedDraftRevision }) },
+        })
       }
 
       return {
@@ -1015,6 +1040,7 @@ export async function logRound(input: LogRoundInput) {
     const createdRound = await transaction.round.create({
       data: {
         userId: input.userId,
+        sourceLiveRoundDraftId: input.liveRoundDraftId,
         teeId: input.teeId,
         datePlayed: input.datePlayed,
         timePlayed: input.timePlayed,
@@ -1158,7 +1184,10 @@ export async function logRound(input: LogRoundInput) {
     })
 
     if (input.liveRoundDraftId) {
-      await transaction.liveRoundDraft.delete({ where: { id: input.liveRoundDraftId } })
+      await transaction.liveRoundDraft.delete({
+        where: { id: input.liveRoundDraftId,
+                 ...(input.expectedDraftRevision === null ? {} : { revision: input.expectedDraftRevision }) },
+      })
     }
 
     return {
