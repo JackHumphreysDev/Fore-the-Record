@@ -11,6 +11,9 @@
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.1.0</string>
     <key>CFBundleVersion</key><string>1</string>
+    <key>SupabaseURL</key><string>https://xiftpqynjccbswyhzyyo.supabase.co</string>
+    <key>APIURL</key><string>https://foretherecord.co.uk</string>
+    <key>SupabasePublishableKey</key><string>sb_publishable_PXzk89uS56SWpj5aOmynag_LLPGTnlx</string>
     <key>LSRequiresIPhoneOS</key><true/>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Show your position and measure distances while you view the live-round GPS map.</string>

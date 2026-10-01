@@ -2,6 +2,15 @@ import Foundation
 
 @MainActor
 final class RoundStore: ObservableObject {
+    private static func configuration(_ userKey: String, bundleKey: String) -> String {
+        let bundled = Bundle.main.object(forInfoDictionaryKey: bundleKey) as? String ?? ""
+        #if DEBUG
+        return UserDefaults.standard.string(forKey: userKey) ?? bundled
+        #else
+        return bundled
+        #endif
+    }
+
     @Published var session: Session? = Keychain.load()
     @Published var draft: LiveRoundState?
     @Published var courses: [CatalogueCourse] = []
@@ -10,9 +19,9 @@ final class RoundStore: ObservableObject {
     @Published var busy = false
     @Published var message = ""
     @Published var syncStatus = "Saved on this iPhone"
-    @Published var supabaseURL = UserDefaults.standard.string(forKey: "supabaseURL") ?? ""
-    @Published var publishableKey = UserDefaults.standard.string(forKey: "publishableKey") ?? ""
-    @Published var apiURL = UserDefaults.standard.string(forKey: "apiURL") ?? "https://foretherecord.co.uk"
+    @Published var supabaseURL = configuration("supabaseURL", bundleKey: "SupabaseURL")
+    @Published var publishableKey = configuration("publishableKey", bundleKey: "SupabasePublishableKey")
+    @Published var apiURL = configuration("apiURL", bundleKey: "APIURL")
     @Published var pins: [String: GreenPins] = [:]
     private var editSerial = 0
 
@@ -52,9 +61,11 @@ final class RoundStore: ObservableObject {
     }
 
     func saveConfiguration() {
+        #if DEBUG
         UserDefaults.standard.set(supabaseURL.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "supabaseURL")
         UserDefaults.standard.set(publishableKey.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "publishableKey")
         UserDefaults.standard.set(apiURL.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "apiURL")
+        #endif
     }
 
     func signIn(email: String, password: String) async {

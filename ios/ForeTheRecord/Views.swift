@@ -74,14 +74,18 @@ struct SignInView: View {
                     if !store.message.isEmpty {
                         Text(store.message).foregroundStyle(.orange).accessibilityAddTraits(.updatesFrequently)
                     }
+                    #if DEBUG
                     Button("Connection settings") { showConnection = true }
                         .foregroundStyle(Palette.lime)
+                    #endif
                 }
                 .padding(28)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(Palette.forest)
+            #if DEBUG
             .sheet(isPresented: $showConnection) { ConnectionView() }
+            #endif
         }
     }
 }
@@ -363,7 +367,9 @@ struct AccountView: View {
                 Section("Your account") {
                     Text("Signed in to Fore the Record")
                     Link("Open website", destination: URL(string: "https://foretherecord.co.uk")!)
+                    #if DEBUG
                     Button("Connection settings") { showConnection = true }
+                    #endif
                 }
                 Section("Data") {
                     Text("Round drafts and personal map pins are stored on this iPhone. Scores sync only when you tap Sync.")
@@ -374,7 +380,9 @@ struct AccountView: View {
                 }
             }
             .navigationTitle("Account")
+            #if DEBUG
             .sheet(isPresented: $showConnection) { ConnectionView() }
+            #endif
             .confirmationDialog("Sign out and remove local round data?", isPresented: $showSignOut) {
                 Button("Sign out and remove local data", role: .destructive) { store.signOut() }
             } message: {

@@ -1,0 +1,41 @@
+name: iOS
+
+on:
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+  push:
+    branches: [ios-app]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: Build for iPhone Simulator
+        run: |
+          xcodebuild \
+            -project ios/ForeTheRecord.xcodeproj \
+            -scheme ForeTheRecord \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ForeTheRecordDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Verify yardage calculations
+        run: |
+          swiftc \
+            -module-cache-path "$RUNNER_TEMP/ForeTheRecordModuleCache" \
+            ios/ForeTheRecord/Models.swift \
+            ios/Tests/DistanceSmoke.swift \
+            -o "$RUNNER_TEMP/fore-distance-smoke"
+          "$RUNNER_TEMP/fore-distance-smoke"

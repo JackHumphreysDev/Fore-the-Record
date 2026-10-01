@@ -4,7 +4,7 @@ Native SwiftUI prototype targeting iOS 17 or later. Open `ForeTheRecord.xcodepro
 
 The app signs in with the existing Supabase account, searches the existing course catalogue, loads official tee scorecards, saves a round locally, and can sync the existing version-1 live-round draft to the account. History and Friends have read-only native views. The GPS tab uses MapKit satellite imagery and Core Location. A player can tap to measure a target and place **personal, unverified** front/middle/back green pins for a hole. The app never presents those pins as official course mapping.
 
-On first launch, enter the Supabase project URL and publishable key in the app's connection screen. These are the same public values used by the website. The API defaults to `https://foretherecord.co.uk`. Credentials are stored in Keychain. The publishable key is public, but the signed-in session remains private.
+The app bundles the same public Supabase project URL and publishable key used by the website, and connects to `https://foretherecord.co.uk`. Family members can sign in without connection setup. Debug builds retain a connection-settings screen for local testing; release builds use the bundled production configuration. Session credentials are stored in Keychain.
 
 This is an initial native pilot, not an App Store release. Final round submission remains on the website. Before field use, the backend needs versioned, verified hole geometry and draft revision/conflict handling. The current server accepts last-write-wins draft PUTs, so avoid editing the same live draft on the website and iPhone at the same time.
 
