@@ -613,7 +613,13 @@ describe('live round drafts', () => {
   const state = {
     version: 1,
     currentHoleIndex: 0,
-    tee: { id: teeId, teeName: 'White' },
+    tee: {
+      id: teeId, courseId: 'course', clubName: 'Club', courseName: 'Course', teeName: 'White',
+      colour: null, gender: null, totalYardage: 6500, totalMetres: null, par: 72,
+      courseRating: 72, slopeRating: 113, frontNineCourseRating: null,
+      frontNineSlopeRating: null, backNineCourseRating: null, backNineSlopeRating: null,
+      isFavourite: false,
+    },
     form: { teeId, participation: 'INDIVIDUAL', holeCount: 9 },
     scorecardStatus: 'available',
     scorecardSource: 'saved',
