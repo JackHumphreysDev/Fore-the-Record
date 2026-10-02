@@ -6,6 +6,7 @@ Use this guide for the first physical-device run of the native iOS app. The app 
 
 1. Open `ios/ForeTheRecord.xcodeproj` in Xcode. In **Xcode > Settings > Accounts**, add your Apple Account. Under the **ForeTheRecord** target's **Signing & Capabilities**, select your team and leave **Automatically manage signing** enabled. Keep the bundle identifier `co.uk.foretherecord.app` unless Xcode reports that it is already registered to a different team; if so, use a unique development-only identifier locally.
 2. Connect and unlock the iPhone. Trust the Mac when prompted, choose the iPhone as Xcode's run destination, and enable **Developer Mode** on the device if requested. Build and Run. A personal Apple Account can run a development build on your own device; TestFlight and App Store distribution require Apple Developer Program membership.
+   On first launch, iOS may require you to trust the developer profile under **Settings > General > VPN & Device Management**. Personal Team provisioning expires after seven days, so rebuild and reinstall for later device tests.
 3. Sign in with a dedicated test account. A submitted round writes to the live account's history and may affect its statistics, so use a real round if testing with a normal player account. Choose a tee with a complete scorecard, such as Sickleholme Men's White Tees.
 
 ## Test the round
