@@ -341,6 +341,29 @@
   text-transform: uppercase;
 }
 
+.admin-round-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.admin-round-delete-trigger {
+  min-width: 72px;
+  padding: 0 12px;
+  border: 1px solid rgba(164, 63, 50, 0.35);
+  border-radius: 9px;
+  color: var(--danger);
+  background: white;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-round-delete-trigger:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .admin-round-row {
   width: 100%;
   min-height: 64px;
@@ -398,7 +421,7 @@
 .admin-round-fields input,
 .admin-round-fields select,
 .admin-round-holes input,
-.admin-round-delete input {
+.admin-round-delete-confirm input {
   min-width: 0;
   min-height: 42px;
   padding: 0 11px;
@@ -435,16 +458,59 @@
   font-weight: 800;
 }
 
+.admin-round-delete-confirm {
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(164, 63, 50, 0.4);
+  border-radius: 12px;
+  background: rgba(164, 63, 50, 0.06);
+}
+
+.admin-round-delete-confirm h4,
+.admin-round-delete-confirm p {
+  margin: 0;
+}
+
+.admin-round-delete-confirm form {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-round-delete-confirm label {
+  display: grid;
+  min-width: 180px;
+  gap: 6px;
+  font-weight: 800;
+}
+
+.admin-round-delete-confirm button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  color: white;
+  background: var(--danger);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-round-delete-confirm button[type="button"] {
+  color: var(--forest-deep);
+  border-color: var(--line);
+  background: white;
+}
+
+.admin-round-delete-confirm button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .admin-round-delete {
   padding-top: 16px;
   border-top: 1px solid rgba(164, 63, 50, 0.25);
-}
-
-.admin-round-delete form {
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
 }
 
 .admin-round-delete button {

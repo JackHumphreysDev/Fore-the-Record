@@ -635,6 +635,7 @@ function AdminUserDirectory({
               </form>
 
               <AdminRoundManager
+                key={managedUser.id}
                 user={managedUser}
                 focusedRoundId={
                   roundCorrectionTarget?.userId === managedUser.id

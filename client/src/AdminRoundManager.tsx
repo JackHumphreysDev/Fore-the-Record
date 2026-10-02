@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { authenticatedFetch } from './api.ts'
 import {
   buildAdminRoundPath,
@@ -40,10 +40,16 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
   const [pickups, setPickups] = useState<boolean[]>([])
   const [teamCompetitionDraft, setTeamCompetitionDraft] = useState<TeamCompetitionDraft>(emptyTeamCompetitionDraft)
   const [confirmation, setConfirmation] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<AdminRound | null>(null)
+  const confirmationInput = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    confirmationInput.current?.focus()
+  }, [deleteTarget])
 
   useEffect(() => {
     if (!focusedRoundId) {
@@ -138,6 +144,14 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
     } else {
       setTeamCompetitionDraft(emptyTeamCompetitionDraft())
     }
+    setDeleteTarget(null)
+    setConfirmation('')
+    setMessage('')
+    setError('')
+  }
+
+  function openDelete(round: AdminRound) {
+    setDeleteTarget(round)
     setConfirmation('')
     setMessage('')
     setError('')
@@ -215,16 +229,21 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
 
   async function remove(event: FormEvent) {
     event.preventDefault()
-    if (!selected) return
+    if (!deleteTarget || confirmation !== 'DELETE') return
     setSaving(true); setError(''); setMessage('')
     try {
-      const response = await authenticatedFetch(buildAdminRoundPath(selected.id), {
+      const response = await authenticatedFetch(buildAdminRoundPath(deleteTarget.id), {
         method: 'DELETE', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ confirmation }),
       })
       if (!response.ok) throw new Error(await errorMessage(response, 'Could not delete the round.'))
-      setSelected(null); setConfirmation(''); setMessage('Round permanently deleted.')
-      setReload((value) => value + 1); onRoundsChanged()
+      setSelected(null)
+      setDeleteTarget(null)
+      setConfirmation('')
+      setMessage('Round permanently deleted. The player’s Handicap Index was recalculated.')
+      if (page > 1 && data?.rounds.length === 1) setPage((value) => value - 1)
+      else setReload((value) => value + 1)
+      onRoundsChanged()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not delete the round.')
     } finally { setSaving(false) }
@@ -235,21 +254,37 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
       <header><div><p>Playing record</p><h3 id="admin-rounds-title">Rounds</h3></div>
         <span>Handicap {data?.player.handicapIndex?.toFixed(1) ?? '—'}</span></header>
       {loading ? <p>Loading rounds…</p> : null}
-      {error && !selected ? <p className="admin-account-error" role="alert">{error}</p> : null}
+      {error && !selected && !deleteTarget ? <p className="admin-account-error" role="alert">{error}</p> : null}
       {!loading && data?.rounds.length === 0 ? <p>No rounds recorded.</p> : null}
+      {message && !selected ? <p className="admin-account-notice" role="status">{message}</p> : null}
       {data?.rounds.map((round) => (
-        <button className="admin-round-row" type="button" key={round.id} onClick={() => selectRound(round)}>
-          <span><strong>{round.tee.course.club.name}</strong>{round.tee.course.name} · {round.tee.teeName}</span>
-          <span>{round.datePlayed.slice(0, 10)}</span>
-          <span>{round.participation === 'TEAM' ? round.teamCompetition ? `${teamPositionLabel(round.teamCompetition.teams.find((team) => team.isPlayerTeam)?.position ?? 0)} · ${round.teamCompetition.teams.find((team) => team.isPlayerTeam)?.total} ${round.teamCompetition.scoring === 'GROSS_STROKES' ? 'strokes' : 'pts'}` : 'Legacy team record' : `${round.holeCount} holes · ${round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints} pts` : `Gross ${round.grossScore}`}`}</span>
-          <span>Edit</span>
-        </button>
+        <div className="admin-round-list-item" key={round.id}>
+          <button className="admin-round-row" type="button" onClick={() => selectRound(round)}>
+            <span><strong>{round.tee.course.club.name}</strong>{round.tee.course.name} · {round.tee.teeName}</span>
+            <span>{round.datePlayed.slice(0, 10)}</span>
+            <span>{round.participation === 'TEAM' ? round.teamCompetition ? `${teamPositionLabel(round.teamCompetition.teams.find((team) => team.isPlayerTeam)?.position ?? 0)} · ${round.teamCompetition.teams.find((team) => team.isPlayerTeam)?.total} ${round.teamCompetition.scoring === 'GROSS_STROKES' ? 'strokes' : 'pts'}` : 'Legacy team record' : `${round.holeCount} holes · ${round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints} pts` : `Gross ${round.grossScore}`}`}</span>
+            <span>Edit</span>
+          </button>
+          <button className="admin-round-delete-trigger" type="button" disabled={saving} onClick={() => openDelete(round)} aria-label={`Delete ${round.tee.course.club.name} round played on ${round.datePlayed.slice(0, 10)}`}>Delete</button>
+        </div>
       ))}
       {data && data.pagination.totalPages > 1 ? <nav className="admin-pagination">
-        <button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
+        <button type="button" disabled={page === 1} onClick={() => { setDeleteTarget(null); setPage((value) => value - 1) }}>Previous</button>
         <span>{page} of {data.pagination.totalPages}</span>
-        <button type="button" disabled={page >= data.pagination.totalPages} onClick={() => setPage((value) => value + 1)}>Next</button>
+        <button type="button" disabled={page >= data.pagination.totalPages} onClick={() => { setDeleteTarget(null); setPage((value) => value + 1) }}>Next</button>
       </nav> : null}
+
+      {deleteTarget ? <section className="admin-round-delete-confirm" aria-labelledby="admin-round-delete-title">
+        {error ? <p className="admin-account-error" role="alert">{error}</p> : null}
+        <h4 id="admin-round-delete-title">Delete this round permanently?</h4>
+        <p>{user.name} · {deleteTarget.tee.course.club.name} · {deleteTarget.tee.course.name} · {deleteTarget.datePlayed.slice(0, 10)}</p>
+        <p>This removes the scorecard and recalculates the player’s Handicap Index. It cannot be undone.</p>
+        <form onSubmit={remove}>
+          <label>Type DELETE to confirm<input ref={confirmationInput} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" /></label>
+          <button type="submit" disabled={saving || confirmation !== 'DELETE'}>{saving ? 'Deleting…' : 'Delete round'}</button>
+          <button type="button" onClick={() => { setDeleteTarget(null); setConfirmation('') }} disabled={saving}>Cancel</button>
+        </form>
+      </section> : null}
 
       {selected ? <section className="admin-round-editor">
         <header><div><p>Round correction</p><h3>{selected.tee.course.club.name}</h3></div>
@@ -289,10 +324,10 @@ function AdminRoundManager({ user, focusedRoundId, onRoundsChanged }: Props) {
         </div> : <TeamCompetitionEntry value={teamCompetitionDraft} onChange={setTeamCompetitionDraft} />}
         <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save round corrections'}</button>
         </form>
-        {error ? <p className="admin-account-error" role="alert">{error}</p> : null}
+        {error && !deleteTarget ? <p className="admin-account-error" role="alert">{error}</p> : null}
         {message ? <p className="admin-account-notice" role="status">{message}</p> : null}
-        <section className="admin-round-delete"><strong>Permanently delete round</strong><p>Type DELETE to confirm. This recalculates the player’s Handicap Index and cannot be undone.</p>
-          <form onSubmit={remove}><input value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /><button type="submit" disabled={saving || confirmation !== 'DELETE'}>Delete round</button></form>
+        <section className="admin-round-delete"><strong>Permanently delete round</strong><p>This recalculates the player’s Handicap Index and cannot be undone.</p>
+          <button type="button" onClick={() => openDelete(selected)} disabled={saving}>Delete this round…</button>
         </section>
       </section> : null}
     </section>
