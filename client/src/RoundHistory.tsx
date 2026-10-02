@@ -378,7 +378,7 @@ function RoundHistory({
 
         if (controller.signal.aborted) return
         setRounds(body)
-        setSelectedRoundId(focusedRoundId || '')
+        if (focusedRoundId) setSelectedRoundId(focusedRoundId)
         if (focusedRoundId && body.some((round) => round.id === focusedRoundId)) {
           setFilters({ ...EMPTY_ROUND_HISTORY_FILTERS })
           setExpandedRoundId(focusedRoundId)
@@ -413,6 +413,18 @@ function RoundHistory({
 
     return () => controller.abort()
   }, [focusedRoundId, profileId, loadAttempt])
+
+  useEffect(() => {
+    const refreshWhenActive = () => {
+      if (document.visibilityState === 'visible') setLoadAttempt((value) => value + 1)
+    }
+    window.addEventListener('focus', refreshWhenActive)
+    document.addEventListener('visibilitychange', refreshWhenActive)
+    return () => {
+      window.removeEventListener('focus', refreshWhenActive)
+      document.removeEventListener('visibilitychange', refreshWhenActive)
+    }
+  }, [])
 
   if (!profile) {
     return (

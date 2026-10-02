@@ -19,6 +19,7 @@ enum Palette {
 
 struct RootView: View {
     @EnvironmentObject private var store: RoundStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
 
     var body: some View {
@@ -48,6 +49,9 @@ struct RootView: View {
                     .tag(4)
             }
             .task { await store.resume() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await store.loadHistory() } }
+            }
         }
     }
 }
@@ -147,6 +151,7 @@ struct ConnectionView: View {
 struct HomeView: View {
     @EnvironmentObject private var store: RoundStore
     @Binding var selectedTab: Int
+    @State private var selectedRound: HistoryRound?
 
     var body: some View {
         NavigationStack {
@@ -193,7 +198,7 @@ struct HomeView: View {
                         Button {
                             selectedTab = 2
                         } label: {
-                            Label("Start a round", systemImage: "plus.circle.fill")
+                            Label("Start or record a round", systemImage: "plus.circle.fill")
                                 .frame(maxWidth: .infinity, minHeight: 52)
                         }
                         .buttonStyle(.borderedProminent)
@@ -214,12 +219,49 @@ struct HomeView: View {
                     .padding(20)
                     .foregroundStyle(.white)
                     .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 20))
+
+                    if !store.historyError.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Could not refresh your rounds")
+                                .font(.headline)
+                            Text(store.historyError).font(.footnote)
+                            Button("Try again") { Task { await store.loadHistory() } }
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .foregroundStyle(.primary)
+                        .background(Palette.card, in: RoundedRectangle(cornerRadius: 16))
+                    }
+
+                    if !store.history.isEmpty {
+                        HStack {
+                            Text("RECENT ROUNDS")
+                                .font(.caption.weight(.bold))
+                                .tracking(2)
+                                .foregroundStyle(Palette.lime)
+                            Spacer()
+                            Button("See all") { selectedTab = 1 }
+                                .foregroundStyle(Palette.lime)
+                        }
+                        .padding(.top, 8)
+                        ForEach(store.history.prefix(5)) { round in
+                            Button { selectedRound = round } label: {
+                                ClubhouseRoundCard(round: round)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(Palette.forest)
+            .refreshable { await store.loadHistory() }
             .task { await store.loadHistory() }
+            .sheet(item: $selectedRound) { round in
+                ClubhouseRoundDetail(round: round)
+            }
         }
     }
 
@@ -231,6 +273,125 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .background(.white.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private func clubhouseDate(_ value: String) -> String {
+    guard let date = ISO8601DateFormatter().date(from: value) else { return String(value.prefix(10)) }
+    return date.formatted(Date.FormatStyle.dateTime.day().month(.abbreviated).year()
+        .locale(Locale(identifier: "en_GB")))
+}
+
+struct ClubhouseRoundCard: View {
+    let round: HistoryRound
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(round.tee.course.club.name.uppercased())
+                        .font(.caption2.weight(.bold)).tracking(1.5)
+                        .foregroundStyle(Palette.accent)
+                    Text(round.tee.course.name)
+                        .font(.title3.weight(.semibold))
+                    Text("\(round.tee.teeName) tees · \(clubhouseDate(round.datePlayed))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            if let highlight = round.highlight {
+                Label("\(highlight.strokesTaken <= highlight.par - 2 ? "Eagle or better" : "Birdie") · Hole \(highlight.holeNumber)", systemImage: "sparkle")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.forest)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Palette.lime, in: RoundedRectangle(cornerRadius: 12))
+            }
+            HStack(spacing: 8) {
+                metric(round.scoringFormat == "STABLEFORD" ? "POINTS" : "GROSS",
+                       (round.scoringFormat == "STABLEFORD" ? round.stablefordPoints : round.grossScore).map(String.init) ?? "—")
+                metric("TO PAR", round.scoreToPar.map { $0 > 0 ? "+\($0)" : "\($0)" } ?? "—")
+                metric("PARS", round.pars.map(String.init) ?? "—")
+                metric("BIRDIES", round.birdies.map(String.init) ?? "—")
+            }
+            if !round.playingGroup.isEmpty {
+                Label("With \(round.playingGroup.joined(separator: ", "))", systemImage: "person.2")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            HStack {
+                Text(round.isPartial == true ? "Record only" : "In History")
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Text(round.holesLabel)
+                    .font(.caption)
+            }
+            .foregroundStyle(.secondary)
+        }
+        .padding(18)
+        .foregroundStyle(.primary)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 20))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func metric(_ title: String, _ value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(title).font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+            Text(value).font(.title3.weight(.bold)).monospacedDigit()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(Palette.paper, in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+struct ClubhouseRoundDetail: View {
+    @Environment(\.dismiss) private var dismiss
+    let round: HistoryRound
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Round") {
+                    Text(round.tee.course.name).font(.headline)
+                    Text("\(round.tee.course.club.name) · \(round.tee.teeName) tees")
+                    Text(clubhouseDate(round.datePlayed))
+                    if let gross = round.grossScore { Text("Gross score: \(gross)") }
+                    if let points = round.stablefordPoints { Text("Stableford points: \(points)") }
+                    if round.isPartial == true {
+                        Text("Record only · excluded from Handicap Index")
+                    }
+                }
+                if !round.playingGroup.isEmpty {
+                    Section("Playing group") {
+                        ForEach(round.playingGroup, id: \.self) { Text($0) }
+                    }
+                }
+                Section("Scorecard") {
+                    if round.recordedHoles.isEmpty {
+                        Text("No hole-by-hole card was saved for this website round.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(round.recordedHoles) { hole in
+                            HStack {
+                                Text("Hole \(hole.holeNumber) · Par \(hole.par)")
+                                Spacer()
+                                Text(hole.pickedUp ? "Picked up" : String(hole.strokesTaken))
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Round history")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") { dismiss() }
+            } }
+        }
     }
 }
 
@@ -269,13 +430,15 @@ struct StartRoundView: View {
     @State private var segment = "ALL"
     @State private var scoringFormat = "STROKE_PLAY"
     @State private var playingHandicap = ""
+    @State private var playedDate = Date()
+    @State private var playedTime = Date()
 
     var body: some View {
         List {
             Section {
-                Text("Take the card onto the course.")
+                Text("Start or record a round.")
                     .font(.system(size: 30, design: .serif))
-                Text("Choose a club, tee and holes. Only tees with a complete scorecard can start a native round.")
+                Text("Score as you play, or enter a past round. Both save to your account and appear on the website and iPhone.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -301,6 +464,10 @@ struct StartRoundView: View {
                         .keyboardType(.numbersAndPunctuation)
                 }
             }
+            Section("When you played") {
+                DatePicker("Date played", selection: $playedDate, in: ...Date(), displayedComponents: .date)
+                DatePicker("Time played", selection: $playedTime, displayedComponents: .hourAndMinute)
+            }
             if !store.message.isEmpty { Text(store.message).foregroundStyle(.orange) }
             ForEach(store.courses) { course in
                 Section("\(course.club.name) · \(course.name)") {
@@ -308,7 +475,8 @@ struct StartRoundView: View {
                         Button {
                             Task {
                                 await store.start(course: course, tee: tee, segment: segment,
-                                                  scoringFormat: scoringFormat, playingHandicap: playingHandicap)
+                                                  scoringFormat: scoringFormat, playingHandicap: playingHandicap,
+                                                  playedDate: playedDate, playedTime: playedTime)
                             }
                         } label: {
                             HStack {
@@ -323,7 +491,7 @@ struct StartRoundView: View {
                 }
             }
         }
-        .navigationTitle("Start round")
+        .navigationTitle("New round")
         .overlay { if store.busy { ProgressView().controlSize(.large) } }
     }
 }
@@ -879,8 +1047,8 @@ struct HistoryView: View {
     var body: some View {
         NavigationStack {
             List {
-                if !store.message.isEmpty {
-                    Text(store.message).foregroundStyle(.orange)
+                if !store.historyError.isEmpty {
+                    Text(store.historyError).foregroundStyle(.orange)
                 }
                 if !store.pendingGroupCards.isEmpty {
                     Section("Cards awaiting your approval") {
@@ -919,8 +1087,11 @@ struct HistoryView: View {
                         HStack {
                             Text(String(round.datePlayed.prefix(10)))
                             Spacer()
-                            Text(round.isPartial == true ? "Record only" : round.grossScore.map { "\($0) strokes" } ?? "Score pending")
-                            Text("· \(round.playedHoles ?? round.holeCount) of \(round.holeCount) holes")
+                            Text(round.isPartial == true ? "Record only" :
+                                 round.scoringFormat == "STABLEFORD"
+                                 ? round.stablefordPoints.map { "\($0) points" } ?? "Points pending"
+                                 : round.grossScore.map { "\($0) strokes" } ?? "Score pending")
+                            Text("· \(round.holesLabel)")
                         }
                         .font(.caption)
                     }

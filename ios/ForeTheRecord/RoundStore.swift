@@ -16,6 +16,7 @@ final class RoundStore: ObservableObject {
     @Published var roundPaused = false
     @Published var courses: [CatalogueCourse] = []
     @Published var history: [HistoryRound] = []
+    @Published var historyError = ""
     @Published var friends: FriendsResponse?
     @Published var pendingGroupCards: [PendingGroupCard] = []
     @Published var busy = false
@@ -125,6 +126,7 @@ final class RoundStore: ObservableObject {
         pins = [:]
         courses = []
         history = []
+        historyError = ""
         friends = nil
         pendingGroupCards = []
         message = ""
@@ -159,9 +161,9 @@ final class RoundStore: ObservableObject {
             let loaded = try await client.history(token: token)
             guard sessionEpoch == epoch else { return }
             history = loaded
-            message = ""
+            historyError = ""
         } catch {
-            if sessionEpoch == epoch { message = error.localizedDescription }
+            if sessionEpoch == epoch { historyError = error.localizedDescription }
         }
     }
 
@@ -194,7 +196,8 @@ final class RoundStore: ObservableObject {
     }
 
     func start(course: CatalogueCourse, tee: CatalogueTee, segment: String,
-               scoringFormat: String, playingHandicap: String) async {
+               scoringFormat: String, playingHandicap: String,
+               playedDate: Date, playedTime: Date) async {
         guard let client, session != nil else { return }
         let epoch = sessionEpoch
         guard draft == nil else { message = "Finish or resume your current round first."; return }
@@ -227,7 +230,8 @@ final class RoundStore: ObservableObject {
             }
             draft = LiveRoundState.start(course: course, tee: tee, card: card,
                                          segment: segment == "ALL" ? "FRONT_NINE" : segment,
-                                         scoringFormat: scoringFormat, playingHandicap: playingHandicap)
+                                         scoringFormat: scoringFormat, playingHandicap: playingHandicap,
+                                         playedDate: playedDate, playedTime: playedTime)
             roundPaused = false
             serverRevision = 0
             serverDraftId = nil
@@ -657,6 +661,7 @@ final class RoundStore: ObservableObject {
         lastSubmittedRoundId = roundId
         syncStatus = "Round saved to your account"
         message = "Round saved to History."
+        Task { await loadHistory() }
     }
 
     func dismissSubmission() {
