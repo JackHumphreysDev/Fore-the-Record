@@ -462,10 +462,15 @@ function RoundHistory({
             Your playing record.
           </h1>
         </div>
-        <p>
-          Follow every round from newest to oldest and see which scores are
-          shaping your current Handicap Index.
-        </p>
+        <div className="history-hero-copy">
+          <p>
+            Follow every round from newest to oldest and see which scores are
+            shaping your current Handicap Index.
+          </p>
+          <button type="button" disabled={isLoading} onClick={() => setLoadAttempt((value) => value + 1)}>
+            {isLoading ? 'Refreshing…' : 'Refresh rounds'}
+          </button>
+        </div>
         <div className="history-hero-engraving" aria-hidden="true">
           <span />
           <img src={ledgerGreen} alt="" />
