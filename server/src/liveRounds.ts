@@ -63,7 +63,7 @@ export function parseLiveRoundDraftState(value: unknown): LiveRoundDraftState | 
     value.form.participation !== 'INDIVIDUAL' ||
     (value.form.holeCount !== 9 && value.form.holeCount !== 18) ||
     (value.scorecardStatus !== 'available' && value.scorecardStatus !== 'manual_required') ||
-    (value.scorecardSource !== null && value.scorecardSource !== 'saved' && value.scorecardSource !== 'provider') ||
+    (value.scorecardSource != null && value.scorecardSource !== 'saved' && value.scorecardSource !== 'provider') ||
     !Array.isArray(value.holeEntries) ||
     value.holeEntries.length !== value.form.holeCount ||
     Number(value.currentHoleIndex) >= value.holeEntries.length ||
@@ -106,7 +106,27 @@ export function parseLiveRoundDraftState(value: unknown): LiveRoundDraftState | 
     numbers.add(Number(hole.holeNumber))
   }
 
-  return { ...value, holeEntries: normalizedHoleEntries } as LiveRoundDraftState
+  // Swift's synthesized Encodable omits nil tee fields. Keep the API response in
+  // the web client's nullable shape, including drafts saved before this fix.
+  const normalizedTee = {
+    ...value.tee,
+    colour: value.tee.colour ?? null,
+    gender: value.tee.gender ?? null,
+    totalYardage: value.tee.totalYardage ?? null,
+    totalMetres: value.tee.totalMetres ?? null,
+    par: value.tee.par ?? null,
+    frontNineCourseRating: value.tee.frontNineCourseRating ?? null,
+    frontNineSlopeRating: value.tee.frontNineSlopeRating ?? null,
+    backNineCourseRating: value.tee.backNineCourseRating ?? null,
+    backNineSlopeRating: value.tee.backNineSlopeRating ?? null,
+  }
+
+  return {
+    ...value,
+    tee: normalizedTee,
+    scorecardSource: value.scorecardSource ?? null,
+    holeEntries: normalizedHoleEntries,
+  } as unknown as LiveRoundDraftState
 }
 
 export function asLiveRoundJson(state: LiveRoundDraftState): Prisma.InputJsonValue {

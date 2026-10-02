@@ -8,7 +8,7 @@ struct ForeTheRecordApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(store)
-                .tint(Color(red: 0.12, green: 0.30, blue: 0.22))
+                .tint(Palette.accent)
         }
     }
 }

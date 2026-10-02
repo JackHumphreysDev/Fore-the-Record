@@ -87,7 +87,6 @@
         A80000000000000000000001 = {isa = XCBuildConfiguration; buildSettings = {
             ALWAYS_SEARCH_USER_PATHS = NO;
             CLANG_ENABLE_MODULES = YES;
-            CODE_SIGNING_ALLOWED = NO;
             IPHONEOS_DEPLOYMENT_TARGET = 17.0;
             SDKROOT = iphoneos;
             SWIFT_VERSION = 5.0;
@@ -95,7 +94,6 @@
         A80000000000000000000002 = {isa = XCBuildConfiguration; buildSettings = {
             ALWAYS_SEARCH_USER_PATHS = NO;
             CLANG_ENABLE_MODULES = YES;
-            CODE_SIGNING_ALLOWED = NO;
             IPHONEOS_DEPLOYMENT_TARGET = 17.0;
             SDKROOT = iphoneos;
             SWIFT_VERSION = 5.0;
@@ -106,6 +104,7 @@
             INFOPLIST_FILE = ForeTheRecord/Info.plist;
             IPHONEOS_DEPLOYMENT_TARGET = 17.0;
             PRODUCT_BUNDLE_IDENTIFIER = co.uk.foretherecord.app;
+            CODE_SIGN_STYLE = Automatic;
             PRODUCT_NAME = "$(TARGET_NAME)";
             SWIFT_EMIT_LOC_STRINGS = YES;
             TARGETED_DEVICE_FAMILY = 1;
@@ -116,6 +115,7 @@
             INFOPLIST_FILE = ForeTheRecord/Info.plist;
             IPHONEOS_DEPLOYMENT_TARGET = 17.0;
             PRODUCT_BUNDLE_IDENTIFIER = co.uk.foretherecord.app;
+            CODE_SIGN_STYLE = Automatic;
             PRODUCT_NAME = "$(TARGET_NAME)";
             SWIFT_EMIT_LOC_STRINGS = YES;
             TARGETED_DEVICE_FAMILY = 1;

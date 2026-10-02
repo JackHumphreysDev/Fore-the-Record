@@ -1,9 +1,20 @@
 import SwiftUI
+import UIKit
 
-private enum Palette {
+enum Palette {
     static let forest = Color(red: 0.07, green: 0.19, blue: 0.14)
     static let lime = Color(red: 0.84, green: 1.0, blue: 0.31)
-    static let paper = Color(red: 0.97, green: 0.96, blue: 0.92)
+    static let paper = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.07, green: 0.10, blue: 0.09, alpha: 1)
+            : UIColor(red: 0.97, green: 0.96, blue: 0.92, alpha: 1)
+    })
+    static let card = Color(uiColor: .secondarySystemGroupedBackground)
+    static let accent = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.84, green: 1.0, blue: 0.31, alpha: 1)
+            : UIColor(red: 0.12, green: 0.30, blue: 0.22, alpha: 1)
+    })
 }
 
 struct RootView: View {
@@ -257,6 +268,7 @@ struct PlayingView: View {
                         Text("GPS").tag("GPS")
                     }
                     .pickerStyle(.segmented)
+                    .colorScheme(.dark)
                 }
                 .padding()
                 .foregroundStyle(.white)
@@ -331,6 +343,7 @@ struct PlayingView: View {
                         } label: { Image(systemName: "plus.circle.fill").font(.system(size: 48)) }
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(Palette.accent)
                     TextField("Enter strokes", text: Binding(
                         get: { store.draft?.currentHole.strokesTaken ?? "" },
                         set: { value in
@@ -349,7 +362,7 @@ struct PlayingView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(25)
-                .background(.white, in: RoundedRectangle(cornerRadius: 20))
+                .background(Palette.card, in: RoundedRectangle(cornerRadius: 20))
                 .disabled(store.submitting || store.submissionPendingVerification)
 
                 HStack {
@@ -365,7 +378,7 @@ struct PlayingView: View {
                         set: { store.setPickedUp($0) }
                     ))
                     .padding()
-                    .background(.white, in: RoundedRectangle(cornerRadius: 18))
+                    .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
                     .disabled(store.submitting || store.submissionPendingVerification)
                 }
 
@@ -400,7 +413,7 @@ struct PlayingView: View {
                     }
                 }
                 .padding()
-                .background(.white, in: RoundedRectangle(cornerRadius: 18))
+                .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
                 .disabled(store.submitting || store.submissionPendingVerification)
 
                 DisclosureGroup("Full scorecard") {
@@ -419,7 +432,7 @@ struct PlayingView: View {
                     }
                 }
                 .padding()
-                .background(.white, in: RoundedRectangle(cornerRadius: 18))
+                .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
                 .disabled(store.submitting || store.submissionPendingVerification)
 
                 if draft.completed == draft.holeEntries.count {
