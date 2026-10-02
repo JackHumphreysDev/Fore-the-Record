@@ -45,6 +45,10 @@ import {
   type LiveRoundTee as TeeOption,
 } from './liveRoundApi.ts'
 
+function liveProgressKey(state: LiveRoundDraftState): string {
+  return JSON.stringify([state.currentHoleIndex, state.form, state.holeEntries, state.matchPlayDraft])
+}
+
 type RoundEntryProfile = {
   id: string
   name: string
@@ -375,6 +379,7 @@ function RoundEntry({
   const [teamCompetitionDraft, setTeamCompetitionDraft] = useState<TeamCompetitionDraft>(emptyTeamCompetitionDraft)
   const [liveRoundId, setLiveRoundId] = useState<string | null>(null)
   const liveRevision = useRef(0)
+  const lastSavedProgress = useRef<string | null>(null)
   const liveSaveQueue = useRef<Promise<boolean>>(Promise.resolve(true))
   const liveConflict = useRef(false)
   const [hasLiveConflict, setHasLiveConflict] = useState(false)
@@ -542,8 +547,10 @@ function RoundEntry({
         const response = await authenticatedFetch('/api/users/me/live-round', { signal: controller.signal })
         const body: unknown = await response.json().catch(() => null)
         if (!response.ok || !isLiveRoundResponse(body)) throw new Error('We could not check for an unfinished live round.')
-        if (controller.signal.aborted || !body.draft) return
+        if (controller.signal.aborted) return
+        if (!body.draft) { lastSavedProgress.current = null; return }
         const { state } = body.draft
+        lastSavedProgress.current = liveProgressKey(state)
         setForm(state.form)
         setLiveRoundTee(state.tee)
         setScorecardStatus(state.scorecardStatus)
@@ -636,6 +643,8 @@ function RoundEntry({
   // oxlint-disable react-hooks/exhaustive-deps
   useEffect(() => {
     if (liveMode !== 'active' || liveConflict.current || !selectedTee || scorecardStatus === 'idle' || scorecardStatus === 'loading') return
+    const state = buildLiveRoundState(liveCurrentHoleIndex)
+    if (!state || liveProgressKey(state) === lastSavedProgress.current) return
     const timeout = window.setTimeout(() => { void saveLiveRound(liveCurrentHoleIndex) }, 650)
     return () => window.clearTimeout(timeout)
   }, [form, holeEntries, matchPlayDraft, liveCurrentHoleIndex, liveMode, scorecardSource, scorecardStatus, selectedTee])
@@ -959,6 +968,7 @@ function RoundEntry({
     if (liveConflict.current) return false
     const save = async (): Promise<boolean> => {
       if (liveConflict.current) return false
+      if (liveProgressKey(state) === lastSavedProgress.current) return true
       return writeLiveRound(state)
     }
     const queued = liveSaveQueue.current.then(save, save)
@@ -987,6 +997,7 @@ function RoundEntry({
       }
       setLiveRoundId(body.draft.id)
       liveRevision.current = body.draft.revision
+      lastSavedProgress.current = liveProgressKey(state)
       setLiveSaveState('saved')
       setLiveMessage('Progress saved.')
       return true
@@ -1017,6 +1028,7 @@ function RoundEntry({
         return
       }
       const { state } = body.draft
+      lastSavedProgress.current = liveProgressKey(state)
       setForm(state.form)
       setLiveRoundTee(state.tee)
       setScorecardStatus(state.scorecardStatus)
@@ -1114,6 +1126,7 @@ function RoundEntry({
     }
     setLiveRoundId(null)
     liveRevision.current = 0
+    lastSavedProgress.current = null
     liveConflict.current = false
     setHasLiveConflict(false)
     setLiveRoundTee(null)
@@ -1438,6 +1451,7 @@ function RoundEntry({
       })
       setLiveRoundId(null)
       liveRevision.current = 0
+      lastSavedProgress.current = null
       liveConflict.current = false
       setHasLiveConflict(false)
       setLiveRoundTee(null)
