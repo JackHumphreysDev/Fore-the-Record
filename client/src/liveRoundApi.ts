@@ -65,6 +65,7 @@ export type LiveRoundDraftState = {
   scorecardSource: 'saved' | 'provider' | null
   holeEntries: LiveRoundHole[]
   matchPlayDraft: MatchPlayDraft
+  groupPlayers?: Array<{ id: string; kind: 'friend' | 'guest'; name: string; holeEntries: LiveRoundHole[] }>
 }
 
 export type LiveRoundDraft = {
@@ -118,6 +119,13 @@ export function isLiveRoundDraftState(value: unknown): value is LiveRoundDraftSt
     (value.scorecardSource !== null && value.scorecardSource !== 'saved' && value.scorecardSource !== 'provider') ||
     !Array.isArray(value.holeEntries) || value.holeEntries.length !== value.form.holeCount || !record(value.matchPlayDraft) ||
     Number(value.currentHoleIndex) < 0 || Number(value.currentHoleIndex) >= value.holeEntries.length) return false
+  const groupPlayers = value.groupPlayers
+  if (groupPlayers !== undefined &&
+    (!Array.isArray(groupPlayers) || groupPlayers.length > 7 ||
+      groupPlayers.some((player) => !record(player) || typeof player.id !== 'string' ||
+        (player.kind !== 'friend' && player.kind !== 'guest') ||
+        typeof player.name !== 'string' || !Array.isArray(player.holeEntries) ||
+        !isLiveRoundDraftState({ ...value, groupPlayers: undefined, holeEntries: player.holeEntries })))) return false
   return value.holeEntries.every((hole) => record(hole) && Number.isInteger(hole.holeNumber) &&
     typeof hole.par === 'string' && typeof hole.strokeIndex === 'string' && typeof hole.yardage === 'string' &&
     typeof hole.strokesTaken === 'string' && typeof hole.pickedUp === 'boolean' &&

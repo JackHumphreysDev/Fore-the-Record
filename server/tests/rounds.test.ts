@@ -129,7 +129,20 @@ describe('POST /api/rounds', () => {
       upAndDownResult: 'NOT_ATTEMPTED',
     }))
     userFindUniqueMock.mockResolvedValueOnce({ handicapIndex: 12.4 })
-    liveRoundDraftFindFirstMock.mockResolvedValueOnce({ id: liveRoundDraftId, revision: 2 })
+    liveRoundDraftFindFirstMock.mockResolvedValueOnce({
+      id: liveRoundDraftId, revision: 2,
+      state: {
+        version: 1, currentHoleIndex: 0, tee: { id: teeId },
+        form: { teeId, participation: 'INDIVIDUAL', holeCount: 18 },
+        scorecardStatus: 'available', scorecardSource: 'saved', matchPlayDraft: {},
+        holeEntries: holeScores.map((hole) => ({
+          holeNumber: hole.holeNumber, par: String(hole.par), strokeIndex: String(hole.strokeIndex),
+          yardage: '', strokesTaken: String(hole.strokesTaken), pickedUp: false,
+          putts: '', fairwayResult: '', greenInRegulation: '', penaltyStrokes: '',
+          bunkerVisits: '', upAndDownResult: '',
+        })),
+      },
+    })
     teeFindUniqueMock.mockResolvedValueOnce({
       courseRating: 73.1,
       slopeRating: 137,
@@ -194,7 +207,7 @@ describe('POST /api/rounds', () => {
     expect(transactionMock).toHaveBeenCalledOnce()
     expect(liveRoundDraftFindFirstMock).toHaveBeenCalledWith({
       where: { id: liveRoundDraftId, userId, teeId },
-      select: { id: true, revision: true },
+      select: { id: true, revision: true, state: true },
     })
     expect(liveRoundDraftDeleteMock).toHaveBeenCalledWith({ where: { id: liveRoundDraftId, revision: 2 } })
     expect(roundCreateMock).toHaveBeenCalledWith({

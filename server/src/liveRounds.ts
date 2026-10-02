@@ -30,6 +30,7 @@ export type LiveRoundDraftState = {
     upAndDownResult: '' | 'NOT_ATTEMPTED' | 'SUCCESSFUL' | 'UNSUCCESSFUL'
   }>
   matchPlayDraft: Record<string, unknown>
+  groupPlayers?: Array<{ id: string; kind: 'friend' | 'guest'; name: string; holeEntries: LiveRoundDraftState['holeEntries'] }>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -106,6 +107,23 @@ export function parseLiveRoundDraftState(value: unknown): LiveRoundDraftState | 
     numbers.add(Number(hole.holeNumber))
   }
 
+  let normalizedGroupPlayers: LiveRoundDraftState['groupPlayers'] | undefined
+  if (value.groupPlayers !== undefined && value.groupPlayers !== null) {
+    if (!Array.isArray(value.groupPlayers) || value.groupPlayers.length > 7) return null
+    const ids = new Set<string>()
+    normalizedGroupPlayers = []
+    for (const player of value.groupPlayers) {
+      if (!isRecord(player) || typeof player.id !== 'string' || !UUID_PATTERN.test(player.id) ||
+          ids.has(player.id) || (player.kind !== 'friend' && player.kind !== 'guest') ||
+          !isShortString(player.name, 80) || player.name.trim().length === 0 ||
+          !Array.isArray(player.holeEntries)) return null
+      const card = parseLiveRoundDraftState({ ...value, groupPlayers: undefined, holeEntries: player.holeEntries })
+      if (!card || card.holeEntries.some((hole, index) => hole.holeNumber !== normalizedHoleEntries[index].holeNumber)) return null
+      ids.add(player.id)
+      normalizedGroupPlayers.push({ id: player.id, kind: player.kind, name: player.name.trim(), holeEntries: card.holeEntries })
+    }
+  }
+
   // Swift's synthesized Encodable omits nil tee fields. Keep the API response in
   // the web client's nullable shape, including drafts saved before this fix.
   const normalizedTee = {
@@ -126,6 +144,7 @@ export function parseLiveRoundDraftState(value: unknown): LiveRoundDraftState | 
     tee: normalizedTee,
     scorecardSource: value.scorecardSource ?? null,
     holeEntries: normalizedHoleEntries,
+    ...(normalizedGroupPlayers ? { groupPlayers: normalizedGroupPlayers } : {}),
   } as unknown as LiveRoundDraftState
 }
 

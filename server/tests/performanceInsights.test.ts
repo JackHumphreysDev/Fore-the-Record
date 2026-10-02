@@ -25,4 +25,15 @@ describe('buildPerformanceInsights', () => {
     expect(result.holeExplorer.points[0]).toMatchObject({ strokes: null, pickedUp: true })
     expect(result.holeExplorer.averageStrokes).toBeNull()
   })
+
+  it('includes a partial card in hole insights without treating it as a complete round', () => {
+    const partial = makeRound(2, {
+      isPartial: true, scorecardStatus: 'NOT_REQUIRED', grossScore: null,
+      holeScores: [{ holeNumber: 1, par: 4, strokesTaken: 5, pickedUp: false }],
+    })
+    const result = buildPerformanceInsights([makeRound(1), partial], 'tee', 1)
+    expect(result.qualifyingRounds).toBe(1)
+    expect(result.consistency.rounds).toBe(1)
+    expect(result.holeExplorer.points).toHaveLength(2)
+  })
 })

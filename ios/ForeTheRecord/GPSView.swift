@@ -28,11 +28,16 @@ struct GPSView: View {
                 distanceChip("MIDDLE", pinSet.middle)
                 distanceChip("BACK", pinSet.back)
             }
-            .padding(10)
-            .background(.regularMaterial)
+            .padding(12)
+            .foregroundStyle(.white)
+            .background(Palette.forest)
 
             MapReader { proxy in
                 Map(position: $camera, interactionModes: .all) {
+                    if let player, let target {
+                        MapPolyline(coordinates: [player.mapCoordinate, target.mapCoordinate])
+                            .stroke(.white, lineWidth: 2)
+                    }
                     if let location = tracker.location {
                         Annotation("You", coordinate: location.coordinate) {
                             Image(systemName: "location.circle.fill")
@@ -43,10 +48,16 @@ struct GPSView: View {
                     }
                     if let target {
                         Annotation("Target", coordinate: target.mapCoordinate) {
-                            Image(systemName: "scope")
-                                .font(.system(size: 30))
-                                .foregroundStyle(.orange)
-                                .background(.white, in: Circle())
+                            VStack(spacing: 3) {
+                                Image(systemName: "scope")
+                                    .font(.system(size: 30))
+                                Text(distanceText(to: target))
+                                    .font(.caption.weight(.bold))
+                                    .monospacedDigit()
+                            }
+                            .padding(8)
+                            .foregroundStyle(.white)
+                            .background(Palette.forest, in: RoundedRectangle(cornerRadius: 14))
                         }
                     }
                     pinAnnotation("F", pinSet.front, color: .red)
@@ -102,7 +113,7 @@ struct GPSView: View {
                     Text("Tap the map to measure a target. Choose Front, Middle or Back to save a personal green pin.")
                         .font(.footnote)
                 }
-                Text("Green pins are personal and unverified. GPS distances are straight-line estimates, not official yardages.")
+                Text("Personal green pins · straight-line GPS estimates")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Toggle("Keep screen awake", isOn: $keepAwake)

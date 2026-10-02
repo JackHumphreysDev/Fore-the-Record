@@ -19,26 +19,33 @@ enum Palette {
 
 struct RootView: View {
     @EnvironmentObject private var store: RoundStore
+    @State private var selectedTab = 0
 
     var body: some View {
         if store.session == nil {
             SignInView()
         } else {
-            TabView {
-                HomeView()
+            TabView(selection: $selectedTab) {
+                HomeView(selectedTab: $selectedTab)
                     .tabItem { Label("Home", systemImage: "house") }
+                    .tag(0)
+                HistoryView()
+                    .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                    .tag(1)
                 NavigationStack {
                     if store.lastSubmittedRoundId != nil { RoundSavedView() }
                     else if store.draft == nil { StartRoundView() }
+                    else if store.roundPaused { PausedRoundView() }
                     else { PlayingView() }
                 }
                 .tabItem { Label("Play", systemImage: "figure.golf") }
-                HistoryView()
-                    .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                .tag(2)
                 FriendsView()
                     .tabItem { Label("Friends", systemImage: "person.2") }
+                    .tag(3)
                 AccountView()
                     .tabItem { Label("Account", systemImage: "person.crop.circle") }
+                    .tag(4)
             }
             .task { await store.resume() }
         }
@@ -139,6 +146,7 @@ struct ConnectionView: View {
 
 struct HomeView: View {
     @EnvironmentObject private var store: RoundStore
+    @Binding var selectedTab: Int
 
     var body: some View {
         NavigationStack {
@@ -148,32 +156,109 @@ struct HomeView: View {
                         .font(.caption.weight(.bold))
                         .tracking(3)
                         .foregroundStyle(Palette.lime)
-                    Text("Ready for the next round?")
-                        .font(.system(size: 38, design: .serif))
+                    Text("Your golf, at a glance.")
+                        .font(.system(size: 36, design: .serif))
                         .foregroundStyle(.white)
                     if let draft = store.draft {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("ROUND IN PROGRESS").font(.caption.weight(.bold)).tracking(2)
-                            Text(draft.tee.courseName).font(.title2.weight(.semibold))
-                            Text("Hole \(draft.currentHole.holeNumber) · \(draft.completed)/\(draft.holeEntries.count) scored")
+                        VStack(alignment: .leading, spacing: 14) {
+                            Label("ROUND IN PROGRESS", systemImage: "figure.golf")
+                                .font(.caption.weight(.bold))
+                                .tracking(1)
+                            Text(draft.tee.courseName)
+                                .font(.title2.weight(.semibold))
+                            Text("\(draft.tee.clubName) · \(draft.tee.teeName) tees")
+                                .font(.subheadline)
+                            HStack {
+                                homeMetric("THROUGH", "\(draft.completed)")
+                                homeMetric("TO PAR", draft.scoreToPar > 0 ? "+\(draft.scoreToPar)" : "\(draft.scoreToPar)")
+                                homeMetric("GROSS", "\(draft.gross)")
+                            }
+                            Button {
+                                store.resumeRound()
+                                selectedTab = 2
+                            } label: {
+                                Label("Resume on hole \(draft.currentHole.holeNumber)", systemImage: "arrow.right")
+                                    .frame(maxWidth: .infinity, minHeight: 48)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Palette.forest)
+                            .foregroundStyle(.white)
                             Text(store.syncStatus).font(.footnote)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(22)
+                        .padding(20)
                         .background(Palette.lime, in: RoundedRectangle(cornerRadius: 20))
                         .foregroundStyle(Palette.forest)
                     } else {
-                        Text("Open Play to choose a course and start your card.")
-                            .foregroundStyle(.white.opacity(0.8))
+                        Button {
+                            selectedTab = 2
+                        } label: {
+                            Label("Start a round", systemImage: "plus.circle.fill")
+                                .frame(maxWidth: .infinity, minHeight: 52)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Palette.lime)
+                        .foregroundStyle(Palette.forest)
                     }
-                    Text("Scores are saved on this iPhone as you play and synced to your account when connected.")
-                        .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.75))
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("YOUR RECORD").font(.caption.weight(.bold)).tracking(2)
+                        Text("\(store.history.count) rounds in History")
+                            .font(.title3.weight(.semibold))
+                        Text("Review completed cards and performance insights from your rounds.")
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.75))
+                        Button("View History") { selectedTab = 1 }
+                            .foregroundStyle(Palette.lime)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(20)
+                    .foregroundStyle(.white)
+                    .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 20))
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(Palette.forest)
+            .task { await store.loadHistory() }
+        }
+    }
+
+    private func homeMetric(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 4) {
+            Text(label).font(.caption2.weight(.bold))
+            Text(value).font(.title2.weight(.bold)).monospacedDigit()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(.white.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+struct PausedRoundView: View {
+    @EnvironmentObject private var store: RoundStore
+    @State private var showDelete = false
+
+    var body: some View {
+        List {
+            if let draft = store.draft {
+                Section("Saved live round") {
+                    Text(draft.tee.courseName).font(.headline)
+                    Text("\(draft.tee.clubName) · \(draft.tee.teeName) tees")
+                    Text("\(draft.completed) of \(draft.holeEntries.count) holes scored")
+                    Text(store.syncStatus).font(.footnote).foregroundStyle(.secondary)
+                }
+                Section {
+                    Button("Resume round") { store.resumeRound() }
+                    Button("Delete unfinished round", role: .destructive) { showDelete = true }
+                }
+                if !store.message.isEmpty { Text(store.message).foregroundStyle(.orange) }
+            }
+        }
+        .navigationTitle("Live round")
+        .confirmationDialog("Delete this unfinished round?", isPresented: $showDelete) {
+            Button("Delete round", role: .destructive) { Task { await store.deleteDraft() } }
+        } message: {
+            Text("This removes the live scorecard from your iPhone and account. It cannot be undone.")
         }
     }
 }
@@ -246,6 +331,8 @@ struct StartRoundView: View {
 struct PlayingView: View {
     @EnvironmentObject private var store: RoundStore
     @State private var showReview = false
+    @State private var showDelete = false
+    @State private var showGroup = false
     @State private var page = "Score"
 
     var body: some View {
@@ -294,6 +381,27 @@ struct PlayingView: View {
             }
             .navigationTitle(draft.tee.courseName)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu("Round", systemImage: "ellipsis.circle") {
+                        Button("Save & Exit", systemImage: "square.and.arrow.down") {
+                            Task { await store.pauseRound() }
+                        }
+                        Button("Group scorecard", systemImage: "person.2") { showGroup = true }
+                        Button("Review or finish", systemImage: "checkmark.circle") {
+                            page = "Score"
+                            showReview = true
+                        }
+                        Button("Delete live round", systemImage: "trash", role: .destructive) { showDelete = true }
+                    }
+                }
+            }
+            .sheet(isPresented: $showGroup) { GroupScorecardView() }
+            .confirmationDialog("Delete this unfinished round?", isPresented: $showDelete) {
+                Button("Delete round", role: .destructive) { Task { await store.deleteDraft() } }
+            } message: {
+                Text("This removes the live scorecard from your iPhone and account. It cannot be undone.")
+            }
         }
     }
 
@@ -328,6 +436,14 @@ struct PlayingView: View {
                     .padding()
                     .background(.orange.opacity(0.15), in: RoundedRectangle(cornerRadius: 18))
                 }
+                Button {
+                    showGroup = true
+                } label: {
+                    Label("Group scorecard · \((draft.groupPlayers ?? []).count) added", systemImage: "person.2.fill")
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(.bordered)
+
                 VStack(spacing: 8) {
                     Text("STROKES").font(.caption.weight(.bold)).tracking(2)
                     HStack(spacing: 28) {
@@ -372,17 +488,58 @@ struct PlayingView: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                if draft.form.scoringFormat == "STABLEFORD" {
-                    Toggle("Picked up", isOn: Binding(
-                        get: { store.draft?.currentHole.pickedUp ?? false },
-                        set: { store.setPickedUp($0) }
-                    ))
-                    .padding()
-                    .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
-                    .disabled(store.submitting || store.submissionPendingVerification)
-                }
+                Toggle("Picked up", isOn: Binding(
+                    get: { store.draft?.currentHole.pickedUp ?? false },
+                    set: { store.setPickedUp($0) }
+                ))
+                .padding()
+                .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
+                .disabled(store.submitting || store.submissionPendingVerification)
 
-                DisclosureGroup("Optional hole details") {
+                DisclosureGroup("Performance details") {
+                    if draft.currentHole.par != "3" {
+                        Picker("Fairway", selection: Binding(
+                            get: { store.draft?.currentHole.fairwayResult ?? "" },
+                            set: { store.setFairwayResult($0) }
+                        )) {
+                            Text("Not recorded").tag("")
+                            Text("Hit").tag("HIT")
+                            Text("Missed left").tag("MISSED_LEFT")
+                            Text("Missed right").tag("MISSED_RIGHT")
+                        }
+                    }
+                    Picker("Green in regulation", selection: Binding(
+                        get: { store.draft?.currentHole.greenInRegulation ?? "" },
+                        set: { store.setGreenInRegulation($0) }
+                    )) {
+                        Text("Not recorded").tag("")
+                        Text("Yes").tag("YES")
+                        Text("No").tag("NO")
+                    }
+                    HStack {
+                        Text("Bunker visits")
+                        Spacer()
+                        TextField("—", text: Binding(
+                            get: { store.draft?.currentHole.bunkerVisits ?? "" },
+                            set: { value in
+                                if value.isEmpty { store.setBunkerVisits(nil) }
+                                else if let number = Int(value), (0...9).contains(number) { store.setBunkerVisits(number) }
+                            }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 75)
+                    }
+                    Picker("Up and down", selection: Binding(
+                        get: { store.draft?.currentHole.upAndDownResult ?? "" },
+                        set: { store.setUpAndDownResult($0) }
+                    )) {
+                        Text("Not recorded").tag("")
+                        Text("Not attempted").tag("NOT_ATTEMPTED")
+                        Text("Successful").tag("SUCCESSFUL")
+                        Text("Unsuccessful").tag("UNSUCCESSFUL")
+                    }
+
                     HStack {
                         Text("Putts")
                         Spacer()
@@ -435,15 +592,13 @@ struct PlayingView: View {
                 .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
                 .disabled(store.submitting || store.submissionPendingVerification)
 
-                if draft.completed == draft.holeEntries.count {
-                    if draft.canSubmitNatively {
-                        Button(store.submissionPendingVerification ? "Check submission" : "Review completed round") {
-                            showReview = true
-                        }
-                            .buttonStyle(.borderedProminent)
-                    } else {
-                        Link("Finish this round on the website", destination: URL(string: "https://foretherecord.co.uk")!)
-                        Text("Native submission currently supports casual individual Stroke Play and Stableford rounds.")
+                if draft.canSubmitRecordOnly {
+                    Button(store.submissionPendingVerification ? "Check submission" : "Review and finish round") {
+                        showReview = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    if !draft.canSubmitNatively {
+                        Text("An unfinished or picked-up card is saved as a record-only round. It appears in History and per-hole insights, without changing your Handicap Index.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -461,22 +616,28 @@ struct PlayingView: View {
                     Section("Round") {
                         Text("\(draft.tee.clubName) · \(draft.tee.courseName)")
                         Text("\(draft.tee.teeName) · \(draft.holeEntries.count) holes")
-                        Text(draft.form.scoringFormat == "STABLEFORD"
-                             ? "\(draft.stablefordPoints ?? 0) Stableford points"
-                             : "\(draft.gross) strokes")
+                        Text("\(draft.completed) of \(draft.holeEntries.count) holes recorded")
+                        Text(draft.canSubmitNatively ? "Complete scorecard" : "Record only · excluded from Handicap Index")
+                    }
+                    Section("Round notes") {
+                        TextField("Notes for this round", text: Binding(
+                            get: { store.draft?.form.notes ?? "" },
+                            set: { store.setRoundNotes($0) }
+                        ), axis: .vertical)
+                        .lineLimit(2...5)
                     }
                     Section("Scorecard") {
                         ForEach(draft.holeEntries) { hole in
                             HStack {
                                 Text("Hole \(hole.holeNumber) · Par \(hole.par)")
                                 Spacer()
-                                Text(hole.pickedUp ? "Picked up" : (hole.score.map(String.init) ?? "—"))
+                                Text(hole.pickedUp ? "Picked up" : (hole.score.map(String.init) ?? "Not played"))
                             }
                         }
                     }
                     Section {
                         Button(store.submitting ? "Submitting…" :
-                               (store.submissionPendingVerification ? "Check or retry submission" : "Confirm and save round")) {
+                               (store.submissionPendingVerification ? "Check or retry submission" : "Submit to History")) {
                             Task {
                                 await store.submitRound()
                                 if store.lastSubmittedRoundId != nil { showReview = false }
@@ -503,6 +664,156 @@ struct PlayingView: View {
             Text(value).font(.title2.weight(.semibold))
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+struct GroupScorecardView: View {
+    @EnvironmentObject private var store: RoundStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var guestName = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let draft = store.draft {
+                    Section("Group scorecard") {
+                        Text("Your scores remain on your card. Friends approve their own card before it appears in their History; guest cards stay with this round.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        ForEach(draft.groupPlayers ?? []) { player in
+                            NavigationLink {
+                                GroupPlayerScoreView(playerId: player.id)
+                            } label: {
+                                HStack {
+                                    Label(player.name, systemImage: player.kind == "friend" ? "person.crop.circle.badge.checkmark" : "person.crop.circle")
+                                    Spacer()
+                                    Text("\(player.holeEntries.filter { $0.score != nil || $0.pickedUp }.count)/\(player.holeEntries.count)")
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .swipeActions {
+                                Button("Remove", role: .destructive) { store.removeGroupPlayer(player.id) }
+                            }
+                        }
+                    }
+                    Section("Add a linked friend") {
+                        if let friends = store.friends?.friends {
+                            ForEach(friends) { friend in
+                                if !(draft.groupPlayers ?? []).contains(where: { $0.id == friend.player.id }) {
+                                    Button(friend.player.name) { store.addFriendToRound(friend) }
+                                }
+                            }
+                            if friends.isEmpty { Text("Add friends on the website first.").foregroundStyle(.secondary) }
+                        } else { ProgressView("Loading friends…") }
+                    }
+                    Section("Add a guest") {
+                        TextField("Guest name", text: $guestName)
+                        Button("Add guest") {
+                            store.addGuestToRound(guestName)
+                            guestName = ""
+                        }
+                        .disabled(guestName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+            }
+            .navigationTitle("Playing group")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .task { await store.loadFriends() }
+        }
+    }
+}
+
+struct GroupPlayerScoreView: View {
+    @EnvironmentObject private var store: RoundStore
+    let playerId: String
+
+    var body: some View {
+        if let draft = store.draft, let player = (draft.groupPlayers ?? []).first(where: { $0.id == playerId }) {
+            let hole = player.holeEntries[draft.currentHoleIndex]
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Hole \(hole.holeNumber) · Par \(hole.par) · SI \(hole.strokeIndex)")
+                        .font(.headline)
+                    Text("Select a score for \(player.name)")
+                        .font(.title2.weight(.semibold))
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                        ForEach(1...9, id: \.self) { score in
+                            Button("\(score)") { store.setGroupScore(playerId: playerId, score: score) }
+                                .frame(maxWidth: .infinity, minHeight: 54)
+                                .background(hole.score == score ? Palette.lime : Palette.card, in: RoundedRectangle(cornerRadius: 12))
+                                .foregroundStyle(hole.score == score ? Palette.forest : .primary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    Toggle("Picked up", isOn: Binding(
+                        get: { player.holeEntries[draft.currentHoleIndex].pickedUp },
+                        set: { store.setGroupPickedUp(playerId: playerId, pickedUp: $0) }
+                    ))
+                    HStack {
+                        Text("Score above 9")
+                        Spacer()
+                        TextField("10–30", text: Binding(
+                            get: { hole.score.map(String.init) ?? "" },
+                            set: { store.setGroupScore(playerId: playerId, score: Int($0)) }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80)
+                    }
+                    if hole.par != "3" {
+                        Picker("Fairway", selection: Binding(
+                            get: { hole.fairwayResult },
+                            set: { store.setGroupFairway(playerId: playerId, value: $0) }
+                        )) {
+                            Text("Not recorded").tag("")
+                            Text("Hit").tag("HIT")
+                            Text("Missed left").tag("MISSED_LEFT")
+                            Text("Missed right").tag("MISSED_RIGHT")
+                        }
+                    }
+                    Picker("Green in regulation", selection: Binding(
+                        get: { hole.greenInRegulation },
+                        set: { store.setGroupGIR(playerId: playerId, value: $0) }
+                    )) {
+                        Text("Not recorded").tag("")
+                        Text("Yes").tag("YES")
+                        Text("No").tag("NO")
+                    }
+                    HStack {
+                        Text("Putts")
+                        Spacer()
+                        TextField("—", text: Binding(
+                            get: { player.holeEntries[draft.currentHoleIndex].putts },
+                            set: { value in store.setGroupPutts(playerId: playerId, value: Int(value)) }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 70)
+                    }
+                    HStack {
+                        Text("Penalty strokes")
+                        Spacer()
+                        TextField("—", text: Binding(
+                            get: { player.holeEntries[draft.currentHoleIndex].penaltyStrokes },
+                            set: { value in store.setGroupPenalties(playerId: playerId, value: Int(value)) }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 70)
+                    }
+                    HStack {
+                        Button("Previous") { store.setHole(draft.currentHoleIndex - 1) }
+                            .disabled(draft.currentHoleIndex == 0)
+                        Spacer()
+                        Button("Next") { store.setHole(draft.currentHoleIndex + 1) }
+                            .disabled(draft.currentHoleIndex == draft.holeEntries.count - 1)
+                    }
+                }
+                .padding()
+            }
+            .background(Palette.paper)
+            .navigationTitle(player.name)
+        }
     }
 }
 
@@ -571,6 +882,31 @@ struct HistoryView: View {
                 if !store.message.isEmpty {
                     Text(store.message).foregroundStyle(.orange)
                 }
+                if !store.pendingGroupCards.isEmpty {
+                    Section("Cards awaiting your approval") {
+                        ForEach(store.pendingGroupCards) { card in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("\(card.hostRound.user.name) scored a round with you")
+                                    .font(.headline)
+                                Text("\(card.hostRound.tee.course.club.name) · \(card.hostRound.tee.course.name)")
+                                    .font(.subheadline)
+                                Text("\(card.state.holeEntries.filter { $0.score != nil || $0.pickedUp }.count) of \(card.hostRound.holeCount) holes recorded")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                HStack {
+                                    Button("Approve for History") {
+                                        Task { await store.answerGroupCard(card.id, approve: true) }
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    Button("Decline", role: .destructive) {
+                                        Task { await store.answerGroupCard(card.id, approve: false) }
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                                .disabled(store.busy)
+                            }
+                        }
+                    }
+                }
                 if store.history.isEmpty {
                     ContentUnavailableView("No rounds yet", systemImage: "list.bullet.rectangle",
                                            description: Text("Submitted rounds will appear here."))
@@ -583,8 +919,8 @@ struct HistoryView: View {
                         HStack {
                             Text(String(round.datePlayed.prefix(10)))
                             Spacer()
-                            Text(round.grossScore.map { "\($0) strokes" } ?? "Score pending")
-                            Text("· \(round.holeCount) holes")
+                            Text(round.isPartial == true ? "Record only" : round.grossScore.map { "\($0) strokes" } ?? "Score pending")
+                            Text("· \(round.playedHoles ?? round.holeCount) of \(round.holeCount) holes")
                         }
                         .font(.caption)
                     }
@@ -592,8 +928,8 @@ struct HistoryView: View {
                 }
             }
             .navigationTitle("History")
-            .refreshable { await store.loadHistory() }
-            .task { await store.loadHistory() }
+            .refreshable { await store.loadHistory(); await store.loadFriends() }
+            .task { await store.loadHistory(); await store.loadFriends() }
         }
     }
 }

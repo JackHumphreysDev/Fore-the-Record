@@ -24,6 +24,13 @@ enum ScorecardSource {
   ADMIN
 }
 
+enum GroupRoundCardStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  GUEST
+}
+
 enum RoundScorecardStatus {
   VERIFIED
   PENDING_REVIEW
@@ -181,6 +188,7 @@ model User {
   createdChallenges         PlayerChallenge[]        @relation("ChallengeCreator")
   receivedChallenges        PlayerChallenge[]        @relation("ChallengeOpponent")
   receivedRoundShares       RoundShare[]             @relation("RoundShareRecipient")
+  receivedGroupRoundCards   GroupRoundCard[]         @relation("GroupCardFriend")
   ownedFriendGroups         FriendGroup[]            @relation("FriendGroupOwner")
   friendGroupMemberships    FriendGroupMember[]
   friendGroupMessages       FriendGroupMessage[]
@@ -620,6 +628,7 @@ model UserCoursePreference {
 model Round {
   id                       String                @id @default(uuid()) @db.Uuid
   sourceLiveRoundDraftId   String?               @unique @db.Uuid
+  isPartial                Boolean               @default(false)
   userId                   String                @db.Uuid
   teeId                    String                @db.Uuid
   datePlayed               DateTime              @db.Date
@@ -668,6 +677,8 @@ model Round {
   playingPartners          RoundPlayingPartner[]
   guestPlayers             RoundGuestPlayer[]
   shares                   RoundShare[]
+  hostedGroupCards         GroupRoundCard[]      @relation("GroupCardHost")
+  approvedGroupCard        GroupRoundCard?       @relation("GroupCardApproved")
   friendGroupMessages      FriendGroupMessage[]
 
   @@index([userId, datePlayed, createdAt])
@@ -685,6 +696,24 @@ model LiveRoundDraft {
   tee       Tee      @relation(fields: [teeId], references: [id], onDelete: Cascade)
 
   @@index([teeId])
+}
+
+model GroupRoundCard {
+  id              String               @id @default(uuid()) @db.Uuid
+  hostRoundId     String               @db.Uuid
+  friendId        String?              @db.Uuid
+  guestName       String?              @db.VarChar(80)
+  state           Json
+  status          GroupRoundCardStatus @default(PENDING)
+  approvedRoundId String?              @unique @db.Uuid
+  createdAt       DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime             @updatedAt @db.Timestamptz(3)
+  hostRound       Round                @relation("GroupCardHost", fields: [hostRoundId], references: [id], onDelete: Cascade)
+  friend          User?                @relation("GroupCardFriend", fields: [friendId], references: [id], onDelete: Cascade)
+  approvedRound   Round?               @relation("GroupCardApproved", fields: [approvedRoundId], references: [id], onDelete: SetNull)
+
+  @@unique([hostRoundId, friendId])
+  @@index([friendId, status, createdAt])
 }
 
 model RoundShare {

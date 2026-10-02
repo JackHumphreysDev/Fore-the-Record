@@ -4292,6 +4292,7 @@ describe('GET /api/users/me/rounds', () => {
         usedInHandicapCalc: true,
         scorecardStatus: 'VERIFIED',
         createdAt: '2026-08-30T12:00:00.000Z',
+        playedHoles: 18,
         holeScores,
         tee: {
           id: '44444444-4444-4444-8444-444444444444',

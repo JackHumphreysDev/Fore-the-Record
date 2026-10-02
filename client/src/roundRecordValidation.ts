@@ -48,6 +48,7 @@ type ClassifiedRound = {
   notes: string | null
   grossScore: number | null
   adjustedGrossScore: number | null
+  isPartial?: boolean
   isCapped: boolean
   scoreDifferential: number | null
   scorecardStatus:
@@ -63,6 +64,8 @@ export type RoundResult = {
 }
 
 export type HistoryRound = ClassifiedRound & {
+  playedHoles?: number
+  hostedGroupCards?: Array<{ id: string; status: string; guestName: string | null; state: unknown; friend: { name: string } | null }>
   scorecardPhoto: ScorecardPhoto | null
   weatherCondition: WeatherCondition | null
   pccAdjustment: number
@@ -291,6 +294,20 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
     (value.scorecardStatus === 'VERIFIED' ||
       value.scorecardStatus === 'PENDING_REVIEW' ||
       value.scorecardStatus === 'REJECTED')
+  const hasValidRecordOnly =
+    value.isPartial === true && value.category === 'CASUAL' &&
+    value.participation === 'INDIVIDUAL' &&
+    value.grossScore === null && value.adjustedGrossScore === null &&
+    value.scoreDifferential === null && value.stablefordPoints === null &&
+    value.isAcceptable === false && value.usedInHandicapCalc === false &&
+    value.scorecardStatus === 'NOT_REQUIRED' &&
+    typeof value.weatherCondition === 'string' &&
+    WEATHER_CONDITIONS.includes(value.weatherCondition as WeatherCondition) &&
+    (value.holeCount === 18 ? value.nineHoleSegment === null :
+      value.nineHoleSegment === 'FRONT_NINE' || value.nineHoleSegment === 'BACK_NINE') &&
+    (value.scoringFormat === 'STROKE_PLAY' ? value.playingHandicap === null :
+      value.scoringFormat === 'STABLEFORD' &&
+      (value.playingHandicap === null || Number.isInteger(value.playingHandicap)))
   const hasValidTeamRecord =
     value.category === 'COMPETITION' &&
     value.participation === 'TEAM' &&
@@ -309,7 +326,11 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
     && value.nineHoleSegment === null
   const hasValidHoleScores =
     Array.isArray(value.holeScores) &&
-    (value.holeScores.length === 0 || value.holeScores.length === value.holeCount) &&
+    (value.isPartial === true
+      ? value.holeScores.length >= 1 &&
+        (value.holeCount === 9 || value.holeCount === 18) &&
+        value.holeScores.length <= value.holeCount
+      : value.holeScores.length === 0 || value.holeScores.length === value.holeCount) &&
     value.holeScores.every(
       (hole) =>
         isRecord(hole) &&
@@ -339,7 +360,7 @@ export function isHistoryRound(value: unknown): value is HistoryRound {
       (typeof value.notes === 'string' && value.notes.length <= 2000)) &&
     hasValidClassification(value) &&
     hasValidMatchPlay(value) &&
-    (hasValidIndividualScore || hasValidTeamRecord) &&
+    (hasValidIndividualScore || hasValidTeamRecord || hasValidRecordOnly) &&
     typeof value.isCapped === 'boolean' &&
     isFiniteNumber(value.pccAdjustment) &&
     typeof value.isAcceptable === 'boolean' &&

@@ -137,6 +137,13 @@ struct RoundHole: Codable, Identifiable {
     }
 }
 
+struct GroupPlayer: Codable, Identifiable {
+    let id: String
+    let kind: String
+    let name: String
+    var holeEntries: [RoundHole]
+}
+
 struct LiveRoundState: Codable {
     var version = 1
     var currentHoleIndex = 0
@@ -146,6 +153,7 @@ struct LiveRoundState: Codable {
     var scorecardSource: String?
     var holeEntries: [RoundHole]
     var matchPlayDraft: [String: String] = [:]
+    var groupPlayers: [GroupPlayer]? = nil
 
     var currentHole: RoundHole { holeEntries[currentHoleIndex] }
     var completed: Int { holeEntries.filter { $0.score != nil || $0.pickedUp }.count }
@@ -172,10 +180,16 @@ struct LiveRoundState: Codable {
         }
     }
 
+    var canSubmitRecordOnly: Bool {
+        form.category == "CASUAL" && form.participation == "INDIVIDUAL" &&
+        scorecardStatus == "available" && completed > 0
+    }
+
     var canSubmitNatively: Bool {
         form.category == "CASUAL" && form.participation == "INDIVIDUAL" &&
         scorecardStatus == "available" && (holeEntries.count == 9 || holeEntries.count == 18) &&
         holeEntries.count == form.holeCount && completed == holeEntries.count &&
+        !holeEntries.contains(where: \.pickedUp) &&
         (form.scoringFormat == "STROKE_PLAY" || form.scoringFormat == "STABLEFORD")
     }
 
@@ -316,11 +330,43 @@ struct HistoryRound: Decodable, Identifiable {
     let grossScore: Int?
     let holeCount: Int
     let scorecardStatus: String
+    let isPartial: Bool?
+    let playedHoles: Int?
     let tee: Tee
+}
+
+struct PendingGroupCardsResponse: Decodable {
+    let cards: [PendingGroupCard]
+}
+
+struct PendingGroupCard: Decodable, Identifiable {
+    struct HostRound: Decodable {
+        struct Host: Decodable { let name: String }
+        struct Tee: Decodable {
+            struct Course: Decodable {
+                struct Club: Decodable { let name: String }
+                let name: String
+                let club: Club
+            }
+            let teeName: String
+            let course: Course
+        }
+        let datePlayed: String
+        let holeCount: Int
+        let user: Host
+        let tee: Tee
+    }
+    struct CardState: Decodable {
+        let holeEntries: [RoundHole]
+    }
+    let id: String
+    let hostRound: HostRound
+    let state: CardState
 }
 
 struct FriendRecord: Decodable, Identifiable {
     struct Player: Decodable {
+        let id: String
         let name: String
         let handicapIndex: Double?
     }

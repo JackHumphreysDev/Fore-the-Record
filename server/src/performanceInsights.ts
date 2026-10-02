@@ -6,6 +6,7 @@ export type PerformanceInsightRound = {
   createdAt: Date
   participation: 'INDIVIDUAL' | 'TEAM'
   scorecardStatus: 'VERIFIED' | 'PENDING_REVIEW' | 'REJECTED' | 'NOT_REQUIRED'
+  isPartial?: boolean
   scoringFormat: InsightScoringFormat
   holeCount: number
   grossScore: number | null
@@ -48,9 +49,11 @@ function linearDirection(values: readonly number[]): Direction {
 }
 
 export function buildPerformanceInsights(allRounds: readonly PerformanceInsightRound[], selectedTeeId?: string, selectedHole?: number) {
-  const rounds = allRounds.filter((round) => round.participation === 'INDIVIDUAL' && round.scorecardStatus === 'VERIFIED')
+  const rounds = allRounds.filter((round) => round.participation === 'INDIVIDUAL' &&
+    (round.scorecardStatus === 'VERIFIED' || round.isPartial === true))
     .sort((left, right) => left.datePlayed.getTime() - right.datePlayed.getTime() || left.createdAt.getTime() - right.createdAt.getTime())
-  const complete18 = rounds.filter((round) => round.holeCount === 18 && !round.holeScores.some((hole) => hole.pickedUp))
+  const complete18 = rounds.filter((round) => !round.isPartial && round.holeCount === 18 &&
+    round.holeScores.length === 18 && !round.holeScores.some((hole) => hole.pickedUp))
   const strokeScores = complete18.filter((round) => round.scoringFormat === 'STROKE_PLAY' && round.grossScore !== null).map((round) => round.grossScore!)
   const stablefordScores = complete18.filter((round) => round.scoringFormat === 'STABLEFORD' && round.stablefordPoints !== null).map((round) => round.stablefordPoints!)
   const mean = average(strokeScores)
@@ -95,7 +98,7 @@ export function buildPerformanceInsights(allRounds: readonly PerformanceInsightR
   const recordedHoleScores = holePoints.flatMap((point) => point.strokes === null ? [] : [point.strokes])
 
   return {
-    qualifyingRounds: rounds.length,
+    qualifyingRounds: rounds.filter((round) => !round.isPartial).length,
     strokePlayTrend: trend(strokeScores, true),
     stablefordTrend: trend(stablefordScores, false),
     consistency: { rounds: strokeScores.length, averageGross: mean, standardDeviation: deviation, range, level: deviation === null ? 'INSUFFICIENT_DATA' : deviation <= 3 ? 'CONSISTENT' : deviation <= 6 ? 'MIXED' : 'VARIABLE' },
