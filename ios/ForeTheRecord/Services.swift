@@ -182,6 +182,26 @@ struct APIClient {
         try await call(endpoint("api/users/me/friends"), token: token, as: FriendsResponse.self)
     }
 
+    func pendingGroupCards(token: String) async throws -> [PendingGroupCard] {
+        try await call(endpoint("api/users/me/group-round-cards"), token: token,
+                       as: PendingGroupCardsResponse.self).cards
+    }
+
+    func answerGroupCard(id: String, approve: Bool, token: String) async throws {
+        guard UUID(uuidString: id) != nil else { throw NetworkError.invalidResponse }
+        let action = approve ? "approve" : "decline"
+        let url = try endpoint("api/users/me/group-round-cards/\(id)/\(action)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw NetworkError.invalidResponse }
+        guard http.statusCode == (approve ? 201 : 204) else {
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            throw NetworkError.http(http.statusCode, object?["error"] as? String ?? "Could not answer this card.")
+        }
+    }
+
     func saveDraft(_ state: LiveRoundState, expectedRevision: Int, token: String) async throws -> LiveDraft {
         struct Body: Encodable {
             let state: LiveRoundState
@@ -194,10 +214,38 @@ struct APIClient {
         return draft
     }
 
+    func deleteDraft(id: String?, expectedRevision: Int, token: String) async throws {
+        struct Body: Encodable {
+            let draftId: String?
+            let expectedRevision: Int
+        }
+        var request = URLRequest(url: try endpoint("api/users/me/live-round"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(Body(draftId: id, expectedRevision: expectedRevision))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw NetworkError.invalidResponse }
+        if http.statusCode == 409 { throw NetworkError.conflict }
+        guard http.statusCode == 204 else {
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            throw NetworkError.http(http.statusCode, object?["error"] as? String ?? "Could not delete the round.")
+        }
+    }
+
     func submitRound(_ submission: RoundSubmission, token: String) async throws -> String {
         let body = try JSONEncoder().encode(submission)
         let response: SubmittedRoundResponse = try await call(endpoint("api/rounds"), method: "POST",
                                                               token: token, body: body, as: SubmittedRoundResponse.self)
+        return response.round.id
+    }
+
+    func submitRecordOnly(draftId: String, expectedRevision: Int, token: String) async throws -> String {
+        struct Body: Encodable { let draftId: String; let expectedRevision: Int }
+        let body = try JSONEncoder().encode(Body(draftId: draftId, expectedRevision: expectedRevision))
+        let response: SubmittedRoundResponse = try await call(
+            endpoint("api/users/me/live-round/record-only"), method: "POST", token: token,
+            body: body, as: SubmittedRoundResponse.self)
         return response.round.id
     }
 

@@ -73,6 +73,7 @@ function formatRoundDate(datePlayed: string): string {
 }
 
 function getRoundStatus(round: HistoryRound): string {
+  if (round.isPartial) return `Record only · ${round.holeScores.length} of ${round.holeCount} holes`
   if (round.participation === 'TEAM') {
     return 'Record only'
   }
@@ -112,7 +113,7 @@ function scoreToPar(strokes: number, par: number): string {
 }
 
 function RoundScorecard({ round }: { round: HistoryRound }) {
-  if (round.holeScores.length !== round.holeCount) {
+  if (round.holeScores.length === 0) {
     return (
       <div className="history-scorecard-empty">
         No individual hole-by-hole scorecard is available for this round.
@@ -123,7 +124,7 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
   const frontNine = round.holeScores.slice(0, 9)
   const backNine = round.holeScores.slice(9)
   const totals = calculateRoundScoreTotals(round.holeScores)
-  const isStableford = round.scoringFormat === 'STABLEFORD'
+  const isStableford = round.scoringFormat === 'STABLEFORD' && !round.isPartial
   const playingHandicap = round.playingHandicap ?? 0
   const stableford = calculateStablefordTotals(
     round.holeScores.map((hole) => ({
@@ -202,9 +203,9 @@ function RoundScorecard({ round }: { round: HistoryRound }) {
         </table>
       </div>
       <dl className="history-nine-totals">
-        {round.holeCount === 18 ? <div><dt>Front 9</dt><dd>{isStableford ? stableford.frontNine : totals.frontNine} <small>{isStableford ? 'points' : `Par ${parTotal(frontNine)}`}</small></dd></div> : null}
-        {round.holeCount === 18 ? <div><dt>Back 9</dt><dd>{isStableford ? stableford.backNine : totals.backNine} <small>{isStableford ? 'points' : `Par ${parTotal(backNine)}`}</small></dd></div> : null}
-        <div><dt>{round.holeCount === 9 ? (round.nineHoleSegment === 'FRONT_NINE' ? 'Front 9' : 'Back 9') : 'Total'}</dt><dd>{isStableford ? stableford.total : totals.total} <small>{isStableford ? 'points' : `Par ${parTotal(round.holeScores)}`}</small></dd></div>
+        {round.holeCount === 18 && !round.isPartial ? <div><dt>Front 9</dt><dd>{isStableford ? stableford.frontNine : totals.frontNine} <small>{isStableford ? 'points' : `Par ${parTotal(frontNine)}`}</small></dd></div> : null}
+        {round.holeCount === 18 && !round.isPartial ? <div><dt>Back 9</dt><dd>{isStableford ? stableford.backNine : totals.backNine} <small>{isStableford ? 'points' : `Par ${parTotal(backNine)}`}</small></dd></div> : null}
+        <div><dt>{round.isPartial ? 'Recorded strokes' : round.holeCount === 9 ? (round.nineHoleSegment === 'FRONT_NINE' ? 'Front 9' : 'Back 9') : 'Total'}</dt><dd>{isStableford ? stableford.total : totals.total} {!round.isPartial ? <small>{isStableford ? 'points' : `Par ${parTotal(round.holeScores)}`}</small> : <small>Excludes picked-up and unplayed holes</small>}</dd></div>
       </dl>
       {hasDetailedStatistics ? <dl className="history-performance-summary">
         <div><dt>Total putts</dt><dd>{recordedPutts.length > 0 ? recordedPutts.reduce((sum, hole) => sum + (hole.putts ?? 0), 0) : '—'}</dd><small>{recordedPutts.length} recorded holes</small></div>
@@ -377,7 +378,7 @@ function RoundHistory({
 
         if (controller.signal.aborted) return
         setRounds(body)
-        setSelectedRoundId(focusedRoundId || '')
+        if (focusedRoundId) setSelectedRoundId(focusedRoundId)
         if (focusedRoundId && body.some((round) => round.id === focusedRoundId)) {
           setFilters({ ...EMPTY_ROUND_HISTORY_FILTERS })
           setExpandedRoundId(focusedRoundId)
@@ -412,6 +413,18 @@ function RoundHistory({
 
     return () => controller.abort()
   }, [focusedRoundId, profileId, loadAttempt])
+
+  useEffect(() => {
+    const refreshWhenActive = () => {
+      if (document.visibilityState === 'visible') setLoadAttempt((value) => value + 1)
+    }
+    window.addEventListener('focus', refreshWhenActive)
+    document.addEventListener('visibilitychange', refreshWhenActive)
+    return () => {
+      window.removeEventListener('focus', refreshWhenActive)
+      document.removeEventListener('visibilitychange', refreshWhenActive)
+    }
+  }, [])
 
   if (!profile) {
     return (
@@ -449,10 +462,15 @@ function RoundHistory({
             Your playing record.
           </h1>
         </div>
-        <p>
-          Follow every round from newest to oldest and see which scores are
-          shaping your current Handicap Index.
-        </p>
+        <div className="history-hero-copy">
+          <p>
+            Follow every round from newest to oldest and see which scores are
+            shaping your current Handicap Index.
+          </p>
+          <button type="button" disabled={isLoading} onClick={() => setLoadAttempt((value) => value + 1)}>
+            {isLoading ? 'Refreshing…' : 'Refresh rounds'}
+          </button>
+        </div>
         <div className="history-hero-engraving" aria-hidden="true">
           <span />
           <img src={ledgerGreen} alt="" />
@@ -655,7 +673,7 @@ function RoundHistory({
             <ol className="history-compact-list">
               {filteredRounds.slice((page - 1) * 8, page * 8).map((round) => <li key={round.id}><button type="button" aria-pressed={selectedRoundId === round.id} onClick={() => selectRound(round.id)}>
                 <span><time>{formatRoundDate(round.datePlayed)}</time><strong>{round.tee.course.club.name}</strong><small>{round.tee.teeName} · {getRoundTypeLabel(round)}</small></span>
-                <strong>{round.participation === 'TEAM' ? 'Team' : round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints ?? '—'} pts` : round.grossScore ?? '—'}</strong>
+                <strong>{round.isPartial ? `${round.holeScores.length}/${round.holeCount}` : round.participation === 'TEAM' ? 'Team' : round.scoringFormat === 'STABLEFORD' ? `${round.stablefordPoints ?? '—'} pts` : round.grossScore ?? '—'}</strong>
                 <span>{getRoundStatus(round)} <span aria-hidden="true">→</span></span>
               </button></li>)}
             </ol>
@@ -759,11 +777,11 @@ function RoundHistory({
                         <>
                           <div>
                             <dt>{round.scoringFormat === 'STABLEFORD' ? 'Points' : 'Gross'}</dt>
-                            <dd>{round.scoringFormat === 'STABLEFORD' ? round.stablefordPoints : round.grossScore}</dd>
+                            <dd>{round.isPartial ? 'Record only' : round.scoringFormat === 'STABLEFORD' ? round.stablefordPoints : round.grossScore}</dd>
                           </div>
                           <div>
                             <dt>{round.scoringFormat === 'STABLEFORD' ? 'Playing Handicap' : 'Adjusted'}</dt>
-                            <dd>{round.scoringFormat === 'STABLEFORD' ? round.playingHandicap : round.adjustedGrossScore}</dd>
+                            <dd>{round.scoringFormat === 'STABLEFORD' ? round.playingHandicap ?? '—' : round.adjustedGrossScore ?? '—'}</dd>
                           </div>
                           <div className="history-differential">
                             <dt>Differential</dt>
@@ -788,6 +806,19 @@ function RoundHistory({
                     </p>
 
                     {round.teamCompetition ? <TeamCompetitionCard competition={round.teamCompetition} /> : null}
+                    {round.isPartial ? <p>{round.holeScores.length} of {round.holeCount} holes recorded. Empty holes and picked-up balls have no score. This card appears in hole-level insights and does not affect your Handicap Index.</p> : null}
+                    {round.hostedGroupCards?.length ? (
+                      <section aria-label="Group cards">
+                        <h3>Playing group</h3>
+                        <ul>
+                          {round.hostedGroupCards.map((card) => (
+                            <li key={card.id}>
+                              {card.guestName ?? card.friend?.name ?? 'Friend'} · {card.guestName ? 'Guest card saved with this round' : card.status === 'APPROVED' ? 'Approved in their History' : card.status === 'DECLINED' ? 'Declined' : 'Awaiting their approval'}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ) : null}
 
                     </div>
                     <div hidden={detailTab !== 'notes'}>

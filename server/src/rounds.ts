@@ -11,11 +11,13 @@ import {
   RoundScoringFormat,
   type RoundScoringFormat as RoundScoringFormatValue,
   RoundScorecardStatus,
+  GroupRoundCardStatus,
   SubmissionType,
   WeatherCondition,
   type WeatherCondition as WeatherConditionValue,
 } from './generated/prisma/enums.js'
 import { isCompleteScorecard } from './courseScorecards.js'
+import { parseLiveRoundDraftState, type LiveRoundDraftState } from './liveRounds.js'
 import {
   calculateAdjustedGrossScore,
   calculateCourseHandicap,
@@ -782,6 +784,7 @@ export async function logRound(input: LogRoundInput) {
       throw new RoundReferenceNotFoundError('tee')
     }
 
+    let groupPlayers: NonNullable<LiveRoundDraftState['groupPlayers']> = []
     if (input.liveRoundDraftId) {
       const liveRoundDraft = await transaction.liveRoundDraft.findFirst({
         where: {
@@ -789,9 +792,13 @@ export async function logRound(input: LogRoundInput) {
           userId: input.userId,
           teeId: input.teeId,
         },
-        select: { id: true, revision: true },
+        select: { id: true, revision: true, state: true },
       })
       if (!liveRoundDraft) throw new RoundReferenceNotFoundError('liveRound')
+      const parsedState = parseLiveRoundDraftState(liveRoundDraft.state)
+      if (!parsedState) throw new RoundDraftConflictError()
+      groupPlayers = (parsedState.groupPlayers ?? []).filter((player) =>
+        player.holeEntries.some((hole) => hole.pickedUp || hole.strokesTaken !== ''))
       if (input.expectedDraftRevision !== null && liveRoundDraft.revision !== input.expectedDraftRevision) {
         throw new RoundDraftConflictError()
       }
@@ -822,6 +829,23 @@ export async function logRound(input: LogRoundInput) {
       if (input.playingPartnerIds.some((friendId) => !acceptedIds.has(friendId))) {
         throw new RoundPlayingPartnersError()
       }
+    }
+
+    const groupFriendIds = groupPlayers.filter((player) => player.kind === 'friend').map((player) => player.id)
+    if (groupFriendIds.length > 0) {
+      const friendships = await transaction.friendship.findMany({
+        where: {
+          status: 'ACCEPTED',
+          OR: groupFriendIds.flatMap((friendId) => [
+            { requesterId: input.userId, addresseeId: friendId },
+            { requesterId: friendId, addresseeId: input.userId },
+          ]),
+        },
+        select: { requesterId: true, addresseeId: true },
+      })
+      const accepted = new Set(friendships.map((friendship) => friendship.requesterId === input.userId
+        ? friendship.addresseeId : friendship.requesterId))
+      if (groupFriendIds.some((id) => !accepted.has(id))) throw new RoundPlayingPartnersError()
     }
 
     const courseRating = Number(tee.courseRating)
@@ -1073,6 +1097,16 @@ export async function logRound(input: LogRoundInput) {
         scorecardStatus: manualReviewRequired
           ? RoundScorecardStatus.PENDING_REVIEW
           : RoundScorecardStatus.VERIFIED,
+        ...(groupPlayers.length > 0 ? {
+          hostedGroupCards: {
+            create: groupPlayers.map((player) => ({
+              ...(player.kind === 'friend'
+                ? { friend: { connect: { id: player.id } }, status: GroupRoundCardStatus.PENDING }
+                : { guestName: player.name, status: GroupRoundCardStatus.GUEST }),
+              state: { holeEntries: player.holeEntries },
+            })),
+          },
+        } : {}),
         holeScores: {
           create: effectiveHoleScores.map(({ yardage: _yardage, ...hole }) => ({
             ...hole,

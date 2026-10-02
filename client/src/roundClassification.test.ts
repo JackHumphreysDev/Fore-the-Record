@@ -177,6 +177,27 @@ describe('round classification response validation', () => {
     ).toBe(true)
   })
 
+  it('accepts an unfinished record-only card with a picked-up hole and no differential', () => {
+    const record = {
+      ...teamRound,
+      isPartial: true,
+      category: 'CASUAL', participation: 'INDIVIDUAL', teamCompetition: null,
+      competitionName: null, competitionFormat: null, numberOfPlayers: null,
+      weatherCondition: 'DRY',
+      holeScores: [
+        { holeNumber: 1, par: 4, strokeIndex: 1, strokesTaken: 5, pickedUp: false,
+          putts: 2, fairwayResult: 'HIT', greenInRegulation: false,
+          penaltyStrokes: 0, bunkerVisits: 0, upAndDownResult: null },
+        { holeNumber: 2, par: 4, strokeIndex: 2, strokesTaken: 0, pickedUp: true,
+          putts: null, fairwayResult: null, greenInRegulation: null,
+          penaltyStrokes: null, bunkerVisits: null, upAndDownResult: null },
+      ],
+      tee,
+    }
+    expect(isHistoryRound(record)).toBe(true)
+    expect(isHistoryRound({ ...record, usedInHandicapCalc: true })).toBe(false)
+  })
+
   it('accepts a non-counting verified front-nine round', () => {
     expect(
       isHistoryRound({

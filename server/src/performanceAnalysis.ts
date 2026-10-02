@@ -10,6 +10,7 @@ export type PerformanceAnalysisRound = {
   participation: 'INDIVIDUAL' | 'TEAM'
   grossScore: number | null
   scorecardStatus: 'VERIFIED' | 'PENDING_REVIEW' | 'REJECTED' | 'NOT_REQUIRED'
+  isPartial?: boolean
   holeCount: number
   nineHoleSegment: PerformanceAnalysisSegment | null
   tee: {
@@ -145,7 +146,7 @@ export function buildPerformanceAnalysis(
   const eligibleRounds = allRounds.filter(
     (round) =>
       round.participation === 'INDIVIDUAL' &&
-      round.scorecardStatus === 'VERIFIED',
+      (round.scorecardStatus === 'VERIFIED' || round.isPartial === true),
   )
   const courses = [...new Map(
     eligibleRounds.map((round) => [
@@ -246,7 +247,7 @@ export function buildPerformanceAnalysis(
   const allHoles = eligible.flatMap((round) => round.holeScores)
   const puttHoles = allHoles.filter((hole) => hole.putts !== null)
   const completePuttRounds = eligible.filter((round) =>
-    round.holeScores.length === round.holeCount && round.holeScores.every((hole) => hole.putts !== null),
+    !round.isPartial && round.holeScores.length === round.holeCount && round.holeScores.every((hole) => hole.putts !== null),
   )
   const puttTotal = puttHoles.reduce((total, hole) => total + (hole.putts ?? 0), 0)
   const completePuttTotal = completePuttRounds.reduce((total, round) =>
@@ -260,10 +261,10 @@ export function buildPerformanceAnalysis(
   const scrambling = allHoles.filter((hole) => hole.upAndDownResult === 'SUCCESSFUL' || hole.upAndDownResult === 'UNSUCCESSFUL')
   const scramblingSuccesses = scrambling.filter((hole) => hole.upAndDownResult === 'SUCCESSFUL').length
   const completePenaltyRounds = eligible.filter((round) =>
-    round.holeScores.length === round.holeCount && round.holeScores.every((hole) => hole.penaltyStrokes !== null),
+    !round.isPartial && round.holeScores.length === round.holeCount && round.holeScores.every((hole) => hole.penaltyStrokes !== null),
   )
   const completeBunkerRounds = eligible.filter((round) =>
-    round.holeScores.length === round.holeCount && round.holeScores.every((hole) => hole.bunkerVisits !== null),
+    !round.isPartial && round.holeScores.length === round.holeCount && round.holeScores.every((hole) => hole.bunkerVisits !== null),
   )
   const percentage = (part: number, total: number) => total === 0 ? null : roundOne(part / total * 100)
 

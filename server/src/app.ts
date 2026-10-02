@@ -126,6 +126,7 @@ import {
   RoundReferenceNotFoundError,
 } from './rounds.js'
 import { asLiveRoundJson, parseLiveRoundDraftState } from './liveRounds.js'
+import { PartialRoundError, submitRecordOnlyRound, approveGroupRoundCard, declineGroupRoundCard } from './partialRounds.js'
 import {
   parseRoundNotes,
   RoundNotesValidationError,
@@ -3137,6 +3138,7 @@ app.get('/api/users/me/rounds', async (_request, response) => {
           scorecardPhotoUploadedAt: true,
           grossScore: true,
           adjustedGrossScore: true,
+          isPartial: true,
           isCapped: true,
           weatherCondition: true,
           pccAdjustment: true,
@@ -3160,6 +3162,10 @@ app.get('/api/users/me/rounds', async (_request, response) => {
               bunkerVisits: true,
               upAndDownResult: true,
             },
+          },
+          hostedGroupCards: {
+            select: { id: true, status: true, guestName: true, state: true,
+              friend: { select: { name: true } } },
           },
           playingPartners: {
             select: {
@@ -3221,6 +3227,7 @@ app.get('/api/users/me/rounds', async (_request, response) => {
       } = round
       return {
         ...details,
+        playedHoles: round.holeScores.length,
         playingPartners: (playingPartners ?? []).map(({ user: partner, result }) => ({ ...partner, result })),
         pccAdjustment: Number(round.pccAdjustment),
         scoreDifferential:
@@ -3747,7 +3754,7 @@ app.get('/api/users/me/performance-insights', async (request, response) => {
       rounds: {
         orderBy: [{ datePlayed: 'asc' }, { createdAt: 'asc' }],
         select: {
-          id: true, datePlayed: true, createdAt: true, participation: true, scorecardStatus: true,
+          id: true, datePlayed: true, createdAt: true, participation: true, scorecardStatus: true, isPartial: true,
           scoringFormat: true, holeCount: true, grossScore: true, stablefordPoints: true,
           tee: {
             select: {
@@ -3836,6 +3843,7 @@ app.get('/api/users/me/performance-analysis', async (request, response) => {
           participation: true,
           grossScore: true,
           scorecardStatus: true,
+          isPartial: true,
           holeCount: true,
           nineHoleSegment: true,
           tee: {
@@ -7622,7 +7630,75 @@ app.put('/api/users/me/live-round', async (request, response) => {
   response.status(200).json({ draft })
 })
 
-app.delete('/api/users/me/live-round', async (_request, response) => {
+app.get('/api/users/me/group-round-cards', async (_request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const profile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id }, select: { id: true },
+  })
+  if (!profile) return response.status(404).json({ error: 'Profile not found' })
+  const cards = await prisma.groupRoundCard.findMany({
+    where: { friendId: profile.id, status: 'PENDING' },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true, state: true, createdAt: true,
+      hostRound: {
+        select: {
+          id: true, datePlayed: true, holeCount: true,
+          user: { select: { name: true } },
+          tee: { select: { teeName: true, course: { select: { name: true, club: { select: { name: true } } } } } },
+        },
+      },
+    },
+  })
+  return response.status(200).json({ cards })
+})
+
+app.post('/api/users/me/group-round-cards/:cardId/:action', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const profile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id }, select: { id: true },
+  })
+  if (!profile) return response.status(404).json({ error: 'Profile not found' })
+  try {
+    if (request.params.action === 'approve') {
+      const result = await approveGroupRoundCard({ cardId: request.params.cardId, friendId: profile.id })
+      return response.status(201).json(result)
+    }
+    if (request.params.action === 'decline') {
+      await declineGroupRoundCard({ cardId: request.params.cardId, friendId: profile.id })
+      return response.status(204).send()
+    }
+    return response.status(400).json({ error: 'Invalid group card action.' })
+  } catch (error: unknown) {
+    if (error instanceof PartialRoundError) return response.status(error.status).json({ error: error.message })
+    throw error
+  }
+})
+
+app.post('/api/users/me/live-round/record-only', async (request, response) => {
+  const authenticatedUser = getRequestUser(response.locals)
+  const profile = await prisma.user.findUnique({
+    where: { authUserId: authenticatedUser.id }, select: { id: true },
+  })
+  if (!profile) return response.status(404).json({ error: 'Profile not found' })
+  const body = isRecord(request.body) ? request.body : null
+  try {
+    const result = await submitRecordOnlyRound({
+      userId: profile.id,
+      draftId: typeof body?.draftId === 'string' ? body.draftId : '',
+      expectedRevision: typeof body?.expectedRevision === 'number' ? body.expectedRevision : -1,
+    })
+    return response.status(201).json(result)
+  } catch (error: unknown) {
+    if (error instanceof PartialRoundError) return response.status(error.status).json({ error: error.message })
+    if (isRecord(error) && (error.code === 'P2002' || error.code === 'P2025')) {
+      return response.status(409).json({ error: 'The live round changed or was already submitted.' })
+    }
+    throw error
+  }
+})
+
+app.delete('/api/users/me/live-round', async (request, response) => {
   const authenticatedUser = getRequestUser(response.locals)
   const profile = await prisma.user.findUnique({
     where: { authUserId: authenticatedUser.id },
@@ -7630,7 +7706,25 @@ app.delete('/api/users/me/live-round', async (_request, response) => {
   })
   if (!profile) return response.status(404).json({ error: 'Profile not found' })
 
-  await prisma.liveRoundDraft.deleteMany({ where: { userId: profile.id } })
+  const body = isRecord(request.body) ? request.body : null
+  const expectedRevision = body?.expectedRevision
+  const draftId = body?.draftId
+  if (expectedRevision !== undefined &&
+      (!Number.isInteger(expectedRevision) || Number(expectedRevision) < 0 || Number(expectedRevision) >= 2_147_483_647 ||
+        (draftId !== null && (typeof draftId !== 'string' || !UUID_PATTERN.test(draftId))))) {
+    return response.status(400).json({ error: 'Invalid live round deletion request' })
+  }
+  if (expectedRevision !== undefined) {
+    const deleted = await prisma.liveRoundDraft.deleteMany({
+      where: { userId: profile.id, revision: Number(expectedRevision), ...(draftId ? { id: draftId } : {}) },
+    })
+    if (deleted.count === 0) {
+      const remaining = await prisma.liveRoundDraft.findUnique({ where: { userId: profile.id }, select: { id: true } })
+      if (remaining) return response.status(409).json({ error: 'The live round changed on another device.' })
+    }
+  } else {
+    await prisma.liveRoundDraft.deleteMany({ where: { userId: profile.id } })
+  }
   response.status(204).send()
 })
 

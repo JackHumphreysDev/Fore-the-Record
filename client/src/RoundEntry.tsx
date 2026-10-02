@@ -46,7 +46,7 @@ import {
 } from './liveRoundApi.ts'
 
 function liveProgressKey(state: LiveRoundDraftState): string {
-  return JSON.stringify([state.currentHoleIndex, state.form, state.holeEntries, state.matchPlayDraft])
+  return JSON.stringify([state.currentHoleIndex, state.form, state.holeEntries, state.matchPlayDraft, state.groupPlayers])
 }
 
 type RoundEntryProfile = {
@@ -376,6 +376,7 @@ function RoundEntry({
   const [friends, setFriends] = useState<FriendshipItem[]>([])
   const [friendsError, setFriendsError] = useState('')
   const [matchPlayDraft, setMatchPlayDraft] = useState<MatchPlayDraft>({})
+  const [groupPlayers, setGroupPlayers] = useState<LiveRoundDraftState['groupPlayers']>(undefined)
   const [teamCompetitionDraft, setTeamCompetitionDraft] = useState<TeamCompetitionDraft>(emptyTeamCompetitionDraft)
   const [liveRoundId, setLiveRoundId] = useState<string | null>(null)
   const liveRevision = useRef(0)
@@ -557,6 +558,7 @@ function RoundEntry({
         setScorecardSource(state.scorecardSource)
         setHoleEntries(state.holeEntries)
         setMatchPlayDraft(state.matchPlayDraft)
+        setGroupPlayers(state.groupPlayers)
         setLiveCurrentHoleIndex(state.currentHoleIndex)
         setLiveRoundId(body.draft.id)
         liveRevision.current = body.draft.revision
@@ -959,6 +961,7 @@ function RoundEntry({
       scorecardSource,
       holeEntries,
       matchPlayDraft,
+      groupPlayers,
     }
   }
 
@@ -1035,6 +1038,7 @@ function RoundEntry({
       setScorecardSource(state.scorecardSource)
       setHoleEntries(state.holeEntries)
       setMatchPlayDraft(state.matchPlayDraft)
+      setGroupPlayers(state.groupPlayers)
       setLiveCurrentHoleIndex(state.currentHoleIndex)
       setLiveRoundId(body.draft.id)
       liveConflict.current = false
@@ -1135,6 +1139,7 @@ function RoundEntry({
     setLiveMessage('Live round abandoned.')
     setHoleEntries((current) => current.map((hole) => ({ ...hole, strokesTaken: '', pickedUp: false })))
     setMatchPlayDraft({})
+    setGroupPlayers(undefined)
     setForm((current) => ({ ...current, grossScore: '' }))
   }
 
@@ -1455,6 +1460,7 @@ function RoundEntry({
       liveConflict.current = false
       setHasLiveConflict(false)
       setLiveRoundTee(null)
+      setGroupPlayers(undefined)
       setLiveMode('standard')
       setLiveSaveState('idle')
       setLiveMessage('')

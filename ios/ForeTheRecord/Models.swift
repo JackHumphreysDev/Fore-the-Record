@@ -137,6 +137,13 @@ struct RoundHole: Codable, Identifiable {
     }
 }
 
+struct GroupPlayer: Codable, Identifiable {
+    let id: String
+    let kind: String
+    let name: String
+    var holeEntries: [RoundHole]
+}
+
 struct LiveRoundState: Codable {
     var version = 1
     var currentHoleIndex = 0
@@ -146,6 +153,7 @@ struct LiveRoundState: Codable {
     var scorecardSource: String?
     var holeEntries: [RoundHole]
     var matchPlayDraft: [String: String] = [:]
+    var groupPlayers: [GroupPlayer]? = nil
 
     var currentHole: RoundHole { holeEntries[currentHoleIndex] }
     var completed: Int { holeEntries.filter { $0.score != nil || $0.pickedUp }.count }
@@ -172,10 +180,16 @@ struct LiveRoundState: Codable {
         }
     }
 
+    var canSubmitRecordOnly: Bool {
+        form.category == "CASUAL" && form.participation == "INDIVIDUAL" &&
+        scorecardStatus == "available" && completed > 0
+    }
+
     var canSubmitNatively: Bool {
         form.category == "CASUAL" && form.participation == "INDIVIDUAL" &&
         scorecardStatus == "available" && (holeEntries.count == 9 || holeEntries.count == 18) &&
         holeEntries.count == form.holeCount && completed == holeEntries.count &&
+        !holeEntries.contains(where: \.pickedUp) &&
         (form.scoringFormat == "STROKE_PLAY" || form.scoringFormat == "STABLEFORD")
     }
 
@@ -226,14 +240,14 @@ struct LiveRoundState: Codable {
     }
 
     static func start(course: CatalogueCourse, tee: CatalogueTee, card: ScorecardResponse,
-                      segment: String, scoringFormat: String, playingHandicap: String) -> LiveRoundState {
-        let date = Date()
+                      segment: String, scoringFormat: String, playingHandicap: String,
+                      playedDate: Date, playedTime: Date) -> LiveRoundState {
         let day = DateFormatter()
         day.dateFormat = "yyyy-MM-dd"
         let time = DateFormatter()
         time.dateFormat = "HH:mm"
-        var form = RoundForm(teeId: tee.id, datePlayed: day.string(from: date),
-                             timePlayed: time.string(from: date), holeCount: card.holes.count,
+        var form = RoundForm(teeId: tee.id, datePlayed: day.string(from: playedDate),
+                             timePlayed: time.string(from: playedTime), holeCount: card.holes.count,
                              nineHoleSegment: segment)
         form.scoringFormat = scoringFormat
         form.playingHandicap = scoringFormat == "STABLEFORD" ? playingHandicap : ""
@@ -303,24 +317,113 @@ struct RoundSubmissionStatus: Decodable {
 }
 
 struct HistoryRound: Decodable, Identifiable {
+    struct HoleScore: Decodable, Identifiable {
+        let holeNumber: Int
+        let par: Int
+        let strokesTaken: Int
+        let pickedUp: Bool
+        var id: Int { holeNumber }
+    }
+    struct Person: Decodable { let name: String }
+    struct GroupCard: Decodable {
+        let guestName: String?
+        let friend: Person?
+    }
     struct Tee: Decodable {
         struct Course: Decodable {
             let name: String
             let club: Club
         }
         let teeName: String
+        let par: Int?
         let course: Course
     }
     let id: String
     let datePlayed: String
     let grossScore: Int?
+    let stablefordPoints: Int?
+    let scoringFormat: String?
     let holeCount: Int
     let scorecardStatus: String
+    let isPartial: Bool?
+    let playedHoles: Int?
+    let holeScores: [HoleScore]?
+    let playingPartners: [Person]?
+    let guestPlayers: [Person]?
+    let hostedGroupCards: [GroupCard]?
     let tee: Tee
+
+    var recordedHoles: [HoleScore] { holeScores ?? [] }
+
+    var holesLabel: String {
+        if isPartial == true { return "\(playedHoles ?? recordedHoles.count) of \(holeCount) holes" }
+        return recordedHoles.isEmpty ? "\(holeCount) holes · score summary" : "\(holeCount) holes"
+    }
+
+    var birdies: Int? {
+        guard !recordedHoles.isEmpty else { return nil }
+        return recordedHoles.filter { !$0.pickedUp && $0.strokesTaken == $0.par - 1 }.count
+    }
+
+    var pars: Int? {
+        guard !recordedHoles.isEmpty else { return nil }
+        return recordedHoles.filter { !$0.pickedUp && $0.strokesTaken == $0.par }.count
+    }
+
+    var scoreToPar: Int? {
+        guard isPartial != true else { return nil }
+        if recordedHoles.count == holeCount && !recordedHoles.contains(where: \.pickedUp),
+           let grossScore {
+            return grossScore - recordedHoles.reduce(0) { $0 + $1.par }
+        }
+        if holeCount == 18, let grossScore, let par = tee.par { return grossScore - par }
+        return nil
+    }
+
+    var highlight: HoleScore? {
+        recordedHoles.first { !$0.pickedUp && $0.strokesTaken < $0.par }
+    }
+
+    var playingGroup: [String] {
+        let names = (playingPartners ?? []).map(\.name) +
+            (guestPlayers ?? []).map(\.name) +
+            (hostedGroupCards ?? []).compactMap { $0.guestName ?? $0.friend?.name }
+        return Array(Set(names)).sorted()
+    }
+}
+
+struct PendingGroupCardsResponse: Decodable {
+    let cards: [PendingGroupCard]
+}
+
+struct PendingGroupCard: Decodable, Identifiable {
+    struct HostRound: Decodable {
+        struct Host: Decodable { let name: String }
+        struct Tee: Decodable {
+            struct Course: Decodable {
+                struct Club: Decodable { let name: String }
+                let name: String
+                let club: Club
+            }
+            let teeName: String
+            let course: Course
+        }
+        let datePlayed: String
+        let holeCount: Int
+        let user: Host
+        let tee: Tee
+    }
+    struct CardState: Decodable {
+        let holeEntries: [RoundHole]
+    }
+    let id: String
+    let hostRound: HostRound
+    let state: CardState
 }
 
 struct FriendRecord: Decodable, Identifiable {
     struct Player: Decodable {
+        let id: String
         let name: String
         let handicapIndex: Double?
     }

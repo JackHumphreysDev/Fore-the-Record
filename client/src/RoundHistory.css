@@ -26,13 +26,30 @@
   font-style: italic;
 }
 
-.history-hero > p {
+.history-hero-copy > p {
   max-width: 410px;
-  margin: 0 0 8px;
+  margin: 0 0 18px;
   color: var(--ink-muted);
   font-size: 16px;
   line-height: 1.7;
 }
+
+.history-hero-copy button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--forest);
+  border-radius: 8px;
+  color: var(--forest);
+  background: transparent;
+  font-weight: 750;
+}
+
+.history-hero-copy button:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
+.history-hero-copy button:disabled { opacity: 0.6; }
 
 .history-overview {
   margin-top: clamp(42px, 6vw, 72px);

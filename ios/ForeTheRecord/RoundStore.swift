@@ -13,9 +13,12 @@ final class RoundStore: ObservableObject {
 
     @Published var session: Session? = Keychain.load()
     @Published var draft: LiveRoundState?
+    @Published var roundPaused = false
     @Published var courses: [CatalogueCourse] = []
     @Published var history: [HistoryRound] = []
+    @Published var historyError = ""
     @Published var friends: FriendsResponse?
+    @Published var pendingGroupCards: [PendingGroupCard] = []
     @Published var busy = false
     @Published var message = ""
     @Published var syncStatus = "Saved on this iPhone"
@@ -75,6 +78,7 @@ final class RoundStore: ObservableObject {
 
     init() {
         loadLocal()
+        roundPaused = draft != nil
     }
 
     func saveConfiguration() {
@@ -110,6 +114,7 @@ final class RoundStore: ObservableObject {
         Keychain.clear()
         session = nil
         draft = nil
+        roundPaused = false
         serverRevision = 0
         serverDraftId = nil
         lastSubmittedRoundId = nil
@@ -121,7 +126,9 @@ final class RoundStore: ObservableObject {
         pins = [:]
         courses = []
         history = []
+        historyError = ""
         friends = nil
+        pendingGroupCards = []
         message = ""
         syncStatus = "Saved on this iPhone"
         syncing = false
@@ -154,9 +161,9 @@ final class RoundStore: ObservableObject {
             let loaded = try await client.history(token: token)
             guard sessionEpoch == epoch else { return }
             history = loaded
-            message = ""
+            historyError = ""
         } catch {
-            if sessionEpoch == epoch { message = error.localizedDescription }
+            if sessionEpoch == epoch { historyError = error.localizedDescription }
         }
     }
 
@@ -168,14 +175,29 @@ final class RoundStore: ObservableObject {
             let loaded = try await client.friends(token: token)
             guard sessionEpoch == epoch else { return }
             friends = loaded
+            pendingGroupCards = try await client.pendingGroupCards(token: token)
             message = ""
         } catch {
             if sessionEpoch == epoch { message = error.localizedDescription }
         }
     }
 
+    func answerGroupCard(_ id: String, approve: Bool) async {
+        guard let client, session != nil else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let token = try await token(for: client)
+            try await client.answerGroupCard(id: id, approve: approve, token: token)
+            pendingGroupCards.removeAll { $0.id == id }
+            message = approve ? "The approved card is now in your History." : "Group card declined."
+            if approve { await loadHistory() }
+        } catch { message = error.localizedDescription }
+    }
+
     func start(course: CatalogueCourse, tee: CatalogueTee, segment: String,
-               scoringFormat: String, playingHandicap: String) async {
+               scoringFormat: String, playingHandicap: String,
+               playedDate: Date, playedTime: Date) async {
         guard let client, session != nil else { return }
         let epoch = sessionEpoch
         guard draft == nil else { message = "Finish or resume your current round first."; return }
@@ -192,6 +214,7 @@ final class RoundStore: ObservableObject {
             guard sessionEpoch == epoch else { return }
             if let existing {
                 draft = existing.state
+                roundPaused = false
                 serverRevision = existing.revision
                 serverDraftId = existing.id
                 saveLocal()
@@ -207,7 +230,9 @@ final class RoundStore: ObservableObject {
             }
             draft = LiveRoundState.start(course: course, tee: tee, card: card,
                                          segment: segment == "ALL" ? "FRONT_NINE" : segment,
-                                         scoringFormat: scoringFormat, playingHandicap: playingHandicap)
+                                         scoringFormat: scoringFormat, playingHandicap: playingHandicap,
+                                         playedDate: playedDate, playedTime: playedTime)
+            roundPaused = false
             serverRevision = 0
             serverDraftId = nil
             editSerial += 1
@@ -229,12 +254,163 @@ final class RoundStore: ObservableObject {
             let accountDraft = try await client.liveDraft(token: token)
             guard sessionEpoch == epoch else { return }
             draft = accountDraft?.state
+            roundPaused = draft != nil
             serverRevision = accountDraft?.revision ?? 0
             serverDraftId = accountDraft?.id
             if draft != nil { saveLocal(); syncStatus = "Saved to account" }
         } catch {
             if sessionEpoch == epoch { message = error.localizedDescription }
         }
+    }
+
+    func pauseRound() async {
+        guard draft != nil, !submitting, !submissionPendingVerification else { return }
+        saveLocal()
+        roundPaused = true
+        await sync()
+    }
+
+    func resumeRound() {
+        guard draft != nil else { return }
+        roundPaused = false
+        message = ""
+    }
+
+    func deleteDraft() async {
+        guard draft != nil, !submitting, !submissionPendingVerification, !syncing,
+              !hasConflict, let client, session != nil else {
+            message = "Resolve syncing or submission before deleting this round."
+            return
+        }
+        let epoch = sessionEpoch
+        busy = true
+        defer { if sessionEpoch == epoch { busy = false } }
+        syncTask?.cancel()
+        do {
+            let token = try await token(for: client)
+            try await client.deleteDraft(id: serverDraftId, expectedRevision: serverRevision, token: token)
+            guard sessionEpoch == epoch else { return }
+            if let storage { try? FileManager.default.removeItem(at: storage) }
+            draft = nil
+            roundPaused = false
+            serverRevision = 0
+            serverDraftId = nil
+            accountCopy = nil
+            accountDraftId = nil
+            syncStatus = "Round deleted"
+            message = ""
+        } catch NetworkError.conflict {
+            guard sessionEpoch == epoch else { return }
+            message = "The account card changed. Tap Sync and resolve the conflict before deleting."
+        } catch {
+            guard sessionEpoch == epoch else { return }
+            message = "Could not delete this round. It is still saved on this iPhone. \(error.localizedDescription)"
+        }
+    }
+
+    func addFriendToRound(_ friend: FriendRecord) {
+        guard var current = draft, current.groupPlayers?.count ?? 0 < 7,
+              UUID(uuidString: friend.player.id) != nil,
+              !(current.groupPlayers ?? []).contains(where: { $0.id == friend.player.id }) else { return }
+        let holes = current.holeEntries.map { hole in
+            var blank = hole
+            blank.strokesTaken = ""
+            blank.pickedUp = false
+            blank.putts = ""
+            blank.fairwayResult = ""
+            blank.greenInRegulation = ""
+            blank.penaltyStrokes = ""
+            blank.bunkerVisits = ""
+            blank.upAndDownResult = ""
+            return blank
+        }
+        current.groupPlayers = (current.groupPlayers ?? []) + [GroupPlayer(id: friend.player.id, kind: "friend", name: friend.player.name, holeEntries: holes)]
+        draft = current
+        editSerial += 1
+        saveLocal()
+        scheduleSync()
+    }
+
+    func addGuestToRound(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard var current = draft, (1...80).contains(trimmed.count), current.groupPlayers?.count ?? 0 < 7,
+              !(current.groupPlayers ?? []).contains(where: { $0.name.localizedCaseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+        let holes = current.holeEntries.map { hole in
+            var blank = hole
+            blank.strokesTaken = ""
+            blank.pickedUp = false
+            blank.putts = ""
+            blank.fairwayResult = ""
+            blank.greenInRegulation = ""
+            blank.penaltyStrokes = ""
+            blank.bunkerVisits = ""
+            blank.upAndDownResult = ""
+            return blank
+        }
+        current.groupPlayers = (current.groupPlayers ?? []) + [GroupPlayer(id: UUID().uuidString.lowercased(), kind: "guest", name: trimmed, holeEntries: holes)]
+        draft = current
+        editSerial += 1
+        saveLocal()
+        scheduleSync()
+    }
+
+    func removeGroupPlayer(_ id: String) {
+        guard var current = draft else { return }
+        current.groupPlayers?.removeAll { $0.id == id }
+        draft = current
+        editSerial += 1
+        saveLocal()
+        scheduleSync()
+    }
+
+    func setGroupScore(playerId: String, score: Int?) {
+        guard score.map({ (1...30).contains($0) }) ?? true else { return }
+        updateGroupHole(playerId: playerId) {
+            $0.strokesTaken = score.map(String.init) ?? ""
+            $0.pickedUp = false
+        }
+    }
+
+    func setGroupPickedUp(playerId: String, pickedUp: Bool) {
+        updateGroupHole(playerId: playerId) {
+            $0.pickedUp = pickedUp
+            if pickedUp { $0.strokesTaken = "" }
+        }
+    }
+
+    func setGroupPutts(playerId: String, value: Int?) {
+        guard value.map({ (0...9).contains($0) }) ?? true else { return }
+        updateGroupHole(playerId: playerId) { $0.putts = value.map(String.init) ?? "" }
+    }
+
+    func setGroupPenalties(playerId: String, value: Int?) {
+        guard value.map({ (0...9).contains($0) }) ?? true else { return }
+        updateGroupHole(playerId: playerId) { $0.penaltyStrokes = value.map(String.init) ?? "" }
+    }
+
+    func setGroupBunkers(playerId: String, value: Int?) {
+        guard value.map({ (0...9).contains($0) }) ?? true else { return }
+        updateGroupHole(playerId: playerId) { $0.bunkerVisits = value.map(String.init) ?? "" }
+    }
+
+    func setGroupFairway(playerId: String, value: String) {
+        guard ["", "HIT", "MISSED_LEFT", "MISSED_RIGHT", "NOT_APPLICABLE"].contains(value) else { return }
+        updateGroupHole(playerId: playerId) { $0.fairwayResult = value }
+    }
+
+    func setGroupGIR(playerId: String, value: String) {
+        guard ["", "YES", "NO"].contains(value) else { return }
+        updateGroupHole(playerId: playerId) { $0.greenInRegulation = value }
+    }
+
+    private func updateGroupHole(playerId: String, _ change: (inout RoundHole) -> Void) {
+        guard !submitting, !submissionPendingVerification, var current = draft,
+              let index = current.groupPlayers?.firstIndex(where: { $0.id == playerId }) else { return }
+        change(&current.groupPlayers![index].holeEntries[current.currentHoleIndex])
+        draft = current
+        editSerial += 1
+        saveLocal()
+        scheduleSync()
     }
 
     func setScore(_ score: Int?) {
@@ -248,8 +424,7 @@ final class RoundStore: ObservableObject {
     }
 
     func setPickedUp(_ pickedUp: Bool) {
-        guard !submitting, !submissionPendingVerification, var current = draft,
-              current.form.scoringFormat == "STABLEFORD" else { return }
+        guard !submitting, !submissionPendingVerification, var current = draft else { return }
         current.holeEntries[current.currentHoleIndex].pickedUp = pickedUp
         if pickedUp { current.holeEntries[current.currentHoleIndex].strokesTaken = "" }
         draft = current
@@ -270,6 +445,44 @@ final class RoundStore: ObservableObject {
     func setPenaltyStrokes(_ value: Int?) {
         guard !submitting, !submissionPendingVerification, var current = draft else { return }
         current.holeEntries[current.currentHoleIndex].penaltyStrokes = value.map(String.init) ?? ""
+        draft = current
+        editSerial += 1
+        saveLocal()
+        scheduleSync()
+    }
+
+    func setFairwayResult(_ result: String) {
+        guard ["", "HIT", "MISSED_LEFT", "MISSED_RIGHT", "NOT_APPLICABLE"].contains(result) else { return }
+        updateCurrentHole { $0.fairwayResult = result }
+    }
+
+    func setGreenInRegulation(_ result: String) {
+        guard ["", "YES", "NO"].contains(result) else { return }
+        updateCurrentHole { $0.greenInRegulation = result }
+    }
+
+    func setBunkerVisits(_ count: Int?) {
+        guard count.map({ (0...9).contains($0) }) ?? true else { return }
+        updateCurrentHole { $0.bunkerVisits = count.map(String.init) ?? "" }
+    }
+
+    func setUpAndDownResult(_ result: String) {
+        guard ["", "NOT_ATTEMPTED", "SUCCESSFUL", "UNSUCCESSFUL"].contains(result) else { return }
+        updateCurrentHole { $0.upAndDownResult = result }
+    }
+
+    func setRoundNotes(_ notes: String) {
+        guard notes.count <= 2000, !submitting, !submissionPendingVerification, var current = draft else { return }
+        current.form.notes = notes
+        draft = current
+        editSerial += 1
+        saveLocal()
+        scheduleSync()
+    }
+
+    private func updateCurrentHole(_ change: (inout RoundHole) -> Void) {
+        guard !submitting, !submissionPendingVerification, var current = draft else { return }
+        change(&current.holeEntries[current.currentHoleIndex])
         draft = current
         editSerial += 1
         saveLocal()
@@ -373,15 +586,17 @@ final class RoundStore: ObservableObject {
             message = "Wait for syncing to finish, then review your card before submitting."
             return
         }
-        guard current.canSubmitNatively else {
-            message = "Complete every hole on a casual Stroke Play or Stableford card before submitting."
+        guard current.canSubmitRecordOnly else {
+            message = "Score or pick up at least one hole before submitting."
             return
         }
-        guard let draftId = serverDraftId,
-              let submission = current.submission(draftId: draftId, revision: serverRevision) else {
-            message = "Sync the card and check its scores before submitting."
+        guard let draftId = serverDraftId else {
+            message = "Sync the card before submitting."
             return
         }
+        let submission = current.canSubmitNatively
+            ? current.submission(draftId: draftId, revision: serverRevision)
+            : nil
         let epoch = sessionEpoch
         submitting = true
         submissionPendingVerification = true
@@ -396,7 +611,13 @@ final class RoundStore: ObservableObject {
                 finishSubmission(roundId: existingId)
                 return
             }
-            let roundId = try await client.submitRound(submission, token: token)
+            let roundId: String
+            if let submission {
+                roundId = try await client.submitRound(submission, token: token)
+            } else {
+                roundId = try await client.submitRecordOnly(draftId: draftId,
+                                                            expectedRevision: serverRevision, token: token)
+            }
             guard sessionEpoch == epoch else { return }
             finishSubmission(roundId: roundId)
         } catch {
@@ -433,12 +654,14 @@ final class RoundStore: ObservableObject {
     private func finishSubmission(roundId: String) {
         if let storage { try? FileManager.default.removeItem(at: storage) }
         draft = nil
+        roundPaused = false
         serverDraftId = nil
         serverRevision = 0
         submissionPendingVerification = false
         lastSubmittedRoundId = roundId
         syncStatus = "Round saved to your account"
         message = "Round saved to History."
+        Task { await loadHistory() }
     }
 
     func dismissSubmission() {
