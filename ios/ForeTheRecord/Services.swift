@@ -91,8 +91,11 @@ struct APIClient {
     var publishableKey: String
 
     private func call<T: Decodable>(_ url: URL, method: String = "GET", token: String? = nil,
-                                    body: Data? = nil, as type: T.Type) async throws -> T {
+                                    body: Data? = nil,
+                                    cachePolicy: URLRequest.CachePolicy = .useProtocolCachePolicy,
+                                    as type: T.Type) async throws -> T {
         var request = URLRequest(url: url)
+        request.cachePolicy = cachePolicy
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
@@ -253,6 +256,7 @@ struct APIClient {
         guard UUID(uuidString: draftId) != nil else { throw NetworkError.invalidResponse }
         let response: RoundSubmissionStatus = try await call(
             endpoint("api/users/me/live-round/submissions/\(draftId)"), token: token,
+            cachePolicy: .reloadIgnoringLocalCacheData,
             as: RoundSubmissionStatus.self)
         return response.roundId
     }

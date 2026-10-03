@@ -659,6 +659,7 @@ describe('live round drafts', () => {
     roundFindFirstMock.mockResolvedValueOnce({ id: roundId })
     const response = await request(app).get(`/api/users/me/live-round/submissions/${draftId}`)
     expect(response.status).toBe(200)
+    expect(response.headers['cache-control']).toBe('no-store')
     expect(response.body).toEqual({ roundId })
     expect(roundFindFirstMock).toHaveBeenCalledWith({
       where: { userId, sourceLiveRoundDraftId: draftId },

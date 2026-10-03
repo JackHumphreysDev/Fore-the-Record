@@ -7558,6 +7558,7 @@ app.get('/api/users/me/live-round', async (_request, response) => {
 })
 
 app.get('/api/users/me/live-round/submissions/:draftId', async (request, response) => {
+  response.set('Cache-Control', 'no-store')
   const draftId = request.params.draftId
   if (!draftId || !UUID_PATTERN.test(draftId)) return response.status(400).json({ error: 'Invalid live round ID' })
   const authenticatedUser = getRequestUser(response.locals)
