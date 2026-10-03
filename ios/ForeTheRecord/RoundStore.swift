@@ -277,7 +277,7 @@ final class RoundStore: ObservableObject {
     }
 
     func deleteDraft() async {
-        guard draft != nil, !submitting, !submissionPendingVerification, !syncing,
+        guard draft != nil, !submitting, !syncing,
               !hasConflict, let client, session != nil else {
             message = "Resolve syncing or submission before deleting this round."
             return
@@ -288,6 +288,20 @@ final class RoundStore: ObservableObject {
         syncTask?.cancel()
         do {
             let token = try await token(for: client)
+            if submissionPendingVerification {
+                guard let serverDraftId else {
+                    message = "Sync this round before deleting it."
+                    return
+                }
+                if let roundId = try await client.submittedRoundId(draftId: serverDraftId, token: token) {
+                    guard sessionEpoch == epoch else { return }
+                    finishSubmission(roundId: roundId)
+                    return
+                }
+                guard sessionEpoch == epoch else { return }
+                submissionPendingVerification = false
+                saveLocal()
+            }
             try await client.deleteDraft(id: serverDraftId, expectedRevision: serverRevision, token: token)
             guard sessionEpoch == epoch else { return }
             if let storage { try? FileManager.default.removeItem(at: storage) }
@@ -643,6 +657,11 @@ final class RoundStore: ObservableObject {
                 saveLocal()
                 syncStatus = "Saved on this iPhone · sync conflict"
                 message = "The account card changed. Close review, tap Sync, and choose which card to keep."
+            } else if case NetworkError.http(_, let detail) = error, statusChecked {
+                submissionPendingVerification = false
+                saveLocal()
+                syncStatus = "Saved on this iPhone · submission failed"
+                message = "Submission failed on the server. You can retry or delete this round. \(detail)"
             } else {
                 syncStatus = "Saved on this iPhone · submission unconfirmed"
                 submissionPendingVerification = true

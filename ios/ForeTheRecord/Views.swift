@@ -819,10 +819,10 @@ struct PlayingView: View {
                 .navigationTitle("Review round")
                 .toolbar { ToolbarItem(placement: .cancellationAction) {
                     Button("Back") { showReview = false }
-                        .disabled(store.submitting || store.submissionPendingVerification)
+                        .disabled(store.submitting)
                 } }
             }
-            .interactiveDismissDisabled(store.submitting || store.submissionPendingVerification)
+            .interactiveDismissDisabled(store.submitting)
         }
     }
 
