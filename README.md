@@ -4,6 +4,15 @@
 
 Fore the Record is a web application for recording golf rounds and tracking a player's World Handicap System (WHS) Handicap Index over time. Players can create or securely claim a profile, find golf courses and tees, enter scorecards and playing conditions, and review which rounds contribute to their current handicap.
 
+
+## Product tour
+
+Watch the [20-second product tour](readme-demo.mp4), or preview the walkthrough below:
+
+![Fore the Record guided demo](readme-demo.gif)
+
+The tour uses design previews and illustrative round-entry steps; it demonstrates the concept rather than a live account.
+
 ## Technology stack
 
 - **Frontend:** React, Vite, and TypeScript
